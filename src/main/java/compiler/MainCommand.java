@@ -3,8 +3,11 @@ package compiler;
 import picocli.CommandLine;
 
 import picocli.CommandLine.Command;
+import picocli.CommandLine.Parameters;
 import picocli.CommandLine.Option;
 
+import java.io.*;
+import java.nio.file.Files;
 import java.util.concurrent.Callable;
 
 @Command(name = "compiler", mixinStandardHelpOptions = true, version = "compiler 1.0",
@@ -14,15 +17,23 @@ public class MainCommand implements Callable<Integer> {
     @Option(names = {"-e", "--echo"}, description = "Echos back the input file")
     boolean echo;
 
+    @Parameters(paramLabel = "FILE", description = "file to compile")
+    File file;
+
     public static int getRandomInt() {
         return 12; // Randomly selected
+    }
+
+    public void callEcho() throws IOException {
+        String content = Files.readString(this.file.toPath());
+        System.out.print(content);
     }
 
     @Override
     public Integer call() throws Exception {
         if (echo) {
-            System.out.println("Echo called");
-            return 123;
+            callEcho();
+            return 0;
         }
 
         // Demonstrate Java 17 with Preview features works
