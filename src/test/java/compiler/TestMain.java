@@ -8,7 +8,7 @@ public class TestMain {
 
     @Test
     public void testRandomInt() {
-        assertEquals(12, Main.getRandomInt());
+        assertEquals(12, MainCommand.getRandomInt());
     }
 
 }
