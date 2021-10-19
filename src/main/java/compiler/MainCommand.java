@@ -24,16 +24,21 @@ public class MainCommand implements Callable<Integer> {
         return 12; // Randomly selected
     }
 
-    public void callEcho() throws IOException {
-        String content = Files.readString(this.file.toPath());
-        System.out.print(content);
+    public Integer callEcho() {
+        try {
+            String content = Files.readString(this.file.toPath());
+            System.out.print(content);
+            return 0;
+        } catch (IOException e) {
+            System.err.format("Error when reading file '%s'.\n", e.getMessage());
+            return 1;
+        }
     }
 
     @Override
-    public Integer call() throws Exception {
+    public Integer call() {
         if (echo) {
-            callEcho();
-            return 0;
+            return callEcho();
         }
 
         // Demonstrate Java 17 with Preview features works
