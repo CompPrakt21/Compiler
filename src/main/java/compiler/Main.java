@@ -14,4 +14,8 @@ public class Main {
         System.out.println("Hello World: " + formatted);
     }
 
+    public static int getRandomInt() {
+        return 12; // Randomly selected
+    }
+
 }
