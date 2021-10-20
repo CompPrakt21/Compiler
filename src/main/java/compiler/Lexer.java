@@ -2,8 +2,10 @@ package compiler;
 
 public class Lexer {
 
-    public Lexer() {
+    private String fileContent;
 
+    public Lexer(String fileContent) {
+        this.fileContent = fileContent;
     }
 
     /**
