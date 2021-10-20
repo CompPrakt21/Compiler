@@ -31,7 +31,7 @@ public class MainCommand implements Callable<Integer> {
             return 0;
         } catch (IOException e) {
             System.err.format("Error when reading file '%s'.\n", e.getMessage());
-            return 1;
+            return -1;
         }
     }
 
