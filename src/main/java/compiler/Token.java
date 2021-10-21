@@ -2,13 +2,14 @@ package compiler;
 
 public class Token {
 
-    private TokenType type;
+    public TokenType type;
 
     private Content content;
 
     public Span span;
 
-    private sealed class Content permits IdentifierContent, IntLiteralContent, ErrorContent {}
+    private sealed class Content permits IdentifierContent, IntLiteralContent, ErrorContent {
+    }
 
     private final class IdentifierContent extends Content {
         private String content;
