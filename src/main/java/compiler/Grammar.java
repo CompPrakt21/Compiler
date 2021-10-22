@@ -378,7 +378,6 @@ public class Grammar {
                     TokenType.SemiColon
             )),
             Map.entry(NonT.BasicType, Set.of(
-                    TokenType.Identifier,
                     TokenType.LeftSquareBracket
             )),
             Map.entry(NonT.Block, Set.of(
@@ -713,8 +712,7 @@ public class Grammar {
                     TokenType.While
             )),
             Map.entry(NonT.Type, Set.of(
-                    TokenType.Identifier,
-                    TokenType.LeftSquareBracket
+                    TokenType.Identifier
             )),
             Map.entry(NonT.UnaryExpression, Set.of(
                     TokenType.Add,

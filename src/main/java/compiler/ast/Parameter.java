@@ -1,6 +1,11 @@
 package compiler.ast;
 
 public final class Parameter {
-    private String identifier;
     private Type type;
+    private String identifier;
+
+    public Parameter(Type type, String identifier) {
+        this.type = type;
+        this.identifier = identifier;
+    }
 }
