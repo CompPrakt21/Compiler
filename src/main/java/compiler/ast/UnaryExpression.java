@@ -8,18 +8,8 @@ public final class UnaryExpression extends Expression {
 
     private Expression expression;
     private UnaryOp operator;
-
     public UnaryExpression(Expression expression, UnaryOp operator) {
         this.expression = expression;
         this.operator = operator;
-    }
-
-    @Override
-    public boolean syntacticEq(AstNode otherAst) {
-        if (!(otherAst instanceof UnaryExpression other)) {
-            return false;
-        }
-        return this.expression.syntacticEq(other.expression)
-                && this.operator.equals(other.operator);
     }
 }
