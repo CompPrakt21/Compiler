@@ -8,16 +8,18 @@ import picocli.CommandLine.Option;
 
 import java.io.*;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
+import java.util.Arrays;
 import java.util.concurrent.Callable;
 
-@Command(name = "compiler", mixinStandardHelpOptions = true, version = "compiler 1.0",
-        description = "Does stuff")
+@Command(name = "compiler", mixinStandardHelpOptions = true, version = "compiler 0.1.0",
+        description = "MiniJava to x86 compiler")
 public class MainCommand implements Callable<Integer> {
 
-    @Option(names = {"-e", "--echo"}, description = "Echos back the input file")
+    @Option(names = {"-e", "--echo"}, description = "Echos back the input file.")
     boolean echo;
 
-    @Parameters(paramLabel = "FILE", description = "file to compile")
+    @Parameters(paramLabel = "FILE", description = "The file to compile.")
     File file;
 
     public static int getRandomInt() {
@@ -29,8 +31,11 @@ public class MainCommand implements Callable<Integer> {
             String content = Files.readString(this.file.toPath());
             System.out.print(content);
             return 0;
+        } catch (FileNotFoundException | NoSuchFileException e) {
+            System.err.format("ERROR: Can not find file: '%s'\n", this.file.getName());
+            return -1;
         } catch (IOException e) {
-            System.err.format("Error when reading file '%s'.\n", e.getMessage());
+            System.err.format("ERROR: Can not read file: '%s'\n", this.file.getName());
             return -1;
         }
     }
