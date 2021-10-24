@@ -12,4 +12,4 @@ popd  > /dev/null
 #echo "pwd   =[`pwd`]"
 cd "$SCRIPT_PATH"
 
-mvn -X clean verify
+mvn clean verify
