@@ -109,10 +109,19 @@ public class Lexer {
         return Optional.empty();
     }
 
+    private static boolean isAsciiAlphabetic(char c) {
+        return c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z';
+    }
+
+    private static boolean isAsciiNumeric(char c) {
+        return c >= '0' && c <= '9';
+    }
+
     private Optional<Token> consumeAlphanumericWord() {
         int startPos = currentPos;
         StringBuilder wordBuilder = new StringBuilder();
-        while (!isEOF() && (Character.isAlphabetic(peek()) || Character.isDigit(peek()))) {
+        char c = peek();
+        while (!isEOF() && (isAsciiAlphabetic(c) || isAsciiNumeric(c))) {
             wordBuilder.append(peek());
             next();
         }
@@ -127,7 +136,7 @@ public class Lexer {
         if (word.chars().allMatch(Character::isDigit)) {
             return Optional.of(Token.intLiteral(Integer.parseInt(word), span));
         }
-        if (Character.isAlphabetic(word.charAt(0))) {
+        if (isAsciiAlphabetic(word.charAt(0))) {
             return Optional.of(Token.identifier(word, span));
         }
         return Optional.of(Token.error("Invalid identifier name. First character needs to be alphabetic.", span));
