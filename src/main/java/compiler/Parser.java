@@ -1,20 +1,16 @@
 package compiler;
 
-import compiler.ast.*;
 import compiler.ast.Class;
-import picocli.CommandLine;
+import compiler.ast.*;
 
-import javax.swing.text.html.Option;
-import java.security.KeyStore;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
 
-import static compiler.Grammar.*;
+import static compiler.Grammar.NonT;
 
 public class Parser {
 
-    private Lexer lexer;
+    private final Lexer lexer;
     private Token token;
 
     public Parser(Lexer lexer) {
@@ -350,53 +346,39 @@ public class Parser {
         if (token.type == TokenType.Not) {
             expect(TokenType.Not);
             return parseUnaryExpression();
-        }if (token.type == TokenType.Subtract) {
+        }
+        if (token.type == TokenType.Subtract) {
             expect(TokenType.Subtract);
             return parseUnaryExpression();
         }
+        throw new Error();
     }
 
     private Expression parsePostfixExpression() {
         Expression expression = parsePrimaryExpression();
-
-    }
-
-    private Expression parsePostfixOperation() {
-        if (NonT.MethodInvocation.firstContains(token.type)) {
-            return parseMethodInvocation();
-        } else if(NonT.FieldAccess.firstContains(token.type)) {
-            return parseFieldAccess();
-        } else if(NonT.ArrayAccess.firstContains(token.type)) {
-            return parseArrayAccess();
-        } else {
-            throw new Error();
+        while (true) {
+            if (token.type == TokenType.Dot) {
+                expect(TokenType.Dot);
+                var ident = token.getIdentContent();
+                expect(TokenType.Identifier);
+                if (token.type == TokenType.LeftParen) {
+                    expect(TokenType.LeftParen);
+                    var arguments = parseArguments();
+                    expect(TokenType.RightParen);
+                    expression = new MethodCallExpression(Optional.of(expression), ident, arguments);
+                } else {
+                    expression = new FieldAccessExpression(expression, ident);
+                }
+            } else if (token.type == TokenType.LeftSquareBracket) {
+                expect(TokenType.LeftSquareBracket);
+                var inner = parseExpression();
+                expect(TokenType.RightSquareBracket);
+                expression = new ArrayAccessExpression(expression, inner);
+            } else {
+                return expression;
+            }
         }
     }
-
-    private Expression parseMethodInvocation() {
-        expect(TokenType.Dot);
-        var identifier = this.token.getIdentContent();
-        expect(TokenType.Identifier);
-        expect(TokenType.LeftParen);
-        ArrayList<Expression> arguments = parseArguments();
-        expect(TokenType.RightParen);
-        return new MethodCallExpression(identifier, arguments);
-
-    }
-    private Expression parseFieldAccess() {
-        expect(TokenType.Dot);
-        var identifier = this.token.getIdentContent();
-        expect(TokenType.Identifier);
-        return new FieldAccessExpression(identifier);
-    }
-
-    private Expression parseArrayAccess() {
-        expect(TokenType.LeftSquareBracket);
-        Expression expression = parseExpression();
-        expect(TokenType.RightSquareBracket);
-        return new ArrayAccessExpression(expression);
-    }
-
 
     private ArrayList<Expression> parseArguments() {
         ArrayList<Expression> arguments = new ArrayList<>();
@@ -410,8 +392,54 @@ public class Parser {
         return arguments;
     }
 
-    private Expression newObjectExpression() {
-        expect(TokenType.New);
+    private Expression parsePrimaryExpression() {
+        if (token.type == TokenType.Null) {
+            expect(TokenType.Null);
+            return new NullExpression();
+        } else if (token.type == TokenType.False) {
+            expect(TokenType.False);
+            return new BoolLiteral(false);
+        } else if (token.type == TokenType.True) {
+            expect(TokenType.True);
+            return new BoolLiteral(true);
+        } else if (token.type == TokenType.IntLiteral) {
+            int value = token.getIntLiteralContent();
+            expect(TokenType.IntLiteral);
+            return new IntLiteral(value);
+        } else if (token.type == TokenType.Identifier) {
+            String ident = token.getIdentContent();
+            expect(TokenType.Identifier);
+            if (token.type == TokenType.LeftParen) {
+                expect(TokenType.LeftParen);
+                var arguments = parseArguments();
+                expect(TokenType.RightParen);
+                return new MethodCallExpression(Optional.empty(), ident, arguments);
+            }
+            return new Reference(ident);
+        } else if (token.type == TokenType.This) {
+            expect(TokenType.This);
+            return new ThisExpression();
+        } else if (token.type == TokenType.LeftParen) {
+            expect(TokenType.LeftParen);
+            var expression = parseExpression();
+            expect(TokenType.RightParen);
+            return expression;
+        } else if (token.type == TokenType.New) {
+            expect(TokenType.New);
+            Token nextToken = this.lexer.peekToken();
+            if (nextToken.type == TokenType.LeftParen) {
+                return parseNewObjectExpression();
+            } else if (nextToken.type == TokenType.LeftSquareBracket) {
+                return parseNewArrayExpression();
+            } else {
+                throw new Error();
+            }
+        } else {
+            throw new Error();
+        }
+    }
+
+    private Expression parseNewObjectExpression() {
         var identifier = this.token.getIdentContent();
         expect(TokenType.Identifier);
         expect(TokenType.LeftParen);
@@ -419,14 +447,13 @@ public class Parser {
         return new NewObjectExpression(identifier);
     }
 
-    private Expression newArrayExpression(){
+    private Expression parseNewArrayExpression() {
         int dimensions = 1;
-        expect(TokenType.New);
         Type type = parseBasicType();
         expect(TokenType.LeftSquareBracket);
         Expression expression = parseExpression();
         expect(TokenType.RightSquareBracket);
-        while(token.type == TokenType.LeftSquareBracket) {
+        while (token.type == TokenType.LeftSquareBracket) {
             expect(TokenType.LeftSquareBracket);
             expect(TokenType.RightSquareBracket);
             dimensions++;

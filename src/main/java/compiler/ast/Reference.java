@@ -6,12 +6,4 @@ public final class Reference extends Expression {
     public Reference(String identifier) {
         this.identifier = identifier;
     }
-
-    @Override
-    public boolean syntacticEq(AstNode otherAst) {
-        if (!(otherAst instanceof Reference other)) {
-            return false;
-        }
-        return this.identifier.equals(other.identifier);
-    }
 }
