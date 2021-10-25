@@ -122,7 +122,7 @@ public class Lexer {
         StringBuilder wordBuilder = new StringBuilder();
         char c = peek();
         while (!isEOF() && (isAsciiAlphabetic(c) || isAsciiNumeric(c))) {
-            wordBuilder.append(peek());
+            wordBuilder.append(c);
             next();
         }
         String word = wordBuilder.toString();
