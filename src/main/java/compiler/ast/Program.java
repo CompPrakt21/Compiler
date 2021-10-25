@@ -1,5 +1,6 @@
 package compiler.ast;
 
+import java.util.ArrayList;
 import compiler.utils.StreamUtils;
 
 import java.util.List;
@@ -9,6 +10,18 @@ public final class Program extends AstNode {
 
     public Program(List<Class> classes) {
         this.classes = classes;
+    }
+
+    @Override
+    public List<AstNode> getChildren() {
+        ArrayList<AstNode> temp = new ArrayList<>();
+        temp.addAll(classes);
+        return temp;
+    }
+
+    @Override
+    public String getName() {
+        return "Program";
     }
 
     @Override
