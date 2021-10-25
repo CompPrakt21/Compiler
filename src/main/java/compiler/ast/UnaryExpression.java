@@ -8,4 +8,8 @@ public final class UnaryExpression extends Expression {
 
     private Expression expression;
     private UnaryOp operator;
+    public UnaryExpression(Expression expression, UnaryOp operator) {
+        this.expression = expression;
+        this.operator = operator;
+    }
 }

@@ -1,9 +1,9 @@
 package compiler.ast;
 
-public final class ClassType extends Type {
+public final class Reference extends Expression {
     private String identifier;
 
-    public ClassType(String identifier) {
+    public Reference(String identifier) {
         this.identifier = identifier;
     }
 }
