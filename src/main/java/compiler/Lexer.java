@@ -10,6 +10,7 @@ public class Lexer {
 
     /**
      * Advances token stream.
+     *
      * @return The next token.
      */
     public Token nextToken() {
@@ -18,6 +19,7 @@ public class Lexer {
 
     /**
      * Doesn't advance token stream.
+     *
      * @return The next token.
      */
     public Token peekToken() {

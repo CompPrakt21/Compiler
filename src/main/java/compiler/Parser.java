@@ -10,10 +10,11 @@ import static compiler.Grammar.NonT;
 
 public class Parser {
 
-    private final Lexer lexer;
+    //private final Lexer lexer;
+    private final MockLexer lexer;
     private Token token;
 
-    public Parser(Lexer lexer) {
+    public Parser(MockLexer lexer) {
         this.lexer = lexer;
     }
 
@@ -243,6 +244,56 @@ public class Parser {
         return parseAssignmentExpression();
     }
 
+    Expression parseExpression2(int minPrec) {
+        var result = this.parseUnaryExpression();
+
+        while (getBinOpPrecedence(token.type) >= minPrec) {
+            var tokenPrec = getBinOpPrecedence(token.type) + 1;
+            this.token = lexer.nextToken();
+            var rhs = this.parseExpression2(tokenPrec);
+            result = constructBinOpExpression(result, this.token.type, rhs);
+        }
+
+        return result;
+    }
+
+    private static Expression constructBinOpExpression(Expression lhs, TokenType token, Expression rhs) {
+        if (token == TokenType.Assign) {
+            return new AssignmentExpression(lhs, rhs);
+        }
+        var op = switch (token) {
+            case Or -> BinaryOpExpression.BinaryOp.Or;
+            case And -> BinaryOpExpression.BinaryOp.And;
+            case Equals -> BinaryOpExpression.BinaryOp.Equal;
+            case NotEquals -> BinaryOpExpression.BinaryOp.NotEqual;
+            case GreaterThan -> BinaryOpExpression.BinaryOp.Greater;
+            case GreaterThanOrEquals -> BinaryOpExpression.BinaryOp.GreaterEqual;
+            case LessThan -> BinaryOpExpression.BinaryOp.Less;
+            case LessThanOrEquals -> BinaryOpExpression.BinaryOp.LessEqual;
+            case Add -> BinaryOpExpression.BinaryOp.Addition;
+            case Subtract -> BinaryOpExpression.BinaryOp.Subtraction;
+            case Multiply -> BinaryOpExpression.BinaryOp.Multiplication;
+            case Divide -> BinaryOpExpression.BinaryOp.Division;
+            case Modulo -> BinaryOpExpression.BinaryOp.Modulo;
+            default -> throw new AssertionError("Only call this function with binary op tokens.");
+        };
+
+        return new BinaryOpExpression(lhs, op, rhs);
+    }
+
+    private static int getBinOpPrecedence(TokenType type) {
+        return switch (type) {
+            case Assign -> 10;
+            case Or -> 20;
+            case And -> 30;
+            case Equals, NotEquals -> 40;
+            case GreaterThan, GreaterThanOrEquals, LessThan, LessThanOrEquals -> 50;
+            case Add, Subtract -> 60;
+            case Multiply, Divide, Modulo -> 70;
+            default -> -1;
+        };
+    }
+
     private Expression parseAssignmentExpression() {
         Expression lftExpression = parseOrExpression();
         Optional<Expression> rghtExpression = Optional.empty();
@@ -250,7 +301,8 @@ public class Parser {
             expect(TokenType.Assign);
             rghtExpression = Optional.of(parseAssignmentExpression());
         }
-        return new AssignmentExpression(lftExpression, rghtExpression);
+        //return new AssignmentExpression(lftExpression, rghtExpression);
+        return null;
     }
 
     private Expression parseOrExpression() {
