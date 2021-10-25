@@ -1,5 +1,8 @@
 package compiler;
 
+import java.util.Arrays;
+import java.util.List;
+
 public enum TokenType {
     // Meta tokens
     Error("<Error>"),
@@ -114,7 +117,31 @@ public enum TokenType {
     BitwiseOrAssign("|="),
     BitwiseOr("|");
 
-    private String repr;
+    public static final List<TokenType> KEYWORDS = Arrays.asList(
+            Boolean, Class, Else, False, If, Int, New, Null, Public,
+            Return, Static, This, Throws, True, Void, While,
+            Abstract, Assert, Break, Byte, Case, Catch, Char, Const,
+            Continue, Default, Double, Do, Enum, Extends, Finally, Final, Float,
+            For, Goto, Implements, Import, Instanceof, Interface, Long, Native,
+            Package, Private, Protected, Short, Strictfp, Super, Switch,
+            Synchronized, Transient, Try, Volatile
+    );
+
+    public static final List<TokenType> OPERATORS = Arrays.asList(
+            NotEquals, Not, LeftParen, RightParen, Multiply, Add, Comma,
+            Subtract, Dot, Divide, SemiColon, LessThanOrEquals, LessThan,
+            Equals, Assign, GreaterThanOrEquals, GreaterThan, Modulo,
+            And, LeftSquareBracket, RightSquareBracket,
+            LeftCurlyBracket, RightCurlyBracket, Or,
+            MultiplyAssign, Increment, AddAssign, SubtractAssign, Decrement,
+            DivideAssign, Colon, BitwiseArithmeticShiftLeftAssign,
+            BitwiseArithmeticShiftLeft, BitwiseArithmeticShiftRightAssign,
+            BitwiseLogicalShiftRight, BitwiseArithmeticShiftRight,
+            QuestionMark, ModuloAssign, BitwiseAndAssign, BitwiseAnd,
+            BitwiseXorAssign, BitwiseXor, BitwiseNot, BitwiseOrAssign,
+            BitwiseOr);
+
+    public String repr;
 
     TokenType(String repr) {
         this.repr = repr;

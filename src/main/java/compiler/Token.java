@@ -13,6 +13,7 @@ public class Token {
     }
 
     public static Token identifier(String name, Span span) {
+        name.intern();
         return new Token(TokenType.Identifier, new IdentifierContent(name), span);
     }
 
