@@ -22,6 +22,7 @@ public enum TokenType {
     Static("static"),
     This("this"),
     Throws("throws"),
+    Throw("throw"),
     True("true"),
     Void("void"),
     While("while"),
@@ -120,7 +121,7 @@ public enum TokenType {
 
     public static final List<TokenType> KEYWORDS = Arrays.asList(
             Boolean, Class, Else, False, If, Int, New, Null, Public,
-            Return, Static, This, Throws, True, Void, While,
+            Return, Static, This, Throws, Throw, True, Void, While,
             Abstract, Assert, Break, Byte, Case, Catch, Char, Const,
             Continue, Default, Double, Do, Enum, Extends, Finally, Final, Float,
             For, Goto, Implements, Import, Instanceof, Interface, Long, Native,
