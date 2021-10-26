@@ -83,11 +83,108 @@ public class TestParser {
         );
 
         var parser = new Parser(lexer);
-        AssertionError error = assertThrows(AssertionError.class, () -> {
+        Error error = assertThrows(Error.class, () -> {
             var ast = parser.parse();
         });
         String topmostMethod = error.getStackTrace()[0].getMethodName();
-        assertEquals("getIdentContent", topmostMethod);
+        assertEquals("expectIdent", topmostMethod);
     }
 
+    @Test
+    public void fullProgramTest() {
+        var lexer = mock(Lexer.class);
+        when(lexer.nextToken()).thenReturn(
+                Token.keyword(TokenType.Class, null),
+                Token.identifier("name", null),
+                Token.keyword(TokenType.LeftCurlyBracket, null),
+                Token.keyword(TokenType.Public, null),
+                Token.keyword(TokenType.Int, null),
+                Token.identifier("fieldName", null),
+                Token.keyword(TokenType.SemiColon, null),
+
+
+                Token.keyword(TokenType.Public, null),
+                Token.keyword(TokenType.Void, null),
+                Token.identifier("method", null),
+                Token.keyword(TokenType.LeftParen, null),
+                Token.identifier("SomeClass", null),
+                Token.identifier("firstParam", null),
+                Token.keyword(TokenType.Comma, null),
+                Token.keyword(TokenType.Boolean, null),
+                Token.identifier("secondParam", null),
+                Token.keyword(TokenType.RightParen, null),
+                Token.keyword(TokenType.Throws, null),
+                Token.identifier("SomeException", null),
+
+                Token.keyword(TokenType.LeftCurlyBracket, null),
+                Token.keyword(TokenType.Int, null),
+                Token.identifier("localVar", null),
+                Token.keyword(TokenType.SemiColon, null),
+                Token.keyword(TokenType.RightCurlyBracket, null),
+
+
+                Token.keyword(TokenType.Public, null),
+                Token.keyword(TokenType.Static, null),
+                Token.keyword(TokenType.Void, null),
+                Token.identifier("main", null),
+                Token.keyword(TokenType.LeftParen, null),
+                Token.keyword(TokenType.Int, null),
+                Token.keyword(TokenType.LeftSquareBracket, null),
+                Token.keyword(TokenType.RightSquareBracket, null),
+                Token.identifier("mainParam", null),
+                Token.keyword(TokenType.RightParen, null),
+
+                Token.keyword(TokenType.LeftCurlyBracket, null),
+                Token.keyword(TokenType.LeftCurlyBracket, null),
+                Token.keyword(TokenType.RightCurlyBracket, null),
+
+                // Mark this, here will lie an if, while and some other stuff
+                Token.keyword(TokenType.If, null),
+                Token.keyword(TokenType.LeftParen, null),
+                Token.keyword(TokenType.True, null),
+                Token.keyword(TokenType.RightParen, null),
+                Token.keyword(TokenType.LeftCurlyBracket, null),
+                Token.keyword(TokenType.RightCurlyBracket, null),
+                Token.keyword(TokenType.Else, null),
+                Token.keyword(TokenType.SemiColon, null),
+
+
+                Token.keyword(TokenType.While, null),
+                Token.keyword(TokenType.LeftParen, null),
+                Token.keyword(TokenType.This, null),
+                Token.keyword(TokenType.Dot, null),
+                Token.identifier("field", null),
+                Token.keyword(TokenType.Dot, null),
+                Token.identifier("method", null),
+                Token.keyword(TokenType.LeftParen, null),
+                Token.keyword(TokenType.Null, null),
+                Token.keyword(TokenType.Comma, null),
+                Token.keyword(TokenType.Null, null),
+                Token.keyword(TokenType.RightParen, null),
+                Token.keyword(TokenType.RightParen, null),
+
+                Token.keyword(TokenType.LeftParen, null),
+                Token.intLiteral(1, null),
+                Token.keyword(TokenType.RightParen, null),
+                Token.keyword(TokenType.SemiColon, null),
+
+
+                Token.keyword(TokenType.Return, null),
+                Token.keyword(TokenType.Not, null),
+                Token.intLiteral(1, null),
+                Token.keyword(TokenType.Equals, null),
+                Token.keyword(TokenType.Subtract, null),
+                Token.intLiteral(3, null),
+                Token.keyword(TokenType.Or, null),
+                Token.keyword(TokenType.False, null),
+                Token.keyword(TokenType.SemiColon, null),
+                Token.keyword(TokenType.RightCurlyBracket, null),
+
+                Token.keyword(TokenType.RightCurlyBracket, null),
+                Token.eof(null)
+        );
+
+        var parser = new Parser(lexer);
+        parser.parse();
+    }
 }

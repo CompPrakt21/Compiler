@@ -25,6 +25,15 @@ public class Parser {
         this.token = lexer.nextToken();
     }
 
+    private String expectIdent() {
+        if (this.token.type != TokenType.Identifier) {
+            throw new Error();
+        }
+        String name = this.token.getIdentContent();
+        this.token = lexer.nextToken();
+        return name;
+    }
+
     public AstNode parse() {
         return parseS();
     }
@@ -53,10 +62,9 @@ public class Parser {
         var fields = new ArrayList<Field>();
         var methods = new ArrayList<Method>();
         expect(TokenType.Class);
-        var identifier = this.token.getIdentContent();
-        expect(TokenType.Identifier);
+        var identifier = expectIdent();
         expect(TokenType.LeftCurlyBracket);
-        if (NonT.ClassMember.firstContains(token.type)) {
+        while (NonT.ClassMember.firstContains(token.type)) {
             var ast = parseClassMember();
             if (ast instanceof Field) {
                 fields.add((Field) ast);
@@ -64,55 +72,42 @@ public class Parser {
                 assert ast instanceof Method;
                 methods.add((Method) ast);
             }
-        } else {
-            expect(TokenType.RightCurlyBracket);
         }
+        expect(TokenType.RightCurlyBracket);
+
         return new Class(identifier, fields, methods);
     }
 
     private AstNode parseClassMember() {
-        if (NonT.Field.firstContains(token.type)) {
-            return parseField();
-        } else if (NonT.Method.firstContains(token.type)) {
-            return parseMethod();
+        // This parses methods until the left paren, including
+        boolean isStatic = false;
+        expect(TokenType.Public);
+        if (token.type == TokenType.Static) {
+            expect(TokenType.Static);
+            isStatic = true;
+        }
+        var type = parseType();
+        var ident = expectIdent();
+        if (token.type == TokenType.SemiColon) {
+            expect(TokenType.SemiColon);
+            return new Field(ident, type);
+        } else if (token.type == TokenType.LeftParen) {
+            expect(TokenType.LeftParen);
+            return parseMethod(type, ident, isStatic);
         } else {
             throw new Error();
         }
     }
 
-    private Field parseField() {
-        expect(TokenType.Public);
-        var type = parseType();
-        var identifier = this.token.getIdentContent();
-        expect(TokenType.Identifier);
-        expect(TokenType.SemiColon);
-        return new Field(identifier, type);
-    }
-
-    private Method parseMethod() {
-        boolean isStatic = false;
-        Type methodType;
-        String methodIdentifier;
+    private Method parseMethod(Type returnType, String name, boolean isStatic) {
         var parameters = new ArrayList<Parameter>();
 
-        expect(TokenType.Public);
-        if (token.type == TokenType.Static) {
+        if (isStatic) {
             // Handling MainMethod, parse up to the closing paren,
             // rest will be parsed together
-            isStatic = true;
-            expect(TokenType.Static);
-            expect(TokenType.Void);
-            methodType = new VoidType();
-            methodIdentifier = this.token.getIdentContent();
-            expect(TokenType.Identifier);
-            expect(TokenType.LeftParen);
             var parameter = parseParameter();
             parameters.add(parameter);
         } else {
-            methodType = parseType();
-            methodIdentifier = this.token.getIdentContent();
-            expect(TokenType.Identifier);
-            expect(TokenType.LeftParen);
             if (NonT.Parameter.firstContains(token.type)) {
                 var parameter = parseParameter();
                 parameters.add(parameter);
@@ -129,13 +124,12 @@ public class Parser {
             expect(TokenType.Identifier);
         }
         var body = parseBlock();
-        return new Method(isStatic, methodIdentifier, methodType, parameters, body);
+        return new Method(isStatic, name, returnType, parameters, body);
     }
 
     private Parameter parseParameter() {
         var type = parseType();
-        var identifier = this.token.getIdentContent();
-        expect(TokenType.Identifier);
+        var identifier = expectIdent();
         return new Parameter(type, identifier);
     }
 
@@ -152,16 +146,19 @@ public class Parser {
     private Type parseBasicType() {
         switch (token.type) {
             case Int -> {
+                expect(TokenType.Int);
                 return new IntType();
             }
             case Boolean -> {
+                expect(TokenType.Boolean);
                 return new BoolType();
             }
             case Void -> {
+                expect(TokenType.Void);
                 return new VoidType();
             }
             case Identifier -> {
-                return new ClassType(token.getIdentContent());
+                return new ClassType(expectIdent());
             }
             default -> throw new Error();
         }
@@ -191,9 +188,12 @@ public class Parser {
             return parseWhileStatement();
         } else if (NonT.ReturnStatement.firstContains(token.type)) {
             return parseReturnStatement();
+        } else if (NonT.LocalVariableDeclarationStatement.firstContains(token.type)) {
+            return parseLocalVariableDeclarationStatement();
         } else {
             throw new Error();
         }
+
     }
 
     private EmptyStatement parseEmptyStatement() {
@@ -205,6 +205,7 @@ public class Parser {
         expect(TokenType.If);
         expect(TokenType.LeftParen);
         var condition = parseExpression(0);
+        expect(TokenType.RightParen);
         var thenStatement = parseStatement();
         Optional<Statement> elseStatement = Optional.empty();
         if (token.type == TokenType.Else) {
@@ -237,6 +238,17 @@ public class Parser {
         }
         expect(TokenType.SemiColon);
         return new ReturnStatement(expression);
+    }
+
+    private LocalVariableDeclarationStatement parseLocalVariableDeclarationStatement() {
+        var type = parseType();
+        var ident = expectIdent();
+        Optional<Expression> initializer = Optional.empty();
+        if (token.type == TokenType.Assign) {
+            expect(TokenType.Assign);
+            initializer = Optional.of(parseExpression(0));
+        }
+        return new LocalVariableDeclarationStatement(type, ident, initializer);
     }
 
     private Expression parseExpressionOld() {
@@ -397,11 +409,11 @@ public class Parser {
         }
         if (token.type == TokenType.Not) {
             expect(TokenType.Not);
-            return parseUnaryExpression();
+            return new UnaryExpression(parseUnaryExpression(), UnaryExpression.UnaryOp.LogicalNot);
         }
         if (token.type == TokenType.Subtract) {
             expect(TokenType.Subtract);
-            return parseUnaryExpression();
+            return new UnaryExpression(parseUnaryExpression(), UnaryExpression.UnaryOp.Negate);
         }
         throw new Error();
     }
@@ -492,8 +504,7 @@ public class Parser {
     }
 
     private Expression parseNewObjectExpression() {
-        var identifier = this.token.getIdentContent();
-        expect(TokenType.Identifier);
+        var identifier = expectIdent();
         expect(TokenType.LeftParen);
         expect(TokenType.RightParen);
         return new NewObjectExpression(identifier);
