@@ -48,11 +48,12 @@ public class MainCommand implements Callable<Integer> {
         try {
             String content = Files.readString(this.file.toPath());
             Lexer l = new Lexer(content);
-            while (true) {
+            loop: while (true) {
                 Token t = l.nextToken();
                 switch (t.type) {
                     case EOF -> {
-                        break;
+                        System.out.println("EOF");
+                        break loop;
                     }
                     case Error -> {
                         System.err.println(t.getErrorContent());

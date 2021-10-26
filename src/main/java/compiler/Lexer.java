@@ -18,7 +18,7 @@ public class Lexer {
                         Collectors.toMap(o -> o.repr, o -> o)));
         int maxOperatorLength = operatorsByLength.keySet().stream().max(Integer::compareTo).get();
         INDEXED_OPERATORS = new ArrayList<>();
-        for (int i = 0; i < maxOperatorLength; i++) {
+        for (int i = 0; i <= maxOperatorLength; i++) {
             Map<String, TokenType> ops = operatorsByLength.containsKey(i)
                     ? operatorsByLength.get(i)
                     : new HashMap<>();
@@ -124,6 +124,7 @@ public class Lexer {
         while (!isEOF() && (isAsciiAlphabetic(c) || isAsciiNumeric(c) || c == '_')) {
             wordBuilder.append(c);
             next();
+            c = peek();
         }
         String word = wordBuilder.toString();
         if (word.length() == 0) {
