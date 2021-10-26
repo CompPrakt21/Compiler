@@ -19,6 +19,9 @@ public class MainCommand implements Callable<Integer> {
     @Option(names = {"-e", "--echo"}, description = "Echos back the input file.")
     boolean echo;
 
+    @Option(names = {"--lextest"}, description = "Outputs lexed tokens for the input file")
+    boolean lextest;
+
     @Parameters(paramLabel = "FILE", description = "The file to compile.")
     File file;
 
@@ -40,12 +43,44 @@ public class MainCommand implements Callable<Integer> {
         }
     }
 
+    public Integer callLextest() {
+        boolean error = false;
+        try {
+            String content = Files.readString(this.file.toPath());
+            Lexer l = new Lexer(content);
+            while (true) {
+                Token t = l.nextToken();
+                switch (t.type) {
+                    case EOF -> {
+                        break;
+                    }
+                    case Error -> {
+                        System.err.println(t.getErrorContent());
+                        error = true;
+                    }
+                    case Identifier ->
+                        System.out.println("identifier " + t.getIdentContent());
+                    case IntLiteral ->
+                        System.out.println("integer literal " + t.getIntLiteralContent());
+                    default ->
+                        System.out.println(t.type.repr);
+                }
+            }
+        } catch (IOException e) {
+            System.err.format("Error while reading file '%s'.\n", e.getMessage());
+            error = true;
+        }
+        return error ? -1 : 0;
+    }
+
     @Override
     public Integer call() {
+        if (lextest) {
+            return callLextest();
+        }
         if (echo) {
             return callEcho();
         }
-
         // Demonstrate Java 17 with Preview features works
         Object a = 114;
         String formatted = switch (a) {
