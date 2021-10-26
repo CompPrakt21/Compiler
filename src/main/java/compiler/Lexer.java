@@ -161,7 +161,9 @@ public class Lexer {
                 return result;
             }
         }
-        return Token.error("Invalid symbol.", new Span(currentPos, 1));
+        Token err = Token.error("Invalid symbol.", new Span(currentPos, 1));
+        next();
+        return err;
     }
 
     /**
