@@ -8,4 +8,13 @@ public final class FieldAccessExpression extends Expression {
         this.target = target;
         this.identifier = identifier;
     }
+
+    @Override
+    public boolean syntacticEq(AstNode otherAst) {
+        if (!(otherAst instanceof FieldAccessExpression other)) {
+            return false;
+        }
+        return this.identifier.equals(other.identifier)
+                && target.syntacticEq(other.target);
+    }
 }

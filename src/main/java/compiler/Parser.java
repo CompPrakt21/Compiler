@@ -10,12 +10,12 @@ import static compiler.Grammar.NonT;
 
 public class Parser {
 
-    //private final Lexer lexer;
-    private final MockLexer lexer;
+    private final Lexer lexer;
     private Token token;
 
-    public Parser(MockLexer lexer) {
+    public Parser(Lexer lexer) {
         this.lexer = lexer;
+        this.token = lexer.nextToken();
     }
 
     private void expect(TokenType type) {
@@ -26,7 +26,7 @@ public class Parser {
     }
 
     public AstNode parse() {
-        this.token = lexer.nextToken();
+        //this.token = lexer.nextToken();
         return parseS();
     }
 
@@ -249,9 +249,10 @@ public class Parser {
 
         while (getBinOpPrecedence(token.type) >= minPrec) {
             var tokenPrec = getBinOpPrecedence(token.type) + 1;
+            var oldToken = this.token;
             this.token = lexer.nextToken();
             var rhs = this.parseExpression2(tokenPrec);
-            result = constructBinOpExpression(result, this.token.type, rhs);
+            result = constructBinOpExpression(result, oldToken.type, rhs);
         }
 
         return result;
@@ -392,7 +393,7 @@ public class Parser {
     }
 
     private Expression parseUnaryExpression() {
-        if (NonT.PostfixOp.firstContains(token.type)) {
+        if (NonT.PostfixExpression.firstContains(token.type)) {
             return parsePostfixExpression();
         }
         if (token.type == TokenType.Not) {

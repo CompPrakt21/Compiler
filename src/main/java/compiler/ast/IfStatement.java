@@ -1,5 +1,7 @@
 package compiler.ast;
 
+import compiler.utils.OptionalUtils;
+
 import java.util.Optional;
 
 public final class IfStatement extends Statement {
@@ -11,5 +13,15 @@ public final class IfStatement extends Statement {
         this.condition = condition;
         this.thenBody = thenBody;
         this.elseBody = elseBody;
+    }
+
+    @Override
+    public boolean syntacticEq(AstNode otherAst) {
+        if (!(otherAst instanceof IfStatement other)) {
+            return false;
+        }
+        return this.condition.syntacticEq(other.condition)
+                && this.thenBody.syntacticEq(other.thenBody)
+                && OptionalUtils.combine(this.elseBody, other.elseBody, AstNode::syntacticEq).orElse(true);
     }
 }
