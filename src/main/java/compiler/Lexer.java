@@ -137,7 +137,7 @@ public class Lexer {
         if (word.chars().allMatch(Character::isDigit)) {
             return Optional.of(Token.intLiteral(Integer.parseInt(word), span));
         }
-        if (isAsciiAlphabetic(word.charAt(0)) || c == '_') {
+        if (isAsciiAlphabetic(word.charAt(0)) || word.charAt(0) == '_') {
             return Optional.of(Token.identifier(word, span));
         }
         return Optional.of(Token.error("Invalid identifier name. First character needs to be alphabetic.", span));
