@@ -121,7 +121,7 @@ public class Lexer {
         int startPos = currentPos;
         StringBuilder wordBuilder = new StringBuilder();
         char c = peek();
-        while (!isEOF() && (isAsciiAlphabetic(c) || isAsciiNumeric(c))) {
+        while (!isEOF() && (isAsciiAlphabetic(c) || isAsciiNumeric(c) || c == '_')) {
             wordBuilder.append(c);
             next();
         }
@@ -136,7 +136,7 @@ public class Lexer {
         if (word.chars().allMatch(Character::isDigit)) {
             return Optional.of(Token.intLiteral(Integer.parseInt(word), span));
         }
-        if (isAsciiAlphabetic(word.charAt(0))) {
+        if (isAsciiAlphabetic(word.charAt(0)) || c == '_') {
             return Optional.of(Token.identifier(word, span));
         }
         return Optional.of(Token.error("Invalid identifier name. First character needs to be alphabetic.", span));
