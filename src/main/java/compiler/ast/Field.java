@@ -9,4 +9,12 @@ public class Field extends AstNode {
         this.identifier = identifier;
         this.type = type;
     }
+
+    @Override
+    public boolean syntacticEq(AstNode otherAst) {
+        if (!(otherAst instanceof Field other)) {
+            return false;
+        }
+        return this.identifier.equals(other.identifier) && this.type.syntacticEq(other.type);
+    }
 }

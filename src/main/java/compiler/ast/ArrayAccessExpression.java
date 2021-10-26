@@ -8,4 +8,13 @@ public final class ArrayAccessExpression extends Expression {
         this.target = target;
         this.indexExpression = indexExpression;
     }
+
+    @Override
+    public boolean syntacticEq(AstNode otherAst) {
+        if (!(otherAst instanceof ArrayAccessExpression other)) {
+            return false;
+        }
+        return this.target.syntacticEq(other.target)
+                && this.indexExpression.syntacticEq(other.indexExpression);
+    }
 }

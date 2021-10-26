@@ -11,4 +11,14 @@ public final class NewArrayExpression extends Expression {
         this.dimensions = dimensions;
         this.firstDimensionSize = firstDimensionSize;
     }
+
+    @Override
+    public boolean syntacticEq(AstNode otherAst) {
+        if (!(otherAst instanceof NewArrayExpression other)) {
+            return false;
+        }
+        return this.type.syntacticEq(other.type)
+                && this.firstDimensionSize.syntacticEq(other.firstDimensionSize)
+                && this.dimensions == other.dimensions;
+    }
 }
