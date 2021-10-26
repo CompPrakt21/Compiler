@@ -73,8 +73,12 @@ public class Lexer {
         return actual.equals(expected);
     }
 
+    private static boolean isWhitespace(char c) {
+        return c == ' ' || c == '\n' || c == '\r' || c == '\t';
+    }
+
     private void consumeWhitespace() {
-        while (!isEOF() && Character.isWhitespace(peek())) {
+        while (!isEOF() && isWhitespace(peek())) {
             next();
         }
     }
