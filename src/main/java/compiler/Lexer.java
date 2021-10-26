@@ -135,7 +135,17 @@ public class Lexer {
             return Optional.of(Token.keyword(KEYWORDS_BY_REPR.get(word), span));
         }
         if (word.chars().allMatch(Character::isDigit)) {
-            return Optional.of(Token.intLiteral(Integer.parseInt(word), span));
+            Optional<Token> error = Optional.of(Token.error("Integer literal value too large.", span));
+            try {
+                long value = Long.parseLong(word);
+                if (value > -((long) Integer.MIN_VALUE)) {
+                    return error;
+                }
+                return Optional.of(Token.intLiteral(value, span));
+            } catch (NumberFormatException e) {
+                // Value too large for long
+                return error;
+            }
         }
         if (isAsciiAlphabetic(word.charAt(0)) || word.charAt(0) == '_') {
             return Optional.of(Token.identifier(word, span));
