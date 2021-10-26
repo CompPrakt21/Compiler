@@ -26,7 +26,6 @@ public class Parser {
     }
 
     public AstNode parse() {
-        //this.token = lexer.nextToken();
         return parseS();
     }
 
@@ -205,7 +204,7 @@ public class Parser {
     private IfStatement parseIfStatement() {
         expect(TokenType.If);
         expect(TokenType.LeftParen);
-        var condition = parseExpression();
+        var condition = parseExpression(0);
         var thenStatement = parseStatement();
         Optional<Statement> elseStatement = Optional.empty();
         if (token.type == TokenType.Else) {
@@ -216,7 +215,7 @@ public class Parser {
     }
 
     private ExpressionStatement parseExpressionStatement() {
-        var expression = parseExpression();
+        var expression = parseExpression(0);
         expect(TokenType.SemiColon);
         return new ExpressionStatement(expression);
     }
@@ -224,7 +223,7 @@ public class Parser {
     private WhileStatement parseWhileStatement() {
         expect(TokenType.While);
         expect(TokenType.LeftParen);
-        var condition = parseExpression();
+        var condition = parseExpression(0);
         expect(TokenType.RightParen);
         var body = parseStatement();
         return new WhileStatement(condition, body);
@@ -234,24 +233,24 @@ public class Parser {
         expect(TokenType.Return);
         Optional<Expression> expression = Optional.empty();
         if (NonT.Expression.firstContains(token.type)) {
-            expression = Optional.of(parseExpression());
+            expression = Optional.of(parseExpression(0));
         }
         expect(TokenType.SemiColon);
         return new ReturnStatement(expression);
     }
 
-    private Expression parseExpression() {
+    private Expression parseExpressionOld() {
         return parseAssignmentExpression();
     }
 
-    Expression parseExpression2(int minPrec) {
+    Expression parseExpression(int minPrec) {
         var result = this.parseUnaryExpression();
 
         while (getBinOpPrecedence(token.type) >= minPrec) {
             var tokenPrec = getBinOpPrecedence(token.type) + 1;
             var oldToken = this.token;
             this.token = lexer.nextToken();
-            var rhs = this.parseExpression2(tokenPrec);
+            var rhs = this.parseExpression(tokenPrec);
             result = constructBinOpExpression(result, oldToken.type, rhs);
         }
 
@@ -424,7 +423,7 @@ public class Parser {
                 }
             } else if (token.type == TokenType.LeftSquareBracket) {
                 expect(TokenType.LeftSquareBracket);
-                var inner = parseExpression();
+                var inner = parseExpression(0);
                 expect(TokenType.RightSquareBracket);
                 expression = new ArrayAccessExpression(expression, inner);
             } else {
@@ -436,10 +435,10 @@ public class Parser {
     private ArrayList<Expression> parseArguments() {
         ArrayList<Expression> arguments = new ArrayList<>();
         if (NonT.Expression.firstContains(token.type)) {
-            arguments.add(parseExpression());
+            arguments.add(parseExpression(0));
             while (token.type == TokenType.Comma) {
                 expect(TokenType.Comma);
-                arguments.add(parseExpression());
+                arguments.add(parseExpression(0));
             }
         }
         return arguments;
@@ -474,7 +473,7 @@ public class Parser {
             return new ThisExpression();
         } else if (token.type == TokenType.LeftParen) {
             expect(TokenType.LeftParen);
-            var expression = parseExpression();
+            var expression = parseExpression(0);
             expect(TokenType.RightParen);
             return expression;
         } else if (token.type == TokenType.New) {
@@ -504,7 +503,7 @@ public class Parser {
         int dimensions = 1;
         Type type = parseBasicType();
         expect(TokenType.LeftSquareBracket);
-        Expression expression = parseExpression();
+        Expression expression = parseExpression(0);
         expect(TokenType.RightSquareBracket);
         while (token.type == TokenType.LeftSquareBracket) {
             expect(TokenType.LeftSquareBracket);
