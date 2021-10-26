@@ -3,7 +3,12 @@ package compiler;
 import compiler.ast.Class;
 import compiler.ast.*;
 
+import java.io.BufferedWriter;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 import static compiler.Grammar.NonT;
@@ -422,5 +427,29 @@ public class Parser {
         }
         return new NewArrayExpression(type, expression, dimensions);
     }
+
+    public void dotWriter(AstNode node) {
+        try(BufferedWriter out=new BufferedWriter(new OutputStreamWriter(new FileOutputStream("g.dot")))){
+            out.write("digraph {");
+            out.newLine();
+            recursiveWriter(out, node);
+            out.write("}");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private String recursiveWriter(BufferedWriter out, AstNode node) throws IOException{
+        List<AstNode> children = node.getChildren();
+        if (children != null) {
+            for (AstNode child : children) {
+                String line = node.getName() + " -> " + recursiveWriter(out, child);
+                out.write(line);
+                out.newLine();
+            }
+        }
+        return node.getName();
+    }
+
 
 }
