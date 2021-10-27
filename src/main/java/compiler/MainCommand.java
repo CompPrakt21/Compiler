@@ -48,7 +48,8 @@ public class MainCommand implements Callable<Integer> {
         try {
             String content = Files.readString(this.file.toPath());
             Lexer l = new Lexer(content);
-            loop: while (true) {
+            loop:
+            while (true) {
                 Token t = l.nextToken();
                 switch (t.type) {
                     case EOF -> {
@@ -56,15 +57,12 @@ public class MainCommand implements Callable<Integer> {
                         break loop;
                     }
                     case Error -> {
-                        System.err.println(t.getErrorContent());
+                        System.err.println("error:" + t.getErrorContent());
                         error = true;
                     }
-                    case Identifier ->
-                        System.out.println("identifier " + t.getIdentContent());
-                    case IntLiteral ->
-                        System.out.println("integer literal " + t.getIntLiteralContent());
-                    default ->
-                        System.out.println(t.type.repr);
+                    case Identifier -> System.out.println("identifier " + t.getIdentContent());
+                    case IntLiteral -> System.out.println("integer literal " + t.getIntLiteralContent());
+                    default -> System.out.println(t.type.repr);
                 }
             }
         } catch (IOException e) {
