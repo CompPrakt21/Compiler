@@ -57,7 +57,7 @@ public class MainCommand implements Callable<Integer> {
                         break loop;
                     }
                     case Error -> {
-                        System.err.println("error:" + t.getErrorContent());
+                        System.err.println("ERROR: " + t.getErrorContent());
                         error = true;
                     }
                     case Identifier -> System.out.println("identifier " + t.getIdentContent());
@@ -65,8 +65,12 @@ public class MainCommand implements Callable<Integer> {
                     default -> System.out.println(t.type.repr);
                 }
             }
+        }
+        catch (FileNotFoundException | NoSuchFileException e) {
+            System.err.format("ERROR: Can not find file: '%s'\n", this.file.getName());
+            error = true;
         } catch (IOException e) {
-            System.err.format("Error while reading file '%s'.\n", e.getMessage());
+            System.err.format("ERROR: Can not read file: '%s'\n", this.file.getName());
             error = true;
         }
         return error ? -1 : 0;
