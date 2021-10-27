@@ -221,7 +221,7 @@ public class Parser {
         return new ExpressionStatement(expression);
     }
 
-    private WhileStatement parseWhileStatement() {
+    WhileStatement parseWhileStatement() {
         expect(TokenType.While);
         expect(TokenType.LeftParen);
         var condition = parseExpression(0);
@@ -249,10 +249,6 @@ public class Parser {
             initializer = Optional.of(parseExpression(0));
         }
         return new LocalVariableDeclarationStatement(type, ident, initializer);
-    }
-
-    private Expression parseExpressionOld() {
-        return parseAssignmentExpression();
     }
 
     Expression parseExpression(int minPrec) {
@@ -304,103 +300,6 @@ public class Parser {
             case Multiply, Divide, Modulo -> 70;
             default -> -1;
         };
-    }
-
-    private Expression parseAssignmentExpression() {
-        Expression lftExpression = parseOrExpression();
-        Optional<Expression> rghtExpression = Optional.empty();
-        if (token.type == TokenType.Assign) {
-            expect(TokenType.Assign);
-            rghtExpression = Optional.of(parseAssignmentExpression());
-        }
-        //return new AssignmentExpression(lftExpression, rghtExpression);
-        return null;
-    }
-
-    private Expression parseOrExpression() {
-        Expression expression = parseAndExpression();
-        while (token.type == TokenType.Or) {
-            expect(TokenType.Or);
-            expression = new BinaryOpExpression(expression, BinaryOpExpression.BinaryOp.Or, parseAndExpression());
-        }
-        return expression;
-    }
-
-    private Expression parseAndExpression() {
-        Expression expression = parseEqualityExpression();
-        while (token.type == TokenType.And) {
-            expect(TokenType.And);
-            expression = new BinaryOpExpression(expression, BinaryOpExpression.BinaryOp.And, parseEqualityExpression());
-        }
-        return expression;
-    }
-
-    private Expression parseEqualityExpression() {
-        Expression expression = parseRelationalExpression();
-        while (token.type == TokenType.Equals || token.type == TokenType.NotEquals) {
-            if (token.type == TokenType.Equals) {
-                expect(TokenType.Equals);
-                expression = new BinaryOpExpression(expression, BinaryOpExpression.BinaryOp.Equal, parseRelationalExpression());
-            } else {
-                expect(TokenType.NotEquals);
-                expression = new BinaryOpExpression(expression, BinaryOpExpression.BinaryOp.NotEqual, parseRelationalExpression());
-            }
-        }
-        return expression;
-    }
-
-    private Expression parseRelationalExpression() {
-        Expression expression = parseAdditiveExpression();
-        while (true) {
-            if (token.type == TokenType.LessThan) {
-                expect(TokenType.LessThan);
-                expression = new BinaryOpExpression(expression, BinaryOpExpression.BinaryOp.Less, parseAdditiveExpression());
-            } else if (token.type == TokenType.LessThanOrEquals) {
-                expect(TokenType.LessThanOrEquals);
-                expression = new BinaryOpExpression(expression, BinaryOpExpression.BinaryOp.LessEqual, parseAdditiveExpression());
-            } else if (token.type == TokenType.GreaterThan) {
-                expect(TokenType.GreaterThan);
-                expression = new BinaryOpExpression(expression, BinaryOpExpression.BinaryOp.Greater, parseAdditiveExpression());
-            } else if (token.type == TokenType.GreaterThanOrEquals) {
-                expect(TokenType.GreaterThanOrEquals);
-                expression = new BinaryOpExpression(expression, BinaryOpExpression.BinaryOp.GreaterEqual, parseAdditiveExpression());
-            } else {
-                return expression;
-            }
-        }
-    }
-
-    private Expression parseAdditiveExpression() {
-        Expression expression = parseMultiplicativeExpression();
-        while (true) {
-            if (token.type == TokenType.Add) {
-                expect(TokenType.Add);
-                expression = new BinaryOpExpression(expression, BinaryOpExpression.BinaryOp.Addition, parseMultiplicativeExpression());
-            } else if (token.type == TokenType.Subtract) {
-                expect(TokenType.Subtract);
-                expression = new BinaryOpExpression(expression, BinaryOpExpression.BinaryOp.Subtraction, parseMultiplicativeExpression());
-            } else {
-                return expression;
-            }
-        }
-    }
-
-    private Expression parseMultiplicativeExpression() {
-        Expression expression = parseUnaryExpression();
-        while (true) {
-            if (token.type == TokenType.Multiply) {
-                expect(TokenType.Multiply);
-                expression = new BinaryOpExpression(expression, BinaryOpExpression.BinaryOp.Multiplication, parseUnaryExpression());
-            } else if (token.type == TokenType.Divide) {
-                expect(TokenType.Divide);
-                expression = new BinaryOpExpression(expression, BinaryOpExpression.BinaryOp.Division, parseUnaryExpression());
-            } else if (token.type == TokenType.Modulo) {
-                expect(TokenType.Modulo);
-                expression = new BinaryOpExpression(expression, BinaryOpExpression.BinaryOp.Modulo, parseUnaryExpression());
-            } else {
-                return expression;
-            }
-        }
     }
 
     private Expression parseUnaryExpression() {

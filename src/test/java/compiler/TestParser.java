@@ -1,14 +1,13 @@
 package compiler;
 
-import compiler.ast.BinaryOpExpression;
+import compiler.ast.*;
 import compiler.ast.Class;
-import compiler.ast.IntLiteral;
-import compiler.ast.Program;
 import org.junit.jupiter.api.Test;
 
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -138,7 +137,7 @@ public class TestParser {
                 Token.keyword(TokenType.LeftCurlyBracket, null),
                 Token.keyword(TokenType.RightCurlyBracket, null),
 
-                // Mark this, here will lie an if, while and some other stuff
+
                 Token.keyword(TokenType.If, null),
                 Token.keyword(TokenType.LeftParen, null),
                 Token.keyword(TokenType.True, null),
@@ -185,6 +184,66 @@ public class TestParser {
         );
 
         var parser = new Parser(lexer);
-        parser.parse();
+        var ast = parser.parse();
+
+        var fields = List.of(new Field("fieldName", new IntType()));
+        var methods = List.of(
+                new Method(
+                        false,
+                        "method",
+                        new VoidType(),
+                        List.of(
+                                new Parameter(new ClassType("SomeClass"), "firstParam"),
+                                new Parameter(new BoolType(), "secondParam")
+                        ),
+                        new Block(List.of(
+                                new LocalVariableDeclarationStatement(new IntType(), "localVar", Optional.empty())
+                        ))
+                ),
+                new Method(
+                        true,
+                        "main",
+                        new VoidType(),
+                        List.of(
+                                new Parameter(new ArrayType(new IntType()), "mainParam")
+                        ),
+                        new Block(List.of(
+                                new Block(List.of()),
+                                new IfStatement(
+                                        new BoolLiteral(true),
+                                        new Block(List.of()),
+                                        Optional.of(new EmptyStatement())
+                                ),
+                                new WhileStatement(
+                                        new MethodCallExpression(
+                                                Optional.of(new FieldAccessExpression(
+                                                        new ThisExpression(),
+                                                        "field"
+                                                )),
+                                                "method",
+                                                List.of(new NullExpression(), new NullExpression())
+                                        ),
+                                        new ExpressionStatement(new IntLiteral(1))
+                                ),
+                                new ReturnStatement(Optional.of(
+                                        new BinaryOpExpression(
+                                                new BinaryOpExpression(
+                                                        new UnaryExpression(new IntLiteral(1), UnaryExpression.UnaryOp.LogicalNot),
+                                                        BinaryOpExpression.BinaryOp.Equal,
+                                                        new UnaryExpression(new IntLiteral(3), UnaryExpression.UnaryOp.Negate)
+                                                ),
+                                                BinaryOpExpression.BinaryOp.Or,
+                                                new BoolLiteral(false)
+                                        )
+                                ))
+                        ))
+                )
+        );
+
+        var reference = new Program(List.of(
+                new Class("name", fields, methods)
+        ));
+
+        assertTrue(reference.syntacticEq(ast));
     }
 }
