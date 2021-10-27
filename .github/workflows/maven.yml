@@ -28,9 +28,6 @@ jobs:
       run: git clone --recurse-submodules https://git.scc.kit.edu/IPDSnelting/mjtest.git
     - name: Run lexer tests
       working-directory: mjtest
-      run: |
-        ls -la
-        ls -la ..
-        MJ_RUN="../Compiler/run" ./mjt.py lexer
+      run: MJ_RUN="../Compiler/run" ./mjt.py lexer
     
         
