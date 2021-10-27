@@ -124,11 +124,13 @@ public class Lexer {
     private Optional<Token> consumeAlphanumericWord() {
         int startPos = currentPos;
         StringBuilder wordBuilder = new StringBuilder();
-        char c = peek();
-        while (!isEOF() && (isAsciiAlphabetic(c) || isAsciiNumeric(c) || c == '_')) {
+        while (!isEOF()) {
+            char c = peek();
+            if (!isAsciiAlphabetic(c) && !isAsciiNumeric(c) && c != '_') {
+                break;
+            }
             wordBuilder.append(c);
             next();
-            c = peek();
         }
         String word = wordBuilder.toString();
         if (word.length() == 0) {
