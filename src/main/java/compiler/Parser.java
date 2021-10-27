@@ -4,262 +4,442 @@ import compiler.ast.Class;
 import compiler.ast.*;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
-import static compiler.Grammar.NonT;
+import static compiler.Grammar.NonT.*;
+import static compiler.TokenType.*;
 
 public class Parser {
 
     private final Lexer lexer;
     private Token token;
+    private boolean errorMode;
+    public boolean successfulParse;
 
     public Parser(Lexer lexer) {
         this.lexer = lexer;
         this.token = lexer.nextToken();
+        this.errorMode = false;
+        this.successfulParse = true;
     }
 
-    private void expect(TokenType type) {
-        if (this.token.type != type) {
-            throw new Error();
+    private record ExpectResult(Token token, boolean isError) {
+    }
+
+    private ExpectResult expect(TokenSet anchors, TokenSetLike... type) {
+        return this.expectInternal(anchors, true, type);
+    }
+
+    private Token assertExpect(TokenType type) {
+        assert this.token.type == type;
+        var oldToken = this.token;
+        this.token = this.lexer.nextToken();
+        return oldToken;
+    }
+
+    private ExpectResult expectNoConsume(TokenSet anchors, TokenSetLike... type) {
+        return this.expectInternal(anchors, false, type);
+    }
+
+    private ExpectResult expectInternal(TokenSet anchors, boolean consume, TokenSetLike... type) {
+        var expectedTokens = TokenSet.of(type);
+        var error = false;
+
+        if (!expectedTokens.contains(this.token.type)) {
+            this.successfulParse = false;
+
+            if (!this.errorMode) {
+                // TODO: emit error;
+            }
+            this.errorMode = true;
+            error = true;
+            this.skipUntilAnchorSet(anchors.add(expectedTokens));
+            if (!expectedTokens.contains(this.token.type)) {
+                return new ExpectResult(null, error);
+            }
         }
-        this.token = lexer.nextToken();
-    }
 
-    private String expectIdent() {
-        if (this.token.type != TokenType.Identifier) {
-            throw new Error();
+        var oldToken = this.token;
+        if (consume) {
+            this.token = lexer.nextToken();
         }
-        String name = this.token.getIdentContent();
-        this.token = lexer.nextToken();
-        return name;
+        this.errorMode = false;
+        return new ExpectResult(oldToken, error);
     }
 
-    public AstNode parse() {
-        return parseS();
+    private void skipUntilAnchorSet(TokenSet anchors) {
+        while (!anchors.contains(this.token.type)) {
+            this.token = this.lexer.nextToken();
+        }
     }
 
-    private AstNode parseS() {
-        var ast = parseProgram();
-        expect(TokenType.EOF);
+    public Program parse() {
+        return parseS(TokenSet.empty());
+    }
+
+    private Program parseS(TokenSet anchors) {
+        var ast = parseProgram(anchors.add(EOF));
+        expect(anchors, EOF);
         return ast;
     }
 
-    private Program parseProgram() {
+    private Program parseProgram(TokenSet anchors) {
         var classes = new ArrayList<Class>();
-        while (true) {
-            if (NonT.ClassDeclaration.firstContains(token.type)) {
-                var ast = parseClassDeclaration();
-                classes.add(ast);
-            } else if (NonT.Program.followContains(token.type)) {
-                return new Program(classes);
-            } else {
-                throw new Error();
-            }
+        boolean error = false;
+
+        this.expectNoConsume(anchors, ClassDeclaration.first(), ClassDeclaration.follow());
+
+        while (ClassDeclaration.firstContains(token.type)) {
+            var ast = parseClassDeclaration(anchors);
+            error |= ast == null;
+            classes.add(ast);
+
+            this.expectNoConsume(anchors, ClassDeclaration.first(), ClassDeclaration.follow());
         }
+
+        return new Program(classes).makeError(error);
     }
 
-    private Class parseClassDeclaration() {
+    private Class parseClassDeclaration(TokenSet anchors) {
         var fields = new ArrayList<Field>();
         var methods = new ArrayList<Method>();
-        expect(TokenType.Class);
-        var identifier = expectIdent();
-        expect(TokenType.LeftCurlyBracket);
-        while (NonT.ClassMember.firstContains(token.type)) {
-            var ast = parseClassMember();
-            if (ast instanceof Field) {
-                fields.add((Field) ast);
-            } else {
-                assert ast instanceof Method;
-                methods.add((Method) ast);
-            }
-        }
-        expect(TokenType.RightCurlyBracket);
 
-        return new Class(identifier, fields, methods);
+        var expectResult = expect(anchors.add(Identifier, LeftCurlyBracket, ClassDeclaration.first(), RightCurlyBracket), TokenType.Class);
+        var error = expectResult.isError;
+
+        expectResult = expect(anchors.add(LeftCurlyBracket, ClassDeclaration.first(), RightCurlyBracket), TokenType.Identifier);
+        error |= expectResult.isError;
+        var identifier = expectResult.isError ? null : expectResult.token.getIdentContent();
+
+        expectResult = expect(anchors.add(ClassDeclaration.first(), RightCurlyBracket), TokenType.LeftCurlyBracket);
+        error |= expectResult.isError;
+
+        expectNoConsume(anchors, ClassMember.first(), RightCurlyBracket);
+
+        while (ClassMember.firstContains(token.type)) {
+            var ast = parseClassMember(anchors.add(RightCurlyBracket));
+            switch (ast) {
+                case Field field -> fields.add(field);
+                case Method method -> methods.add(method);
+                case null, default -> error = true;
+            }
+
+            expectNoConsume(anchors, ClassMember.first(), RightCurlyBracket);
+        }
+
+        expectResult = expect(anchors, RightCurlyBracket);
+        error |= expectResult.isError;
+
+        return new Class(identifier, fields, methods).makeError(error);
     }
 
-    private AstNode parseClassMember() {
+    private AstNode parseClassMember(TokenSet anchors) {
         // This parses methods until the left paren, including
         boolean isStatic = false;
-        expect(TokenType.Public);
+
+        var expectResult = expect(anchors.add(Type.first(), Identifier, SemiColon, LeftParen), TokenType.Public);
+        var error = expectResult.isError;
+
+        expectNoConsume(anchors.add(Type.first(), Identifier, SemiColon, LeftParen), Static, Type.first());
+
         if (token.type == TokenType.Static) {
-            expect(TokenType.Static);
+            assertExpect(TokenType.Static);
             isStatic = true;
         }
-        var type = parseType();
-        var ident = expectIdent();
-        if (token.type == TokenType.SemiColon) {
-            expect(TokenType.SemiColon);
-            return new Field(ident, type);
-        } else if (token.type == TokenType.LeftParen) {
-            expect(TokenType.LeftParen);
-            return parseMethod(type, ident, isStatic);
-        } else {
-            throw new Error();
+
+        var type = parseType(anchors.add(Identifier, SemiColon, LeftParen));
+
+        expectResult = expect(anchors.add(SemiColon, LeftParen), Identifier);
+        error |= expectResult.isError;
+        var ident = expectResult.isError ? null : expectResult.token.getIdentContent();
+
+        expectResult = expectNoConsume(anchors, SemiColon, LeftParen);
+        error |= expectResult.isError;
+
+        switch (token.type) {
+            case SemiColon -> {
+                assertExpect(SemiColon);
+                // TODO: if isStatic true report error;
+                return new Field(ident, type).makeError(error);
+            }
+            case LeftParen -> {
+                assertExpect(LeftParen);
+                return parseMethod(anchors, type, ident, isStatic).makeError(error);
+            }
+            case null, default -> {
+                return null;
+            }
         }
     }
 
-    private Method parseMethod(Type returnType, String name, boolean isStatic) {
+    private Method parseMethod(TokenSet anchors, Type returnType, String name, boolean isStatic) {
         var parameters = new ArrayList<Parameter>();
+
+        boolean error = false;
 
         if (isStatic) {
             // Handling MainMethod, parse up to the closing paren,
             // rest will be parsed together
-            var parameter = parseParameter();
+            var parameter = parseParameter(anchors.add(RightParen, MethodRest.first(), Block.first()));
             parameters.add(parameter);
         } else {
-            if (NonT.Parameter.firstContains(token.type)) {
-                var parameter = parseParameter();
+            var expectResult = expectNoConsume(anchors.add(Comma, RightParen, MethodRest.first()), Parameter.first(), RightParen);
+            error |= expectResult.isError;
+
+            if (Parameter.firstContains(token.type)) {
+                var parameter = parseParameter(anchors.add(Comma, Parameter.first(), RightParen, MethodRest.first(), Block.first()));
+                error |= parameter == null;
                 parameters.add(parameter);
             }
-            while (token.type == TokenType.Comma) {
-                expect(TokenType.Comma);
-                var parameter = parseParameter();
+
+            expectNoConsume(anchors.add(RightParen, MethodRest.first(), Block.first()), Comma, RightParen);
+
+            while (token.type == Comma) {
+                assertExpect(Comma);
+                var parameter = parseParameter(anchors.add(Comma, Parameter.first(), RightParen, MethodRest.first(), Block.first()));
+                error |= parameter == null;
                 parameters.add(parameter);
+
+                expectNoConsume(anchors.add(RightParen, MethodRest.first(), Block.first()), Comma, RightParen);
             }
         }
-        expect(TokenType.RightParen);
-        if (NonT.MethodRest.firstContains(token.type)) {
-            expect(TokenType.Throws);
-            expect(TokenType.Identifier);
+
+        var expectResult = expect(anchors.add(MethodRest.first(), Block.first()), RightParen);
+        error |= expectResult.isError;
+
+        expectNoConsume(anchors, MethodRest.first(), Block.first());
+
+        if (MethodRest.firstContains(token.type)) {
+            assertExpect(Throws);
+
+            expectResult = expect(anchors.add(Block.first()), Identifier);
+            error |= expectResult.isError;
         }
-        var body = parseBlock();
-        return new Method(isStatic, name, returnType, parameters, body);
+        var body = parseBlock(anchors);
+        return new Method(isStatic, name, returnType, parameters, body).makeError(error);
     }
 
-    private Parameter parseParameter() {
-        var type = parseType();
-        var identifier = expectIdent();
-        return new Parameter(type, identifier);
+    private Parameter parseParameter(TokenSet anchors) {
+        var type = parseType(anchors.add(Identifier));
+
+        var expectResult = expect(anchors, Identifier);
+        var error = expectResult.isError;
+        var identifier = expectResult.isError ? null : expectResult.token.getIdentContent();
+
+        return new Parameter(type, identifier).makeError(error);
     }
 
-    private Type parseType() {
-        var type = parseBasicType();
+    private Type parseType(TokenSet anchors) {
+        var type = parseBasicType(anchors.add(LeftSquareBracket));
+
+        expectNoConsume(anchors, LeftSquareBracket, Type.follow());
+
         while (token.type == TokenType.LeftSquareBracket) {
-            expect(TokenType.LeftSquareBracket);
-            expect(TokenType.RightSquareBracket);
-            type = new ArrayType(type);
+            assertExpect(LeftSquareBracket);
+            var expectResult = expect(anchors.add(LeftSquareBracket), RightSquareBracket);
+            type = new ArrayType(type).makeError(expectResult.isError);
+
+            expectNoConsume(anchors, LeftSquareBracket, Type.follow());
         }
         return type;
     }
 
-    private Type parseBasicType() {
+    private Type parseBasicType(TokenSet anchors) {
+        expectNoConsume(anchors, Int, Boolean, Void, Identifier);
+
         switch (token.type) {
             case Int -> {
-                expect(TokenType.Int);
+                assertExpect(Int);
                 return new IntType();
             }
             case Boolean -> {
-                expect(TokenType.Boolean);
+                assertExpect(Int);
                 return new BoolType();
             }
             case Void -> {
-                expect(TokenType.Void);
+                assertExpect(Void);
                 return new VoidType();
             }
             case Identifier -> {
-                return new ClassType(expectIdent());
+                var identifier = assertExpect(Identifier);
+                return new ClassType(identifier.getIdentContent());
             }
-            default -> throw new Error();
+            default -> {
+                return null;
+            }
         }
     }
 
-    private Block parseBlock() {
+    private Block parseBlock(TokenSet anchors) {
         var statements = new ArrayList<Statement>();
-        expect(TokenType.LeftCurlyBracket);
-        while (NonT.BlockStatement.firstContains(token.type)) {
-            var ast = parseStatement();
+
+        var expectResult = expect(anchors.add(BlockStatement.first(), RightCurlyBracket), TokenType.LeftCurlyBracket);
+        var error = expectResult.isError;
+
+        expectNoConsume(anchors, BlockStatement.first(), RightCurlyBracket);
+
+        while (BlockStatement.firstContains(token.type)) {
+            var ast = parseStatement(anchors.add(BlockStatement.first(), RightCurlyBracket));
+            error |= ast == null;
             statements.add(ast);
+
+            expectNoConsume(anchors, BlockStatement.first(), RightCurlyBracket);
         }
-        expect(TokenType.RightCurlyBracket);
-        return new Block(statements);
+        expectResult = expect(anchors, RightCurlyBracket);
+        error |= expectResult.isError;
+
+        return new Block(statements).makeError(error);
     }
 
-    private Statement parseStatement() {
-        if (NonT.Block.firstContains(token.type)) {
-            return parseBlock();
-        } else if (NonT.EmptyStatement.firstContains(token.type)) {
-            return parseEmptyStatement();
-        } else if (NonT.IfStatement.firstContains(token.type)) {
-            return parseIfStatement();
-        } else if (NonT.ExpressionStatement.firstContains(token.type)) {
-            return parseExpressionStatement();
-        } else if (NonT.WhileStatement.firstContains(token.type)) {
-            return parseWhileStatement();
-        } else if (NonT.ReturnStatement.firstContains(token.type)) {
-            return parseReturnStatement();
-        } else if (NonT.LocalVariableDeclarationStatement.firstContains(token.type)) {
-            return parseLocalVariableDeclarationStatement();
+    private Statement parseStatement(TokenSet anchors) {
+
+        var expectResult = expectNoConsume(
+                anchors,
+                Block.first(),
+                EmptyStatement.first(),
+                IfStatement.first(),
+                ExpressionStatement.first(),
+                WhileStatement.first(),
+                ReturnStatement.first(),
+                LocalVariableDeclarationStatement.first()
+        );
+        var error = expectResult.isError;
+
+        Statement result;
+        if (Block.firstContains(token.type)) {
+            result = parseBlock(anchors);
+        } else if (EmptyStatement.firstContains(token.type)) {
+            result = parseEmptyStatement(anchors);
+        } else if (IfStatement.firstContains(token.type)) {
+            result = parseIfStatement(anchors);
+        } else if (ExpressionStatement.firstContains(token.type)) {
+            result = parseExpressionStatement(anchors);
+        } else if (WhileStatement.firstContains(token.type)) {
+            result = parseWhileStatement(anchors);
+        } else if (ReturnStatement.firstContains(token.type)) {
+            result = parseReturnStatement(anchors);
+        } else if (LocalVariableDeclarationStatement.firstContains(token.type)) {
+            result = parseLocalVariableDeclarationStatement(anchors);
         } else {
-            throw new Error();
+            return null;
         }
 
+        return result.makeError(error);
     }
 
-    private EmptyStatement parseEmptyStatement() {
-        expect(TokenType.SemiColon);
-        return new EmptyStatement();
+    private EmptyStatement parseEmptyStatement(TokenSet anchors) {
+        var expectResult = expect(anchors, TokenType.SemiColon);
+        return new EmptyStatement().makeError(expectResult.isError);
     }
 
-    private IfStatement parseIfStatement() {
-        expect(TokenType.If);
-        expect(TokenType.LeftParen);
-        var condition = parseExpression(0);
-        expect(TokenType.RightParen);
-        var thenStatement = parseStatement();
+    private IfStatement parseIfStatement(TokenSet anchors) {
+        var expectResult = expect(anchors.add(LeftParen, Expression.first(), RightParen, Statement.first(), Else), If);
+        var error = expectResult.isError;
+
+        expectResult = expect(anchors.add(Expression.first(), RightParen, Statement.first(), Else), LeftParen);
+        error |= expectResult.isError;
+
+        var condition = parseExpression(anchors.add(RightParen, Statement.first(), Else), 0);
+
+        expectResult = expect(anchors.add(Statement.first(), Else), RightParen);
+        error |= expectResult.isError;
+
+        var thenStatement = parseStatement(anchors.add(Else));
+
         Optional<Statement> elseStatement = Optional.empty();
+
+        expectNoConsume(anchors, Else, IfStatement.follow());
+
         if (token.type == TokenType.Else) {
-            expect(TokenType.Else);
-            elseStatement = Optional.of(parseStatement());
+            assertExpect(Else);
+            elseStatement = Optional.of(parseStatement(anchors));
         }
-        return new IfStatement(condition, thenStatement, elseStatement);
+
+        return new IfStatement(condition, thenStatement, elseStatement).makeError(error);
     }
 
-    private ExpressionStatement parseExpressionStatement() {
-        var expression = parseExpression(0);
-        expect(TokenType.SemiColon);
-        return new ExpressionStatement(expression);
+    private ExpressionStatement parseExpressionStatement(TokenSet anchors) {
+        var expression = parseExpression(anchors.add(SemiColon), 0);
+
+        var expectResult = expect(anchors, SemiColon);
+        var error = expectResult.isError;
+
+        return new ExpressionStatement(expression).makeError(error);
     }
 
-    WhileStatement parseWhileStatement() {
-        expect(TokenType.While);
-        expect(TokenType.LeftParen);
-        var condition = parseExpression(0);
-        expect(TokenType.RightParen);
-        var body = parseStatement();
-        return new WhileStatement(condition, body);
+    WhileStatement parseWhileStatement(TokenSet anchors) {
+        var expectResult = expect(anchors.add(LeftParen, Expression.first(), RightParen, Statement.first()), While);
+        var error = expectResult.isError;
+
+        expectResult = expect(anchors.add(Expression.first(), RightParen, Statement.first()), LeftParen);
+        error |= expectResult.isError;
+
+        var condition = parseExpression(anchors.add(RightParen, Statement.first()), 0);
+        expectResult = expect(anchors.add(Statement.first()), RightParen);
+        error |= expectResult.isError;
+
+        var body = parseStatement(anchors);
+        return new WhileStatement(condition, body).makeError(error);
     }
 
-    private ReturnStatement parseReturnStatement() {
-        expect(TokenType.Return);
+    private ReturnStatement parseReturnStatement(TokenSet anchors) {
+        var expectResult = expect(anchors.add(Expression.first(), SemiColon), TokenType.Return);
+        var error = expectResult.isError;
+
         Optional<Expression> expression = Optional.empty();
-        if (NonT.Expression.firstContains(token.type)) {
-            expression = Optional.of(parseExpression(0));
+
+        expectNoConsume(anchors, Expression.first(), SemiColon);
+
+        if (Expression.firstContains(token.type)) {
+            expression = Optional.of(parseExpression(anchors.add(SemiColon), 0));
         }
-        expect(TokenType.SemiColon);
-        return new ReturnStatement(expression);
+
+        expectResult = expect(anchors, SemiColon);
+        error |= expectResult.isError;
+        return new ReturnStatement(expression).makeError(error);
     }
 
-    private LocalVariableDeclarationStatement parseLocalVariableDeclarationStatement() {
-        var type = parseType();
-        var ident = expectIdent();
+    private LocalVariableDeclarationStatement parseLocalVariableDeclarationStatement(TokenSet anchors) {
+        var type = parseType(anchors.add(Identifier, Assign, SemiColon));
+
+        var expectResult = expect(anchors.add(Assign, SemiColon), Identifier);
+        var error = expectResult.isError;
+        var ident = expectResult.isError ? null : expectResult.token.getIdentContent();
+
+        expectNoConsume(anchors, Assign, SemiColon);
+
         Optional<Expression> initializer = Optional.empty();
-        if (token.type == TokenType.Assign) {
-            expect(TokenType.Assign);
-            initializer = Optional.of(parseExpression(0));
+        if (token.type == Assign) {
+            assertExpect(Assign);
+            initializer = Optional.of(parseExpression(anchors.add(SemiColon), 0));
         }
-        return new LocalVariableDeclarationStatement(type, ident, initializer);
+
+        expectResult = expect(anchors, SemiColon);
+        error |= expectResult.isError;
+
+        return new LocalVariableDeclarationStatement(type, ident, initializer).makeError(error);
     }
 
-    Expression parseExpression(int minPrec) {
-        var result = this.parseUnaryExpression();
+    Expression parseExpression(TokenSet anchors, int minPrec) {
+
+        var result = this.parseUnaryExpression(anchors.add(getTokensWithHigherPrecendence(minPrec)));
+
+        var error = false;
+        expectNoConsume(anchors, BINARY_OPERATORS, Expression.follow());
 
         while (getBinOpPrecedence(token.type) >= minPrec) {
             var tokenPrec = getBinOpPrecedence(token.type) + 1;
-            var oldToken = this.token;
-            this.token = lexer.nextToken();
-            var rhs = this.parseExpression(tokenPrec);
-            result = constructBinOpExpression(result, oldToken.type, rhs);
+
+            var expectResult = expect(anchors, getTokensWithHigherPrecendence(minPrec));
+            error |= expectResult.isError;
+            var oldToken = expectResult.token;
+
+            var rhs = this.parseExpression(anchors.add(getTokensWithLowerPrecendence(minPrec)), tokenPrec);
+            result = constructBinOpExpression(result, oldToken.type, rhs).makeError(error);
+
+            expectNoConsume(anchors, BINARY_OPERATORS, Expression.follow());
         }
 
         return result;
@@ -289,6 +469,22 @@ public class Parser {
         return new BinaryOpExpression(lhs, op, rhs);
     }
 
+    private static TokenSet getTokensWithHigherPrecendence(int prec) {
+        EnumSet<TokenType> set = BINARY_OPERATORS.getSet()
+                .stream()
+                .filter(tokenType -> getBinOpPrecedence(tokenType) >= prec)
+                .collect(Collectors.toCollection(() -> EnumSet.noneOf(TokenType.class)));
+        return new TokenSet(set);
+    }
+
+    private static TokenSet getTokensWithLowerPrecendence(int prec) {
+        EnumSet<TokenType> set = BINARY_OPERATORS.getSet()
+                .stream()
+                .filter(tokenType -> getBinOpPrecedence(tokenType) < prec)
+                .collect(Collectors.toCollection(() -> EnumSet.noneOf(TokenType.class)));
+        return new TokenSet(set);
+    }
+
     private static int getBinOpPrecedence(TokenType type) {
         return switch (type) {
             case Assign -> 10;
@@ -302,125 +498,219 @@ public class Parser {
         };
     }
 
-    private Expression parseUnaryExpression() {
-        if (NonT.PostfixExpression.firstContains(token.type)) {
-            return parsePostfixExpression();
+    private Expression parseUnaryExpression(TokenSet anchors) {
+
+        expectNoConsume(anchors, PostfixExpression.first(), Not, Subtract);
+
+        if (PostfixExpression.firstContains(token.type)) {
+            return parsePostfixExpression(anchors);
         }
         if (token.type == TokenType.Not) {
-            expect(TokenType.Not);
-            return new UnaryExpression(parseUnaryExpression(), UnaryExpression.UnaryOp.LogicalNot);
+            assertExpect(Not);
+            return new UnaryExpression(parseUnaryExpression(anchors), compiler.ast.UnaryExpression.UnaryOp.LogicalNot);
         }
         if (token.type == TokenType.Subtract) {
-            expect(TokenType.Subtract);
-            return new UnaryExpression(parseUnaryExpression(), UnaryExpression.UnaryOp.Negate);
+            assertExpect(Subtract);
+            return new UnaryExpression(parseUnaryExpression(anchors), compiler.ast.UnaryExpression.UnaryOp.Negate);
         }
-        throw new Error();
+        return null;
     }
 
-    private Expression parsePostfixExpression() {
-        Expression expression = parsePrimaryExpression();
+    private Expression parsePostfixExpression(TokenSet anchors) {
+
+        Expression expression = parsePrimaryExpression(anchors.add(Dot, LeftSquareBracket));
+
+        expectNoConsume(anchors, Dot, LeftSquareBracket, PostfixExpression.follow());
+
         while (true) {
             if (token.type == TokenType.Dot) {
-                expect(TokenType.Dot);
-                var ident = token.getIdentContent();
-                expect(TokenType.Identifier);
-                if (token.type == TokenType.LeftParen) {
-                    expect(TokenType.LeftParen);
-                    var arguments = parseArguments();
-                    expect(TokenType.RightParen);
-                    expression = new MethodCallExpression(Optional.of(expression), ident, arguments);
+                assertExpect(TokenType.Dot);
+
+                var expectResult = expect(anchors.add(LeftParen), Identifier);
+                var error = expectResult.isError;
+                var ident = expectResult.isError ? null : expectResult.token.getIdentContent();
+
+                if (token.type == LeftParen) {
+                    assertExpect(LeftParen);
+
+                    var arguments = parseArguments(anchors.add(RightParen));
+                    error |= arguments.error;
+
+                    expectResult = expect(anchors, RightParen);
+                    error |= expectResult.isError;
+
+                    expression = new MethodCallExpression(Optional.of(expression), ident, arguments.result).makeError(error);
                 } else {
-                    expression = new FieldAccessExpression(expression, ident);
+                    expression = new FieldAccessExpression(expression, ident).makeError(error);
                 }
-            } else if (token.type == TokenType.LeftSquareBracket) {
-                expect(TokenType.LeftSquareBracket);
-                var inner = parseExpression(0);
-                expect(TokenType.RightSquareBracket);
-                expression = new ArrayAccessExpression(expression, inner);
+            } else if (token.type == LeftSquareBracket) {
+                assertExpect(LeftSquareBracket);
+
+                var inner = parseExpression(anchors.add(RightSquareBracket), 0);
+                var expectResult = expect(anchors, RightSquareBracket);
+                var error = expectResult.isError;
+
+                expression = new ArrayAccessExpression(expression, inner).makeError(error);
             } else {
                 return expression;
             }
+
+            expectNoConsume(anchors, Dot, LeftSquareBracket, PostfixExpression.follow());
         }
     }
 
-    private ArrayList<Expression> parseArguments() {
+    private record ParseArgumentsResult(ArrayList<Expression> result, boolean error) {
+    }
+
+    private ParseArgumentsResult parseArguments(TokenSet anchors) {
         ArrayList<Expression> arguments = new ArrayList<>();
-        if (NonT.Expression.firstContains(token.type)) {
-            arguments.add(parseExpression(0));
-            while (token.type == TokenType.Comma) {
-                expect(TokenType.Comma);
-                arguments.add(parseExpression(0));
+        var error = false;
+
+        expectNoConsume(anchors, Expression.first(), Arguments.follow());
+
+        if (Expression.firstContains(token.type)) {
+            var expr = parseExpression(anchors.add(Comma), 0);
+            error |= expr == null;
+            arguments.add(expr);
+
+            expectNoConsume(anchors, Comma, Arguments.follow());
+            while (token.type == Comma) {
+                assertExpect(Comma);
+                expr = parseExpression(anchors.add(Comma), 0);
+                error |= expr == null;
+                arguments.add(expr);
+
+                expectNoConsume(anchors, Comma, Arguments.follow());
             }
         }
-        return arguments;
+        return new ParseArgumentsResult(arguments, error);
     }
 
-    private Expression parsePrimaryExpression() {
-        if (token.type == TokenType.Null) {
-            expect(TokenType.Null);
-            return new NullExpression();
-        } else if (token.type == TokenType.False) {
-            expect(TokenType.False);
-            return new BoolLiteral(false);
-        } else if (token.type == TokenType.True) {
-            expect(TokenType.True);
-            return new BoolLiteral(true);
-        } else if (token.type == TokenType.IntLiteral) {
-            long value = token.getIntLiteralContent();
-            expect(TokenType.IntLiteral);
-            return new IntLiteral(value);
-        } else if (token.type == TokenType.Identifier) {
-            String ident = token.getIdentContent();
-            expect(TokenType.Identifier);
-            if (token.type == TokenType.LeftParen) {
-                expect(TokenType.LeftParen);
-                var arguments = parseArguments();
-                expect(TokenType.RightParen);
-                return new MethodCallExpression(Optional.empty(), ident, arguments);
+    private Expression parsePrimaryExpression(TokenSet anchors) {
+        expectNoConsume(anchors, Null, False, True, IntLiteral, Identifier, This, LeftParen, New);
+
+        switch (token.type) {
+            case Null -> {
+                assertExpect(Null);
+                return new NullExpression();
             }
-            return new Reference(ident);
-        } else if (token.type == TokenType.This) {
-            expect(TokenType.This);
-            return new ThisExpression();
-        } else if (token.type == TokenType.LeftParen) {
-            expect(TokenType.LeftParen);
-            var expression = parseExpression(0);
-            expect(TokenType.RightParen);
-            return expression;
-        } else if (token.type == TokenType.New) {
-            expect(TokenType.New);
-            Token nextToken = this.lexer.peekToken();
-            if (nextToken.type == TokenType.LeftParen) {
-                return parseNewObjectExpression();
-            } else if (nextToken.type == TokenType.LeftSquareBracket) {
-                return parseNewArrayExpression();
-            } else {
-                throw new Error();
+            case False -> {
+                assertExpect(False);
+                return new BoolLiteral(false);
             }
+            case True -> {
+                assertExpect(True);
+                return new BoolLiteral(true);
+            }
+            case IntLiteral -> {
+                var token = assertExpect(IntLiteral);
+                long value = token.getIntLiteralContent();
+                return new IntLiteral(value);
+            }
+            case Identifier -> {
+                var token = assertExpect(Identifier);
+                String ident = token.getIdentContent();
+
+                expectNoConsume(anchors, LeftParen, PrimaryExpression.follow());
+
+                if (token.type == LeftParen) {
+                    assertExpect(LeftParen);
+
+                    var arguments = parseArguments(anchors.add(RightParen));
+                    var error = arguments.error;
+
+                    var expectResult = expect(anchors, RightParen);
+                    error |= expectResult.isError;
+
+                    return new MethodCallExpression(Optional.empty(), ident, arguments.result).makeError(error);
+                }
+                return new Reference(ident);
+            }
+            case This -> {
+                assertExpect(This);
+                return new ThisExpression();
+            }
+            case LeftParen -> {
+                assertExpect(LeftParen);
+                var expression = parseExpression(anchors.add(RightParen), 0);
+                var expectResult = expect(anchors, RightParen);
+                var error = expectResult.isError;
+                return expression.makeError(error);
+            }
+            case New -> {
+                assertExpect(New);
+
+                var newObjExpr = parseNewObjectOrArrayExpression(anchors);
+
+                return newObjExpr;
+            }
+            case null, default -> {
+                return null; // Token is in anchor set.
+            }
+        }
+    }
+
+    private Expression parseNewObjectOrArrayExpression(TokenSet anchors) {
+        // new keyword has been parsed already.
+
+        expectNoConsume(anchors.add(LeftParen, LeftSquareBracket), BasicType.first(), Identifier);
+
+        if (token.type == Identifier) {
+            var identToken = assertExpect(Identifier);
+
+            expectNoConsume(anchors, LeftParen, LeftSquareBracket);
+
+            switch (token.type) {
+                case LeftParen -> {
+                    assertExpect(LeftParen);
+
+                    var expectResult = expect(anchors, RightParen);
+                    var error = expectResult.isError;
+
+                    return new NewObjectExpression(identToken.getIdentContent()).makeError(error);
+                }
+                case LeftSquareBracket -> {
+                    var type = new ClassType(identToken.getIdentContent());
+                    return parseNewArrayExpression(anchors, type);
+                }
+                default -> {
+                    return null;
+                }
+            }
+
+        } else if (BasicType.firstContains(token.type)) {
+            var type = parseBasicType(anchors);
+            return parseNewArrayExpression(anchors, type);
         } else {
-            throw new Error();
+            return null;
         }
     }
 
-    private Expression parseNewObjectExpression() {
-        var identifier = expectIdent();
-        expect(TokenType.LeftParen);
-        expect(TokenType.RightParen);
-        return new NewObjectExpression(identifier);
-    }
+    private Expression parseNewArrayExpression(TokenSet anchors, Type type) {
+        // Only needs to parse [Expression]([])*.
+        // new and the basic type have been parsed by the caller.
 
-    private Expression parseNewArrayExpression() {
         int dimensions = 1;
-        Type type = parseBasicType();
-        expect(TokenType.LeftSquareBracket);
-        Expression expression = parseExpression(0);
-        expect(TokenType.RightSquareBracket);
-        while (token.type == TokenType.LeftSquareBracket) {
-            expect(TokenType.LeftSquareBracket);
-            expect(TokenType.RightSquareBracket);
+
+        var expectResult = expect(anchors.add(Expression.first(), RightSquareBracket), LeftSquareBracket);
+        var error = expectResult.isError;
+
+        Expression expression = parseExpression(anchors.add(RightSquareBracket), 0);
+
+        expectResult = expect(anchors.add(LeftSquareBracket), RightSquareBracket);
+        error |= expectResult.isError;
+
+        expectNoConsume(anchors, LeftSquareBracket, NewArrayExpression.follow());
+
+        while (token.type == LeftSquareBracket) {
+            assertExpect(LeftSquareBracket);
+            expectResult = expect(anchors.add(LeftSquareBracket), RightSquareBracket);
+            error |= expectResult.isError;
             dimensions++;
+
+            expectNoConsume(anchors, LeftSquareBracket, NewArrayExpression.follow());
         }
-        return new NewArrayExpression(type, expression, dimensions);
+        return new NewArrayExpression(type, expression, dimensions).makeError(error);
     }
 
 }

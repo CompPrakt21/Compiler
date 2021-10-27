@@ -25,7 +25,7 @@ public class TestParser {
         );
 
         var parser = new Parser(lexer);
-        var ast = parser.parseExpression(0);
+        var ast = parser.parseExpression(TokenSet.empty(), 0);
         var reference = new BinaryOpExpression(new IntLiteral(123), BinaryOpExpression.BinaryOp.Addition, new IntLiteral(456));
         assertTrue(reference.syntacticEq(ast));
     }
@@ -45,7 +45,7 @@ public class TestParser {
         );
 
         var parser = new Parser(lexer);
-        var ast = parser.parseExpression(0);
+        var ast = parser.parseExpression(TokenSet.empty(), 0);
         var reference = new BinaryOpExpression(
                 new BinaryOpExpression(new IntLiteral(123), BinaryOpExpression.BinaryOp.Addition,
                         new BinaryOpExpression(new IntLiteral(456), BinaryOpExpression.BinaryOp.Multiplication, new IntLiteral(789))),
@@ -245,5 +245,23 @@ public class TestParser {
         ));
 
         assertTrue(reference.syntacticEq(ast));
+    }
+
+    @Test
+    public void myParserTest() {
+        Lexer lexer = new Lexer("""
+                class MyClass {
+                                
+                    public  ++++ String myField;
+                                
+                    public void test(int i) {
+                        return i + 12;
+                    }
+                }
+                """);
+
+        Parser parser = new Parser(lexer);
+
+        var ast = parser.parse();
     }
 }

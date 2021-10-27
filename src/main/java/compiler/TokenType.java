@@ -3,7 +3,7 @@ package compiler;
 import java.util.Arrays;
 import java.util.List;
 
-public enum TokenType {
+public enum TokenType implements TokenSetLike {
     // Meta tokens
     Error("<Error>"),
     EOF("<EOF>"),
@@ -144,9 +144,19 @@ public enum TokenType {
             BitwiseXorAssign, BitwiseXor, BitwiseNot, BitwiseOrAssign,
             BitwiseOr);
 
+    public static final TokenSet BINARY_OPERATORS = TokenSet.of(
+            Assign, Or, And, Equals, NotEquals, GreaterThan, GreaterThanOrEquals,
+            LessThan, LessThanOrEquals, Add, Subtract, Multiply, Divide, Modulo
+    );
+
     public String repr;
 
     TokenType(String repr) {
         this.repr = repr;
+    }
+
+    @Override
+    public void addToTokenSet(TokenSet set) {
+        set.addToken(this);
     }
 }
