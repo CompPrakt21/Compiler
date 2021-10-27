@@ -11,6 +11,12 @@ public final class LocalVariableDeclarationStatement extends Statement {
 
     private Optional<Expression> initializer;
 
+    public LocalVariableDeclarationStatement(Type type, String identifier, Optional<Expression> initializer) {
+        this.type = type;
+        this.identifier = identifier;
+        this.initializer = initializer;
+    }
+
     @Override
     public boolean syntacticEq(AstNode otherAst) {
         if (!(otherAst instanceof LocalVariableDeclarationStatement other)) {

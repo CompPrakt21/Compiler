@@ -15,6 +15,6 @@ public final class WhileStatement extends Statement {
             return false;
         }
         return this.condition.syntacticEq(other.condition)
-                && this.body.syntacticEq(other.condition);
+                && this.body.syntacticEq(other.body);
     }
 }
