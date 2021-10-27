@@ -35,10 +35,10 @@ public class MainCommand implements Callable<Integer> {
             System.out.print(content);
             return 0;
         } catch (FileNotFoundException | NoSuchFileException e) {
-            System.err.format("ERROR: Can not find file: '%s'\n", this.file.getName());
+            System.err.format("error: Can not find file: '%s'\n", this.file.getName());
             return -1;
         } catch (IOException e) {
-            System.err.format("ERROR: Can not read file: '%s'\n", this.file.getName());
+            System.err.format("error: Can not read file: '%s'\n", this.file.getName());
             return -1;
         }
     }
@@ -57,7 +57,7 @@ public class MainCommand implements Callable<Integer> {
                         break loop;
                     }
                     case Error -> {
-                        System.err.println("ERROR: " + t.getErrorContent());
+                        System.err.println("error: " + t.getErrorContent());
                         error = true;
                     }
                     case Identifier -> System.out.println("identifier " + t.getIdentContent());
@@ -67,10 +67,10 @@ public class MainCommand implements Callable<Integer> {
             }
         }
         catch (FileNotFoundException | NoSuchFileException e) {
-            System.err.format("ERROR: Can not find file: '%s'\n", this.file.getName());
+            System.err.format("error: Can not find file: '%s'\n", this.file.getName());
             error = true;
         } catch (IOException e) {
-            System.err.format("ERROR: Can not read file: '%s'\n", this.file.getName());
+            System.err.format("error: Can not read file: '%s'\n", this.file.getName());
             error = true;
         }
         return error ? -1 : 0;
