@@ -366,7 +366,7 @@ public class Parser {
             expect(TokenType.True);
             return new BoolLiteral(true);
         } else if (token.type == TokenType.IntLiteral) {
-            int value = token.getIntLiteralContent();
+            long value = token.getIntLiteralContent();
             expect(TokenType.IntLiteral);
             return new IntLiteral(value);
         } else if (token.type == TokenType.Identifier) {

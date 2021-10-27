@@ -1,13 +1,13 @@
 package compiler.ast;
 
 public final class IntLiteral extends Expression {
-    private int value;
+    private long value;
 
-    public IntLiteral(int value) {
+    public IntLiteral(long value) {
         this.value = value;
     }
 
-    public int getValue() {
+    public long getValue() {
         return value;
     }
 
