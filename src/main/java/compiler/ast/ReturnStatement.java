@@ -2,6 +2,7 @@ package compiler.ast;
 
 import java.util.ArrayList;
 import java.util.List;
+
 import compiler.utils.OptionalUtils;
 
 import java.util.Objects;
@@ -20,7 +21,7 @@ public final class ReturnStatement extends Statement {
     @Override
     public List<AstNode> getChildren() {
         ArrayList<AstNode> temp = new ArrayList<>();
-        temp.add(expression.get());
+        expression.ifPresent(temp::add);
         return temp;
     }
 
@@ -28,6 +29,7 @@ public final class ReturnStatement extends Statement {
     public String getName() {
         return "ReturnStatement";
     }
+
     @Override
     public boolean syntacticEq(AstNode otherAst) {
         if (!(otherAst instanceof ReturnStatement other)) {

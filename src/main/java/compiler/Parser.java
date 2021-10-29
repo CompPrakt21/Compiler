@@ -510,17 +510,27 @@ public class Parser {
         return new LocalVariableDeclarationStatement(type, ident, initializer).makeError(error);
     }
 
+    private static final TokenSet EXPRESSION_FIRST_SECOND_TOKEN = TokenSet.of(
+            BINARY_OPERATORS, Not, Subtract, LeftParen, LeftSquareBracket, New,
+            True, False, Null, This, IntLiteral, Identifier, Dot
+    );
+
+    private static final TokenSet EXPRESSION_FIRST_THIRD_TOKEN = TokenSet.of(
+            BINARY_OPERATORS, Not, Subtract, LeftParen, LeftSquareBracket, New,
+            True, False, Null, This, IntLiteral, Identifier, RightParen, RightSquareBracket, Dot
+    );
+
     private Statement parseExpressionStatementOrLocalVariableDeclarationStatement(TokenSet anchors) {
         var savedIdentifier = assertExpect(Identifier);
 
         // Discard tokens that can not be the second token of an Expression or Type.
-        var expectResult = expectNoConsume(anchors, LeftSquareBracket, Identifier, BINARY_OPERATORS, Dot, LeftParen);
+        var expectResult = expectNoConsume(anchors, anchors, EXPRESSION_FIRST_SECOND_TOKEN, LeftSquareBracket, Identifier);
         var error = expectResult.isError;
 
         if (token.type == LeftSquareBracket) {
             var savedLeftSquareBracket = assertExpect(LeftSquareBracket);
 
-            expectResult = expectNoConsume(anchors, anchors, RightSquareBracket, BINARY_OPERATORS, Not, Subtract, Dot, LeftParen, Identifier, New, This, Null, False, True, IntLiteral);
+            expectResult = expectNoConsume(anchors, anchors, EXPRESSION_FIRST_THIRD_TOKEN, LeftSquareBracket, Identifier);
             error = expectResult.isError;
 
             if (token.type == RightSquareBracket) {
@@ -921,7 +931,7 @@ public class Parser {
     }
 
     private String recursiveWriter(BufferedWriter out, AstNode node) throws IOException {
-        if (true) {
+        if (node.isError()) {
             return node.getName() + " [color=red]";
         }
         List<AstNode> children = node.getChildren();

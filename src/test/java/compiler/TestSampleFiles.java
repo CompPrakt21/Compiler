@@ -36,15 +36,10 @@ public class TestSampleFiles {
             try {
                 String content = Files.readString(file.toPath());
 
-                if (file.getName().equals("throws_with_ident.java")) {
-                    file.getName(); // Useful for setting a breakpoint when debugging.
-                }
-
                 boolean expected = content.startsWith(PASSING_TEST_PREFIX);
 
                 return DynamicTest.dynamicTest(file.getName(), () -> {
                     boolean compiles = doesThisCompile(content);
-                    // TODO: Enable this once testing should start
                     assertEquals(expected, compiles);
                 });
             } catch (IOException e) {
