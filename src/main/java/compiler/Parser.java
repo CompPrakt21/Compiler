@@ -478,6 +478,9 @@ public class Parser {
     }
 
     private String recursiveWriter(BufferedWriter out, AstNode node) throws IOException{
+        if (node.hasError()) {
+            return "ERROR [color=red]";
+        }
         List<AstNode> children = node.getChildren();
         if (children != null) {
             for (AstNode child : children) {
