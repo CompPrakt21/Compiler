@@ -936,7 +936,6 @@ public class Parser {
             String line = runthrough + " [label=NULL color=red]\n";
             return runthrough;
         }
-        System.out.println(runthrough + " : " + node.getClass() + " \n"+ node.getName() + " \n" + node.getChildren() +"\n");
         List<AstNode> children = node.getChildren();
 
         String line = runthrough + " [label=" + node.getName();
@@ -948,6 +947,11 @@ public class Parser {
         if (children != null) {
             int counter = 0;
             for (AstNode child : children) {
+                if (child == null) {
+                    line += runthrough + "a" + counter + " [label=NULL color=red]\n";
+                    counter++;
+                    continue;
+                }
                 if (child.getClass() == VoidType.class) continue;
                 line += runthrough + " -> " + recursiveWriter(out, child, runthrough + "a" + counter) + "\n";
                 counter++;

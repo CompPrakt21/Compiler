@@ -10,7 +10,7 @@ public final class BoolType extends Type {
 
     @Override
     public String getName() {
-        return null;
+        return "Boolean";
     }
 
     @Override

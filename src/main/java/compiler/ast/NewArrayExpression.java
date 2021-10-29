@@ -27,7 +27,7 @@ public final class NewArrayExpression extends Expression {
 
     @Override
     public String getName() {
-        return "Array " + dimensions + " and first " + firstDimensionSize;
+        return "Array_Size_" + dimensions ;
     }
 
     @Override
