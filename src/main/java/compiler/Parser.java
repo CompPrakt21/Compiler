@@ -25,6 +25,10 @@ public class Parser {
         this.successfulParse = true;
     }
 
+    private void pushOnLexer(Token token) {
+        this.token = token;
+    }
+
     private record ExpectResult(Token token, boolean isError) {
     }
 
@@ -257,11 +261,8 @@ public class Parser {
         return new Parameter(type, identifier).makeError(error);
     }
 
-
     private record ParseTypeResult(Type type, boolean parentError) {
     }
-
-    ;
 
     private ParseTypeResult parseType(TokenSet anchors) {
         var type = parseBasicType(anchors.add(LeftSquareBracket));
@@ -496,6 +497,45 @@ public class Parser {
         error |= expectResult.isError;
 
         return new LocalVariableDeclarationStatement(type, ident, initializer).makeError(error);
+    }
+
+    private Statement parseExpressionStatementOrLocalVariableDeclarationStatement(TokenSet anchors) {
+
+        if (token.type == Identifier) {
+            var savedIdentifier = assertExpect(Identifier);
+
+            // Discard tokens that can not be the second token of an Expression or Type.
+            var expectResult = expectNoConsume(anchors, LeftSquareBracket, Identifier, BINARY_OPERATORS, Dot, LeftParen);
+            var error = expectResult.isError;
+
+            if (token.type == LeftSquareBracket) {
+                var savedLeftSquareBracket = assertExpect(LeftSquareBracket);
+
+                expectResult = expectNoConsume(anchors, null);
+                error = expectResult.isError;
+
+                if (token.type == RightSquareBracket) {
+                    pushOnLexer(savedLeftSquareBracket);
+                    pushOnLexer(savedIdentifier);
+                    return parseLocalVariableDeclarationStatement(anchors).makeError(error);
+                } else {
+                    pushOnLexer(savedLeftSquareBracket);
+                    pushOnLexer(savedIdentifier);
+                    return parseExpressionStatement(anchors).makeError(error);
+                }
+            } else if (token.type == Identifier) {
+                pushOnLexer(savedIdentifier)
+                return parseLocalVariableDeclarationStatement(anchors).makeError(error);
+            } else {
+                pushOnLexer(savedIdentifier);
+                return parseExpressionStatement(anchors).makeError(error);
+            }
+        } else if (ExpressionStatement.firstContains(token.type)) {
+            return parseExpressionStatement(anchors);
+        } else {
+            assert LocalVariableDeclarationStatement.firstContains(token.type);
+            return parseLocalVariableDeclarationStatement(anchors);
+        }
     }
 
     record ParseExpressionResult(Expression expression, boolean parentError) {

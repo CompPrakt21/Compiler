@@ -22,7 +22,7 @@ public class TestSampleFiles {
     public boolean doesThisCompile(String content) {
         var parser = new Parser(new Lexer(content));
 
-        parser.parse();
+        var ast = parser.parse();
 
         return parser.successfulParse;
     }
