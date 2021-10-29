@@ -14,7 +14,7 @@ import static org.mockito.Mockito.*;
 
 public class TestParser {
 
-    @Test
+    /*@Test
     public void simpleExpressionTest() {
         var lexer = mock(Lexer.class);
         when(lexer.nextToken()).thenReturn(
@@ -27,10 +27,10 @@ public class TestParser {
         var parser = new Parser(lexer);
         var ast = parser.parseExpression(TokenSet.empty(), 0);
         var reference = new BinaryOpExpression(new IntLiteral(123), BinaryOpExpression.BinaryOp.Addition, new IntLiteral(456));
-        assertTrue(reference.syntacticEq(ast));
-    }
+        assertTrue(reference.syntacticEq(ast.expression));
+    }*/
 
-    @Test
+    /*@Test
     public void mulAddExpressionTest() {
         var lexer = mock(Lexer.class);
         when(lexer.nextToken()).thenReturn(
@@ -51,8 +51,8 @@ public class TestParser {
                         new BinaryOpExpression(new IntLiteral(456), BinaryOpExpression.BinaryOp.Multiplication, new IntLiteral(789))),
                 BinaryOpExpression.BinaryOp.Addition,
                 new IntLiteral(385));
-        assertTrue(reference.syntacticEq(ast));
-    }
+        assertTrue(reference.syntacticEq(ast.expression));
+    }*/
 
     @Test
     public void programEmptyClassTest() {
@@ -252,10 +252,17 @@ public class TestParser {
         Lexer lexer = new Lexer("""
                 class MyClass {
                                 
-                    public  ++++ String myField;
+                    public  String myField;
                                 
                     public void test(int i) {
-                        return i + 12;
+                        return ifoo + 12;
+                    }
+                    
+                    public static void main(String[] args) {
+                        int[][][] x = new int[123][][];
+                        x[0] = new MyClass();
+                        this.test(44);
+                        return;
                     }
                 }
                 """);

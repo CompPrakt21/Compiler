@@ -13,7 +13,7 @@ public abstract class AstNode {
     }
 
     public <T> T makeError(boolean isError) {
-        this.isError = isError;
+        this.isError |= isError;
         return (T) this;
     }
 }
