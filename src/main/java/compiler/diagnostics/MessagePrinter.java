@@ -26,7 +26,7 @@ class MessagePrinter {
     }
 
     void println() {
-        this.writer.println();
+        this.writer.print("\n");
     }
 
     void printWhitespace(int length) {

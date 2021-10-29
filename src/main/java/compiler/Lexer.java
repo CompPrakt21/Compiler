@@ -1,6 +1,8 @@
 package compiler;
 
 import java.util.*;
+import java.util.function.BooleanSupplier;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 public class Lexer {
@@ -73,28 +75,35 @@ public class Lexer {
         return actual.equals(expected);
     }
 
+    private record ConsumedString(String text, Span span) { }
+
+    private ConsumedString consumeWhile(BooleanSupplier predicate) {
+        int startPos = currentPos;
+        StringBuilder wordBuilder = new StringBuilder();
+        while (!isEOF() && predicate.getAsBoolean()) {
+            wordBuilder.append(peek());
+            next();
+        }
+        return new ConsumedString(wordBuilder.toString(), new Span(startPos, currentPos-startPos));
+    }
+
     private static boolean isWhitespace(char c) {
         return c == ' ' || c == '\n' || c == '\r' || c == '\t';
     }
 
     private void consumeWhitespace() {
-        while (!isEOF() && isWhitespace(peek())) {
-            next();
-        }
+        consumeWhile(() -> isWhitespace(peek()));
     }
 
     private Optional<Span> consumeComment() {
         if (!expected("/*")) {
             return Optional.empty();
         }
-        int startPos = currentPos;
         next(2);
-        while (!isEOF() && !expected("*/")) {
-            next();
-        }
+        ConsumedString cs = consumeWhile(() -> !expected("*/"));
         // isEOF() = true => no end of comment symbol was found
         if (isEOF()) {
-            return Optional.of(new Span(startPos, currentPos-startPos));
+            return Optional.of(cs.span);
         }
         next(2);
         return Optional.empty();
@@ -121,42 +130,43 @@ public class Lexer {
         return c >= '0' && c <= '9';
     }
 
-    private Optional<Token> consumeAlphanumericWord() {
-        int startPos = currentPos;
-        StringBuilder wordBuilder = new StringBuilder();
-        while (!isEOF()) {
-            char c = peek();
-            if (!isAsciiAlphabetic(c) && !isAsciiNumeric(c) && c != '_') {
-                break;
-            }
-            wordBuilder.append(c);
-            next();
-        }
-        String word = wordBuilder.toString();
+    private Optional<Token> consumeIntLiteral() {
+        ConsumedString cs = consumeWhile(() -> isAsciiNumeric(peek()));
+        String word = cs.text;
+        Span span = cs.span;
         if (word.length() == 0) {
             return Optional.empty();
         }
-        Span span = new Span(startPos, currentPos-startPos);
+        if (!word.equals(("0")) && word.charAt(0) == '0') {
+            return Optional.of(Token.error("0 not allowed at the start of integer literal", span));
+        }
+        Optional<Token> error = Optional.of(Token.error("Integer literal value too large.", span));
+        try {
+            long value = Long.parseLong(word);
+            if (value > -((long) Integer.MIN_VALUE)) {
+                return error;
+            }
+            return Optional.of(Token.intLiteral(value, span));
+        } catch (NumberFormatException e) {
+            // Value too large for long
+            return error;
+        }
+    }
+
+    private Optional<Token> consumeKeywordOrIdent() {
+        ConsumedString cs = consumeWhile(() -> {
+            char c = peek();
+            return isAsciiAlphabetic(c) || isAsciiNumeric(c) || c == '_';
+        });
+        String word = cs.text;
+        Span span = cs.span;
+        if (word.length() == 0) {
+            return Optional.empty();
+        }
         if (KEYWORDS_BY_REPR.containsKey(word)) {
             return Optional.of(Token.keyword(KEYWORDS_BY_REPR.get(word), span));
         }
-        if (word.chars().allMatch(Character::isDigit)) {
-            Optional<Token> error = Optional.of(Token.error("Integer literal value too large.", span));
-            try {
-                long value = Long.parseLong(word);
-                if (value > -((long) Integer.MIN_VALUE)) {
-                    return error;
-                }
-                return Optional.of(Token.intLiteral(value, span));
-            } catch (NumberFormatException e) {
-                // Value too large for long
-                return error;
-            }
-        }
-        if (isAsciiAlphabetic(word.charAt(0)) || word.charAt(0) == '_') {
-            return Optional.of(Token.identifier(word, span));
-        }
-        return Optional.of(Token.error("Invalid identifier name. First character needs to be alphabetic.", span));
+        return Optional.of(Token.identifier(word, span));
     }
 
     private Token consumeOperator() {
@@ -196,11 +206,7 @@ public class Lexer {
         if (isEOF()) {
             return Token.eof(new Span(currentPos, 1));
         }
-        Optional<Token> token = consumeAlphanumericWord();
-        if (token.isPresent()) {
-            return token.get();
-        }
-        return consumeOperator();
+        return consumeIntLiteral().or(this::consumeKeywordOrIdent).orElseGet(this::consumeOperator);
     }
 
     /**
