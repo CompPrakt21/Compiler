@@ -54,7 +54,7 @@ public class TestParser {
         assertTrue(reference.syntacticEq(ast.expression));
     }*/
 
-    @Test
+    /*@Test
     public void programEmptyClassTest() {
         var lexer = mock(Lexer.class);
         when(lexer.nextToken()).thenReturn(
@@ -69,9 +69,9 @@ public class TestParser {
         var ast = parser.parse();
         var reference = new Program(List.of(new Class("name", List.of(), List.of())));
         assertTrue(reference.syntacticEq(ast));
-    }
+    }*/
 
-    @Test
+    /*@Test
     public void classNoIdentTest() {
         var lexer = mock(Lexer.class);
         when(lexer.nextToken()).thenReturn(
@@ -87,9 +87,9 @@ public class TestParser {
         });
         String topmostMethod = error.getStackTrace()[0].getMethodName();
         assertEquals("expectIdent", topmostMethod);
-    }
+    }*/
 
-    @Test
+    /*@Test
     public void fullProgramTest() {
         var lexer = mock(Lexer.class);
         when(lexer.nextToken()).thenReturn(
@@ -245,7 +245,7 @@ public class TestParser {
         ));
 
         assertTrue(reference.syntacticEq(ast));
-    }
+    }*/
 
     @Test
     public void myParserTest() {
