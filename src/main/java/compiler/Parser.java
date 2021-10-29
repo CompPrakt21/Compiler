@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static compiler.Grammar.NonT.*;
 import static compiler.TokenType.*;
@@ -24,12 +25,13 @@ public class Parser {
 
     public Parser(Lexer lexer) {
         this.lexer = lexer;
-        this.token = lexer.nextToken();
+        this.token = lexer.peekToken();
         this.errorMode = false;
         this.successfulParse = true;
     }
 
-    private void pushOnLexer(Token token) {
+    private void addToLexer(Token token) {
+        this.lexer.addSyntheticToken(token);
         this.token = token;
     }
 
@@ -43,7 +45,8 @@ public class Parser {
     private Token assertExpect(TokenType type) {
         assert this.token.type == type;
         var oldToken = this.token;
-        this.token = this.lexer.nextToken();
+        this.lexer.nextToken();
+        this.token = this.lexer.peekToken();
         return oldToken;
     }
 
@@ -71,16 +74,18 @@ public class Parser {
 
         var oldToken = this.token;
         if (consume) {
-            this.token = lexer.nextToken();
+            lexer.nextToken();
+            this.token = lexer.peekToken();
         }
         this.errorMode = false;
         return new ExpectResult(oldToken, error);
     }
 
     private void skipUntilAnchorSet(TokenSet anchors) {
-        while (!anchors.contains(this.token.type)) {
-            this.token = this.lexer.nextToken();
+        while (!anchors.contains(this.lexer.peekToken().type)) {
+            this.lexer.nextToken();
         }
+        this.token = this.lexer.peekToken();
     }
 
     public Program parse() {
@@ -352,7 +357,9 @@ public class Parser {
         var error = expectResult.isError;
 
         Statement result;
-        if (Block.firstContains(token.type)) {
+        if (token.type == Identifier) {
+            result = parseExpressionStatementOrLocalVariableDeclarationStatement(anchors);
+        } else if (Block.firstContains(token.type)) {
             result = parseBlock(anchors);
         } else if (EmptyStatement.firstContains(token.type)) {
             result = parseEmptyStatement(anchors);
@@ -504,41 +511,33 @@ public class Parser {
     }
 
     private Statement parseExpressionStatementOrLocalVariableDeclarationStatement(TokenSet anchors) {
+        var savedIdentifier = assertExpect(Identifier);
 
-        if (token.type == Identifier) {
-            var savedIdentifier = assertExpect(Identifier);
+        // Discard tokens that can not be the second token of an Expression or Type.
+        var expectResult = expectNoConsume(anchors, LeftSquareBracket, Identifier, BINARY_OPERATORS, Dot, LeftParen);
+        var error = expectResult.isError;
 
-            // Discard tokens that can not be the second token of an Expression or Type.
-            var expectResult = expectNoConsume(anchors, LeftSquareBracket, Identifier, BINARY_OPERATORS, Dot, LeftParen);
-            var error = expectResult.isError;
+        if (token.type == LeftSquareBracket) {
+            var savedLeftSquareBracket = assertExpect(LeftSquareBracket);
 
-            if (token.type == LeftSquareBracket) {
-                var savedLeftSquareBracket = assertExpect(LeftSquareBracket);
+            expectResult = expectNoConsume(anchors, anchors, RightSquareBracket, BINARY_OPERATORS, Not, Subtract, Dot, LeftParen, Identifier, New, This, Null, False, True, IntLiteral);
+            error = expectResult.isError;
 
-                expectResult = expectNoConsume(anchors, null);
-                error = expectResult.isError;
-
-                if (token.type == RightSquareBracket) {
-                    pushOnLexer(savedLeftSquareBracket);
-                    pushOnLexer(savedIdentifier);
-                    return parseLocalVariableDeclarationStatement(anchors).makeError(error);
-                } else {
-                    pushOnLexer(savedLeftSquareBracket);
-                    pushOnLexer(savedIdentifier);
-                    return parseExpressionStatement(anchors).makeError(error);
-                }
-            } else if (token.type == Identifier) {
-                pushOnLexer(savedIdentifier)
+            if (token.type == RightSquareBracket) {
+                addToLexer(savedIdentifier);
+                addToLexer(savedLeftSquareBracket);
                 return parseLocalVariableDeclarationStatement(anchors).makeError(error);
             } else {
-                pushOnLexer(savedIdentifier);
+                addToLexer(savedIdentifier);
+                addToLexer(savedLeftSquareBracket);
                 return parseExpressionStatement(anchors).makeError(error);
             }
-        } else if (ExpressionStatement.firstContains(token.type)) {
-            return parseExpressionStatement(anchors);
+        } else if (token.type == Identifier) {
+            addToLexer(savedIdentifier);
+            return parseLocalVariableDeclarationStatement(anchors).makeError(error);
         } else {
-            assert LocalVariableDeclarationStatement.firstContains(token.type);
-            return parseLocalVariableDeclarationStatement(anchors);
+            addToLexer(savedIdentifier);
+            return parseExpressionStatement(anchors).makeError(error);
         }
     }
 
@@ -723,22 +722,20 @@ public class Parser {
 
     private ParseArgumentsResult parseArguments(TokenSet anchors) {
         ArrayList<Expression> arguments = new ArrayList<>();
-        var parentError = false;
+        var error = false;
 
         if (Expression.firstContains(token.type)) {
             var expressionResult = parseExpression(anchors.add(Comma), 0);
-            var error = expressionResult.parentError;
+            error |= expressionResult.parentError;
             var expr = expressionResult.expression;
 
             arguments.add(expr);
 
             var expectResult = expectNoConsume(anchors, Comma, Arguments.follow());
-            parentError = expectResult.isError;
+            error |= expectResult.isError;
 
             while (token.type == Comma) {
                 assertExpect(Comma);
-
-                error |= parentError;
 
                 expressionResult = parseExpression(anchors.add(Comma), 0);
                 error |= expressionResult.parentError;
@@ -747,11 +744,11 @@ public class Parser {
                 arguments.add(expr);
 
                 expectResult = expectNoConsume(anchors, Comma, Arguments.follow());
-                parentError = expectResult.isError;
+                error |= expectResult.isError;
             }
         }
 
-        return new ParseArgumentsResult(arguments, parentError);
+        return new ParseArgumentsResult(arguments, error);
     }
 
     private ParseExpressionResult parsePrimaryExpression(TokenSet anchors) {

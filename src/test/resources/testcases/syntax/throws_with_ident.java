@@ -5,6 +5,6 @@ class Main {
 	}
 
 	public void foo() throws accb {
-		// ...
+		/* ... */
 	}
 }

@@ -36,8 +36,8 @@ public class TestSampleFiles {
             try {
                 String content = Files.readString(file.toPath());
 
-                if (file.getName().equals("method_invocation.java")) {
-                    file.getName();
+                if (file.getName().equals("throws_with_ident.java")) {
+                    file.getName(); // Useful for setting a breakpoint when debugging.
                 }
 
                 boolean expected = content.startsWith(PASSING_TEST_PREFIX);
