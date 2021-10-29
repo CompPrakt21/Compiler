@@ -3,6 +3,7 @@ package compiler.ast;
 import compiler.utils.StreamUtils;
 
 import java.util.List;
+import java.util.Objects;
 
 public class Method extends AstNode {
 
@@ -17,6 +18,8 @@ public class Method extends AstNode {
     private Block body;
 
     public Method(boolean isStatic, String identifier, Type returnType, List<Parameter> parameters, Block body) {
+        this.isError |= identifier == null || returnType == null || parameters.stream().anyMatch(Objects::isNull) || body == null;
+
         this.isStatic = isStatic;
         this.identifier = identifier;
         this.returnType = returnType;

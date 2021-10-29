@@ -4,6 +4,8 @@ public final class ArrayType extends Type {
     private Type childType;
 
     public ArrayType(Type childType) {
+        this.isError |= childType == null;
+
         this.childType = childType;
     }
 

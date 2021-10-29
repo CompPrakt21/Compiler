@@ -10,6 +10,8 @@ public final class UnaryExpression extends Expression {
     private UnaryOp operator;
 
     public UnaryExpression(Expression expression, UnaryOp operator) {
+        this.isError |= expression == null || operator == null;
+
         this.expression = expression;
         this.operator = operator;
     }

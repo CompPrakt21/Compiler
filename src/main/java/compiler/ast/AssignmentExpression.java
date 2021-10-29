@@ -5,6 +5,8 @@ public final class AssignmentExpression extends Expression {
     private Expression rgtExpression;
 
     public AssignmentExpression(Expression lftexpression, Expression rgExpression) {
+        this.isError |= lftexpression == null || rgExpression == null;
+
         this.lftexpression = lftexpression;
         this.rgtExpression = rgExpression;
     }

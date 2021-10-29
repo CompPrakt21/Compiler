@@ -4,6 +4,8 @@ public final class NewObjectExpression extends Expression {
     private String typeIdentifier;
 
     public NewObjectExpression(String typeIdentifier) {
+        this.isError |= typeIdentifier == null;
+
         this.typeIdentifier = typeIdentifier;
     }
 

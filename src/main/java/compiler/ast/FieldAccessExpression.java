@@ -5,6 +5,8 @@ public final class FieldAccessExpression extends Expression {
     private String identifier;
 
     public FieldAccessExpression(Expression target, String identifier) {
+        this.isError |= target == null || identifier == null;
+
         this.target = target;
         this.identifier = identifier;
     }

@@ -4,6 +4,8 @@ public final class ExpressionStatement extends Statement {
     private Expression expression;
 
     public ExpressionStatement(Expression expression) {
+        this.isError |= expression == null;
+
         this.expression = expression;
     }
 

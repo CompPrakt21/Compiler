@@ -3,6 +3,7 @@ package compiler.ast;
 import compiler.utils.StreamUtils;
 
 import java.util.List;
+import java.util.Objects;
 
 public final class Class extends AstNode {
     private String identifier;
@@ -11,6 +12,8 @@ public final class Class extends AstNode {
     private List<Method> methods;
 
     public Class(String identifier, List<Field> fields, List<Method> methods) {
+        this.isError |= identifier == null || fields.stream().anyMatch(Objects::isNull) || methods.stream().anyMatch(Objects::isNull);
+
         this.identifier = identifier;
         this.fields = fields;
         this.methods = methods;

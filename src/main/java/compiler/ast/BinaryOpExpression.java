@@ -22,6 +22,8 @@ public final class BinaryOpExpression extends Expression {
     private Expression rhs;
 
     public BinaryOpExpression(Expression lhs, BinaryOp operator, Expression rhs) {
+        this.isError |= lhs == null || operator == null || rhs == null;
+
         this.lhs = lhs;
         this.operator = operator;
         this.rhs = rhs;

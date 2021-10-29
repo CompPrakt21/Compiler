@@ -5,6 +5,8 @@ public final class ArrayAccessExpression extends Expression {
     private Expression indexExpression;
 
     public ArrayAccessExpression(Expression target, Expression indexExpression) {
+        this.isError |= target == null || indexExpression == null;
+
         this.target = target;
         this.indexExpression = indexExpression;
     }

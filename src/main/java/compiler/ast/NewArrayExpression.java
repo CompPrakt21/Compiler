@@ -7,6 +7,8 @@ public final class NewArrayExpression extends Expression {
     private int dimensions;
 
     public NewArrayExpression(Type type, Expression firstDimensionSize, int dimensions) {
+        this.isError |= type == null || firstDimensionSize == null;
+
         this.type = type;
         this.dimensions = dimensions;
         this.firstDimensionSize = firstDimensionSize;

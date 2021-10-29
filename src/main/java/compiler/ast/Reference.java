@@ -4,6 +4,7 @@ public final class Reference extends Expression {
     private String identifier;
 
     public Reference(String identifier) {
+        this.isError |= identifier == null;
         this.identifier = identifier;
     }
 

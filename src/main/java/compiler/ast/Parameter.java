@@ -5,6 +5,8 @@ public final class Parameter extends AstNode {
     private String identifier;
 
     public Parameter(Type type, String identifier) {
+        this.isError |= type == null || identifier == null;
+
         this.type = type;
         this.identifier = identifier;
     }

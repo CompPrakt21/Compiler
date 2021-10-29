@@ -5,6 +5,8 @@ public final class WhileStatement extends Statement {
     private Statement body;
 
     public WhileStatement(Expression condition, Statement body) {
+        this.isError |= condition == null || body == null;
+
         this.condition = condition;
         this.body = body;
     }

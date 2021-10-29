@@ -2,6 +2,7 @@ package compiler.ast;
 
 import compiler.utils.OptionalUtils;
 
+import java.util.Objects;
 import java.util.Optional;
 
 public final class LocalVariableDeclarationStatement extends Statement {
@@ -12,6 +13,8 @@ public final class LocalVariableDeclarationStatement extends Statement {
     private Optional<Expression> initializer;
 
     public LocalVariableDeclarationStatement(Type type, String identifier, Optional<Expression> initializer) {
+        this.isError |= type == null || identifier == null || initializer.map(Objects::isNull).orElse(false);
+
         this.type = type;
         this.identifier = identifier;
         this.initializer = initializer;

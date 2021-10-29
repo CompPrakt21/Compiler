@@ -2,6 +2,7 @@ package compiler.ast;
 
 import compiler.utils.OptionalUtils;
 
+import java.util.Objects;
 import java.util.Optional;
 
 public final class IfStatement extends Statement {
@@ -10,6 +11,8 @@ public final class IfStatement extends Statement {
     private Optional<Statement> elseBody;
 
     public IfStatement(Expression condition, Statement thenBody, Optional<Statement> elseBody) {
+        this.isError |= condition == null || thenBody == null || elseBody.map(Objects::isNull).orElse(false);
+
         this.condition = condition;
         this.thenBody = thenBody;
         this.elseBody = elseBody;

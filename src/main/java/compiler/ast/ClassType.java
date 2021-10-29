@@ -4,6 +4,8 @@ public final class ClassType extends Type {
     private String identifier;
 
     public ClassType(String identifier) {
+        this.isError |= identifier == null;
+
         this.identifier = identifier;
     }
 

@@ -4,6 +4,7 @@ import compiler.utils.OptionalUtils;
 import compiler.utils.StreamUtils;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 public final class MethodCallExpression extends Expression {
@@ -14,6 +15,8 @@ public final class MethodCallExpression extends Expression {
     private List<Expression> arguments;
 
     public MethodCallExpression(Optional<Expression> target, String identifier, List<Expression> arguments) {
+        this.isError |= target.map(Objects::isNull).orElse(false) || identifier == null || arguments.stream().anyMatch(Objects::isNull);
+
         this.target = target;
         this.identifier = identifier;
         this.arguments = arguments;

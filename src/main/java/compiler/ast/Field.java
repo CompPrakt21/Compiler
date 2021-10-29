@@ -6,6 +6,8 @@ public class Field extends AstNode {
     private Type type;
 
     public Field(String identifier, Type type) {
+        this.isError |= identifier == null || type == null;
+
         this.identifier = identifier;
         this.type = type;
     }
