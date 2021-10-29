@@ -429,7 +429,7 @@ public class Parser {
     }
 
     public void dotWriter(AstNode node) {
-        try(BufferedWriter out=new BufferedWriter(new OutputStreamWriter(new FileOutputStream("g.dot")))){
+        try (BufferedWriter out = new BufferedWriter(new OutputStreamWriter(new FileOutputStream("g.dot")))) {
             out.write("digraph {");
             out.newLine();
             recursiveWriter(out, node);
@@ -439,8 +439,8 @@ public class Parser {
         }
     }
 
-    private String recursiveWriter(BufferedWriter out, AstNode node) throws IOException{
-        if (node.hasError()) {
+    private String recursiveWriter(BufferedWriter out, AstNode node) throws IOException {
+        if (true) {
             return node.getName() + " [color=red]";
         }
         List<AstNode> children = node.getChildren();

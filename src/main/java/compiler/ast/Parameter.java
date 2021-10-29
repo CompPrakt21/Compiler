@@ -3,7 +3,6 @@ package compiler.ast;
 import java.util.ArrayList;
 import java.util.List;
 
-public final class Parameter extends AstNode{
 public final class Parameter extends AstNode {
     private Type type;
     private String identifier;

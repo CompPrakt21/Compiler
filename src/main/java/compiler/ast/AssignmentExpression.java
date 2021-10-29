@@ -26,9 +26,7 @@ public final class AssignmentExpression extends Expression {
     public List<AstNode> getChildren() {
         ArrayList<AstNode> temp = new ArrayList<>();
         temp.add(lftexpression);
-        if (!rgtExpression.isEmpty()) {
-            temp.add(rgtExpression.get());
-        }
+        temp.add(rgtExpression);
         return temp;
     }
 
