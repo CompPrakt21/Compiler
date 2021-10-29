@@ -3,10 +3,14 @@ package compiler.ast;
 import java.util.List;
 
 public final class IntLiteral extends Expression {
-    private long value;
+    private String value;
+
+    public IntLiteral(String value) {
+        this.value = value;
+    }
 
     public IntLiteral(long value) {
-        this.value = value;
+        this(String.valueOf(value));
     }
 
     @Override
@@ -19,7 +23,7 @@ public final class IntLiteral extends Expression {
         return String.valueOf(value);
     }
 
-    public long getValue() {
+    public String getValue() {
         return value;
     }
 
@@ -28,6 +32,6 @@ public final class IntLiteral extends Expression {
         if (!(otherAst instanceof IntLiteral other)) {
             return false;
         }
-        return this.value == other.value;
+        return this.value.equals(other.value);
     }
 }
