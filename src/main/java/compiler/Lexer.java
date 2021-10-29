@@ -131,14 +131,17 @@ public class Lexer {
     }
 
     private Optional<Token> consumeIntLiteral() {
+        // 0x where x is a number [0-9]* is lexed as two literals 0 and x
+        if (peek() == '0') {
+            Optional<Token> t = Optional.of(Token.intLiteral(0, new Span(currentPos, 1)));
+            next();
+            return t;
+        }
         ConsumedString cs = consumeWhile(() -> isAsciiNumeric(peek()));
         String word = cs.text;
         Span span = cs.span;
         if (word.length() == 0) {
             return Optional.empty();
-        }
-        if (!word.equals(("0")) && word.charAt(0) == '0') {
-            return Optional.of(Token.error("0 not allowed at the start of integer literal", span));
         }
         Optional<Token> error = Optional.of(Token.error("Integer literal value too large.", span));
         try {
