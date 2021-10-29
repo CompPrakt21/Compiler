@@ -17,8 +17,14 @@ public class Token {
         return new Token(TokenType.Identifier, new IdentifierContent(name), span);
     }
 
-    public static Token intLiteral(long value, Span span) {
+    public static Token intLiteral(String value, Span span) {
         return new Token(TokenType.IntLiteral, new IntLiteralContent(value), span);
+    }
+
+    // TODO: Remove one of these when we've decided what to do with integer literals
+    // semantically
+    public static Token intLiteral(long value, Span span) {
+        return intLiteral(String.valueOf(value), span);
     }
 
     public static Token error(String errorMessage, Span span) {
@@ -45,9 +51,8 @@ public class Token {
     }
 
     private static final class IntLiteralContent extends Content {
-        // Needs to be long to account for negative integer literals
-        private long content;
-        private IntLiteralContent(long content) { this.content = content; }
+        private String content;
+        private IntLiteralContent(String content) { this.content = content; }
     }
 
     private static final class ErrorContent extends Content {
@@ -63,7 +68,7 @@ public class Token {
         return ((IdentifierContent) this.content).content;
     }
 
-    public long getIntLiteralContent() {
+    public String getIntLiteralContent() {
         assert this.type == TokenType.IntLiteral;
         assert this.content != null;
         assert this.content instanceof IntLiteralContent;

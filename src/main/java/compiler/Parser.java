@@ -777,7 +777,7 @@ public class Parser {
             }
             case IntLiteral -> {
                 var token = assertExpect(IntLiteral);
-                long value = token.getIntLiteralContent();
+                String value = token.getIntLiteralContent();
                 return new ParseExpressionResult(new IntLiteral(value), false);
             }
             case Identifier -> {
@@ -920,7 +920,7 @@ public class Parser {
     }
 
     public void dotWriter(AstNode node) {
-        try (BufferedWriter out = new BufferedWriter(new OutputStreamWriter(new FileOutputStream("g.dot")))) {
+        try (BufferedWriter out = new BufferedWriter(new OutputStreamWriter(new FileOutputStream("astDump.dot")))) {
             out.write("digraph {");
             out.newLine();
             recursiveWriter(out, node);
@@ -931,7 +931,8 @@ public class Parser {
     }
 
     private String recursiveWriter(BufferedWriter out, AstNode node) throws IOException {
-        if (node.isError()) {
+        //TODO: check if error flag is set
+        if (false) {
             return node.getName() + " [color=red]";
         }
         List<AstNode> children = node.getChildren();

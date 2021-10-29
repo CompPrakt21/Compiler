@@ -144,17 +144,7 @@ public class Lexer {
         if (word.length() == 0) {
             return Optional.empty();
         }
-        Optional<Token> error = Optional.of(Token.error("Integer literal value too large.", span));
-        try {
-            long value = Long.parseLong(word);
-            if (value > -((long) Integer.MIN_VALUE)) {
-                return error;
-            }
-            return Optional.of(Token.intLiteral(value, span));
-        } catch (NumberFormatException e) {
-            // Value too large for long
-            return error;
-        }
+        return Optional.of(Token.intLiteral(word, span));
     }
 
     private Optional<Token> consumeKeywordOrIdent() {
