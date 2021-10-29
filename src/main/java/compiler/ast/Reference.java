@@ -12,7 +12,7 @@ public final class Reference extends Expression {
 
     @Override
     public List<AstNode> getChildren() {
-        return List.of();
+        return null;
     }
 
     @Override

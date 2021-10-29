@@ -15,7 +15,7 @@ public final class FieldAccessExpression extends Expression {
 
     @Override
     public List<AstNode> getChildren() {
-        return null;
+        return List.of(target);
     }
 
     @Override

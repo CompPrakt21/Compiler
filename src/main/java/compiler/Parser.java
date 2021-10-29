@@ -2,6 +2,7 @@ package compiler;
 
 import compiler.ast.Class;
 import compiler.ast.*;
+import picocli.CommandLine;
 
 import java.io.BufferedWriter;
 import java.io.FileOutputStream;
@@ -923,28 +924,38 @@ public class Parser {
         try (BufferedWriter out = new BufferedWriter(new OutputStreamWriter(new FileOutputStream("astDump.dot")))) {
             out.write("digraph {");
             out.newLine();
-            recursiveWriter(out, node);
+            recursiveWriter(out, node, "a");
             out.write("}");
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    private String recursiveWriter(BufferedWriter out, AstNode node) throws IOException {
-        //TODO: check if error flag is set
-        if (false) {
-            return node.getName() + " [color=red]";
+    private String recursiveWriter(BufferedWriter out, AstNode node, String runthrough) throws IOException {
+        if (node == null) {
+            String line = runthrough + " [label=NULL color=red]\n";
+            return runthrough;
         }
+        System.out.println(runthrough + " : " + node.getClass() + " \n"+ node.getName() + " \n" + node.getChildren() +"\n");
         List<AstNode> children = node.getChildren();
+
+        String line = runthrough + " [label=" + node.getName();
+        if (node.isError()) {
+            line += " color=red";
+        }
+        line += "]\n";
+
         if (children != null) {
+            int counter = 0;
             for (AstNode child : children) {
-                String line = node.getName() + " -> " + recursiveWriter(out, child);
-                out.write(line);
-                out.newLine();
+                if (child.getClass() == VoidType.class) continue;
+                line += runthrough + " -> " + recursiveWriter(out, child, runthrough + "a" + counter) + "\n";
+                counter++;
             }
         }
-        return node.getName();
+        out.write(line);
+        out.newLine();
+        return runthrough;
     }
-
 
 }

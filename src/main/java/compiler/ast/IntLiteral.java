@@ -20,7 +20,7 @@ public final class IntLiteral extends Expression {
 
     @Override
     public String getName() {
-        return String.valueOf(value);
+        return value;
     }
 
     public String getValue() {
