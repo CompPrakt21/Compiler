@@ -2,7 +2,6 @@ package compiler;
 
 import java.util.*;
 import java.util.function.BooleanSupplier;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 public class Lexer {
@@ -28,6 +27,8 @@ public class Lexer {
         }
     }
 
+    // The parser may sometimes want to add "synthetic" tokens to the lex stream for ease of use.
+    private final ArrayDeque<Token> syntheticTokens = new ArrayDeque<>();
     private final String fileContent;
     private int currentPos = 0;
 
@@ -202,6 +203,9 @@ public class Lexer {
      * @return The next token.
      */
     public Token nextToken() {
+        if (!syntheticTokens.isEmpty()) {
+            return syntheticTokens.removeFirst();
+        }
         Optional<Span> error = consumeCommentsAndWhitespace();
         if (error.isPresent()) {
             return Token.error("Missing closing `*/` for comment.", error.get());
@@ -223,5 +227,9 @@ public class Lexer {
         // i wish all side effects allowed for time travel
         currentPos = startPos;
         return next;
+    }
+
+    public void addSyntheticToken(Token t) {
+        syntheticTokens.add(t);
     }
 }
