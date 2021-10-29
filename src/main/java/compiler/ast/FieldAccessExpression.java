@@ -1,5 +1,7 @@
 package compiler.ast;
 
+import java.util.List;
+
 public final class FieldAccessExpression extends Expression {
     private Expression target;
     private String identifier;
@@ -9,6 +11,16 @@ public final class FieldAccessExpression extends Expression {
 
         this.target = target;
         this.identifier = identifier;
+    }
+
+    @Override
+    public List<AstNode> getChildren() {
+        return null;
+    }
+
+    @Override
+    public String getName() {
+        return identifier;
     }
 
     @Override

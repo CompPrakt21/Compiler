@@ -2,6 +2,7 @@ package compiler.ast;
 
 import compiler.utils.StreamUtils;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -12,6 +13,18 @@ public final class Block extends Statement {
         this.isError |= statements.stream().anyMatch(Objects::isNull);
 
         this.statements = statements;
+    }
+
+    @Override
+    public List<AstNode> getChildren() {
+        ArrayList<AstNode> temp = new ArrayList<>();
+        temp.addAll(statements);
+        return temp;
+    }
+
+    @Override
+    public String getName() {
+        return "Block";
     }
 
     @Override

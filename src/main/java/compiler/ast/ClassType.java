@@ -1,5 +1,7 @@
 package compiler.ast;
 
+import java.util.List;
+
 public final class ClassType extends Type {
     private String identifier;
 
@@ -7,6 +9,16 @@ public final class ClassType extends Type {
         this.isError |= identifier == null;
 
         this.identifier = identifier;
+    }
+
+    @Override
+    public List<AstNode> getChildren() {
+        return null;
+    }
+
+    @Override
+    public String getName() {
+        return identifier;
     }
 
     @Override

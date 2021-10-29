@@ -4,49 +4,42 @@ import picocli.CommandLine;
 
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Parameters;
-import picocli.CommandLine.Option;
+import picocli.CommandLine.Spec;
+import picocli.CommandLine.ParameterException;
+import picocli.CommandLine.Model.CommandSpec;
 
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
-import java.util.Arrays;
 import java.util.concurrent.Callable;
 
 @Command(name = "compiler", mixinStandardHelpOptions = true, version = "compiler 0.1.0",
         description = "MiniJava to x86 compiler")
 public class MainCommand implements Callable<Integer> {
 
-    @Option(names = {"-e", "--echo"}, description = "Echos back the input file.")
-    boolean echo;
+    @Spec
+    CommandSpec spec;
 
-    @Option(names = {"--lextest"}, description = "Outputs lexed tokens for the input file")
-    boolean lextest;
-
-    @Parameters(paramLabel = "FILE", description = "The file to compile.")
-    File file;
-
-    public static int getRandomInt() {
-        return 12; // Randomly selected
-    }
-
-    public Integer callEcho() {
+    @Command(name = "--echo", description = "Echos back the input file.")
+    public Integer callEcho(@Parameters(paramLabel = "FILE", description = "The file to echo.") File file) {
         try {
-            String content = Files.readString(this.file.toPath());
+            String content = Files.readString(file.toPath());
             System.out.print(content);
             return 0;
         } catch (FileNotFoundException | NoSuchFileException e) {
-            System.err.format("ERROR: Can not find file: '%s'\n", this.file.getName());
+            System.err.format("error: Can not find file: '%s'\n", file.getName());
             return -1;
         } catch (IOException e) {
-            System.err.format("ERROR: Can not read file: '%s'\n", this.file.getName());
+            System.err.format("error: Can not read file: '%s'\n", file.getName());
             return -1;
         }
     }
 
-    public Integer callLextest() {
+    @Command(name = "--lextest", description = "Outputs lexed tokens for the input file")
+    public Integer callLextest(@Parameters(paramLabel = "FILE", description = "The file to lxe.") File file) {
         boolean error = false;
         try {
-            String content = Files.readString(this.file.toPath());
+            String content = Files.readString(file.toPath());
             Lexer l = new Lexer(content);
             loop:
             while (true) {
@@ -57,7 +50,7 @@ public class MainCommand implements Callable<Integer> {
                         break loop;
                     }
                     case Error -> {
-                        System.err.println("error:" + t.getErrorContent());
+                        System.err.println("error: " + t.getErrorContent());
                         error = true;
                     }
                     case Identifier -> System.out.println("identifier " + t.getIdentContent());
@@ -65,8 +58,11 @@ public class MainCommand implements Callable<Integer> {
                     default -> System.out.println(t.type.repr);
                 }
             }
+        } catch (FileNotFoundException | NoSuchFileException e) {
+            System.err.format("error: Can not find file: '%s'\n", file.getName());
+            error = true;
         } catch (IOException e) {
-            System.err.format("Error while reading file '%s'.\n", e.getMessage());
+            System.err.format("error: Can not read file: '%s'\n", file.getName());
             error = true;
         }
         return error ? -1 : 0;
@@ -74,24 +70,14 @@ public class MainCommand implements Callable<Integer> {
 
     @Override
     public Integer call() {
-        if (lextest) {
-            return callLextest();
-        }
-        if (echo) {
-            return callEcho();
-        }
-        // Demonstrate Java 17 with Preview features works
-        Object a = 114;
-        String formatted = switch (a) {
-            case Integer i && i > 10 -> String.format("a large Integer %d", i);
-            case Integer i -> String.format("a small Integer %d", i);
-            default -> "something else";
-        };
-        System.out.println("Hello World: " + formatted);
-        return 0;
+        // For now, a subcommand is required.
+        // Once compiling is implemented, that will be the default instead,
+        throw new ParameterException(spec.commandLine(), "Specify a subcommand");
     }
 
     public static void main(String[] args) {
+        // Debug picocli by uncommenting this:
+        // System.setProperty("picocli.trace", "DEBUG");
         int exitCode = new CommandLine(new MainCommand()).execute(args);
         System.exit(exitCode);
     }

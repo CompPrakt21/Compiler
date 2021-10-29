@@ -24,3 +24,10 @@ jobs:
         cache: maven
     - name: Build with Maven
       run: mvn -B verify --file pom.xml
+    - name: Clone testing framework
+      run: git clone --recurse-submodules https://git.scc.kit.edu/IPDSnelting/mjtest.git
+    - name: Run lexer tests
+      working-directory: mjtest
+      run: MJ_RUN="../Compiler/run" ./mjt.py lexer
+    
+        

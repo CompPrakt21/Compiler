@@ -1,5 +1,7 @@
 package compiler.ast;
 
+import java.util.List;
+
 public final class NewObjectExpression extends Expression {
     private String typeIdentifier;
 
@@ -7,6 +9,16 @@ public final class NewObjectExpression extends Expression {
         this.isError |= typeIdentifier == null;
 
         this.typeIdentifier = typeIdentifier;
+    }
+
+    @Override
+    public List<AstNode> getChildren() {
+        return null;
+    }
+
+    @Override
+    public String getName() {
+        return typeIdentifier;
     }
 
     @Override
