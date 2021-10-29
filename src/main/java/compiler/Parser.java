@@ -81,6 +81,7 @@ public class Parser {
 
     private Program parseS(TokenSet anchors) {
 
+        // TODO: don't ignore errors here;
         var expectResult = expectNoConsume(anchors, Program.first());
         var error = expectResult.isError;
         var ast = parseProgram(anchors.add(EOF));
@@ -93,13 +94,12 @@ public class Parser {
 
     private Program parseProgram(TokenSet anchors) {
         var classes = new ArrayList<Class>();
-        boolean error = false;
 
-        this.expectNoConsume(anchors, ClassDeclaration.first(), ClassDeclaration.follow());
+        var expectResult = expectNoConsume(anchors, ClassDeclaration.first(), ClassDeclaration.follow());
+        var error = expectResult.isError;
 
         while (ClassDeclaration.firstContains(token.type)) {
             var ast = parseClassDeclaration(anchors);
-            error |= ast == null;
             classes.add(ast);
 
             this.expectNoConsume(anchors, ClassDeclaration.first(), ClassDeclaration.follow());
@@ -112,17 +112,18 @@ public class Parser {
         var fields = new ArrayList<Field>();
         var methods = new ArrayList<Method>();
 
-        var expectResult = expect(anchors.add(Identifier, LeftCurlyBracket, ClassDeclaration.first(), RightCurlyBracket), TokenType.Class);
+        var expectResult = expect(anchors.add(Identifier, LeftCurlyBracket, ClassDeclaration.first(), RightCurlyBracket), Class);
         var error = expectResult.isError;
 
-        expectResult = expect(anchors.add(LeftCurlyBracket, ClassDeclaration.first(), RightCurlyBracket), TokenType.Identifier);
+        expectResult = expect(anchors.add(LeftCurlyBracket, ClassDeclaration.first(), RightCurlyBracket), Identifier);
         error |= expectResult.isError;
         var identifier = expectResult.isError ? null : expectResult.token.getIdentContent();
 
-        expectResult = expect(anchors.add(ClassDeclaration.first(), RightCurlyBracket), TokenType.LeftCurlyBracket);
+        expectResult = expect(anchors.add(ClassDeclaration.first(), RightCurlyBracket), LeftCurlyBracket);
         error |= expectResult.isError;
 
-        expectNoConsume(anchors, ClassMember.first(), RightCurlyBracket);
+        expectResult = expectNoConsume(anchors, ClassMember.first(), RightCurlyBracket);
+        error |= expectResult.isError;
 
         while (ClassMember.firstContains(token.type)) {
             var ast = parseClassMember(anchors.add(RightCurlyBracket));
@@ -132,7 +133,8 @@ public class Parser {
                 case null, default -> error = true;
             }
 
-            expectNoConsume(anchors, ClassMember.first(), RightCurlyBracket);
+            expectResult = expectNoConsume(anchors, ClassMember.first(), RightCurlyBracket);
+            error |= expectResult.isError;
         }
 
         expectResult = expect(anchors, RightCurlyBracket);
@@ -207,7 +209,6 @@ public class Parser {
                 expectResult = expectNoConsume(anchors.add(Comma, Parameter.first(), RightParen, MethodRest.first(), Block.first()), Parameter.first());
                 error |= expectResult.isError;
                 var parameter = parseParameter(anchors.add(Comma, Parameter.first(), RightParen, MethodRest.first(), Block.first()));
-                error |= parameter == null;
                 parameters.add(parameter);
             }
 
@@ -217,7 +218,6 @@ public class Parser {
             while (token.type == Comma) {
                 assertExpect(Comma);
                 var parameter = parseParameter(anchors.add(Comma, Parameter.first(), RightParen, MethodRest.first(), Block.first()));
-                error |= parameter == null;
                 parameters.add(parameter);
 
                 expectResult = expectNoConsume(anchors.add(RightParen, MethodRest.first(), Block.first()), Comma, RightParen);
@@ -292,7 +292,7 @@ public class Parser {
                 return new IntType();
             }
             case Boolean -> {
-                assertExpect(Int);
+                assertExpect(Boolean);
                 return new BoolType();
             }
             case Void -> {
@@ -312,7 +312,7 @@ public class Parser {
     private Block parseBlock(TokenSet anchors) {
         var statements = new ArrayList<Statement>();
 
-        var expectResult = expect(anchors.add(BlockStatement.first(), RightCurlyBracket), TokenType.LeftCurlyBracket);
+        var expectResult = expect(anchors.add(BlockStatement.first(), RightCurlyBracket), LeftCurlyBracket);
         var error = expectResult.isError;
 
         expectResult = expectNoConsume(anchors, BlockStatement.first(), RightCurlyBracket);
@@ -320,7 +320,6 @@ public class Parser {
 
         while (BlockStatement.firstContains(token.type)) {
             var ast = parseStatement(anchors.add(BlockStatement.first(), RightCurlyBracket));
-            error |= ast == null;
             statements.add(ast);
 
             expectResult = expectNoConsume(anchors, BlockStatement.first(), RightCurlyBracket);
@@ -619,7 +618,7 @@ public class Parser {
 
             return new ParseExpressionResult(expr, parentError);
         }
-        return null;
+        return new ParseExpressionResult(null, true);
     }
 
     private ParseExpressionResult parsePostfixExpression(TokenSet anchors) {
@@ -687,7 +686,6 @@ public class Parser {
             var error = expressionResult.parentError;
             var expr = expressionResult.expression;
 
-            error |= expr == null;
             arguments.add(expr);
 
             var expectResult = expectNoConsume(anchors, Comma, Arguments.follow());
@@ -702,7 +700,6 @@ public class Parser {
                 error |= expressionResult.parentError;
                 expr = expressionResult.expression;
 
-                error |= expr == null;
                 arguments.add(expr);
 
                 expectResult = expectNoConsume(anchors, Comma, Arguments.follow());

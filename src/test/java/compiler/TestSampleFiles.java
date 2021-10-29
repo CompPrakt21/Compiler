@@ -14,29 +14,38 @@ import static org.junit.jupiter.api.Assertions.*;
 
 public class TestSampleFiles {
 
-    private static final File TEST_DIR = new File("src/test/resources/testcases");
-    private static final String PASSING_TEST_PREFIX = "// OK";
+    private static final File SYNTAX_TEST_DIR = new File("src/test/resources/testcases/syntax");
+    private static final File SEMANTIC_TEST_DIR = new File("src/test/resources/testcases/semantic");
+    private static final String PASSING_TEST_PREFIX = "/* OK";
 
     // TODO: This represents the frontend input, replace it once that is available.
     public boolean doesThisCompile(String content) {
-        //System.out.println(content);
-        return true;
+        var parser = new Parser(new Lexer(content));
+
+        parser.parse();
+
+        return parser.successfulParse;
     }
 
     @TestFactory
-    public Stream<DynamicTest> generateTests() {
-        var testFiles = TEST_DIR.listFiles();
-        assertNotNull(testFiles, "No test files found");
+    public Stream<DynamicTest> generateSyntaxTests() {
+        var syntaxTestFiles = SYNTAX_TEST_DIR.listFiles();
+        assertNotNull(syntaxTestFiles, "No test files found");
 
-        return Arrays.stream(testFiles).map((file -> {
+        return Arrays.stream(syntaxTestFiles).map((file -> {
             try {
                 String content = Files.readString(file.toPath());
+
+                if (file.getName().equals("method_invocation.java")) {
+                    file.getName();
+                }
+
                 boolean expected = content.startsWith(PASSING_TEST_PREFIX);
 
                 return DynamicTest.dynamicTest(file.getName(), () -> {
                     boolean compiles = doesThisCompile(content);
                     // TODO: Enable this once testing should start
-                    //assertEquals(compiles, expected);
+                    assertEquals(expected, compiles);
                 });
             } catch (IOException e) {
                 fail(e);
