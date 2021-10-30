@@ -2,6 +2,7 @@ package compiler.ast;
 
 import java.util.ArrayList;
 import java.util.List;
+
 import compiler.utils.OptionalUtils;
 
 import java.util.Objects;
@@ -25,7 +26,7 @@ public final class IfStatement extends Statement {
         ArrayList<AstNode> temp = new ArrayList<>();
         temp.add(condition);
         temp.add(thenBody);
-        temp.add(elseBody.get());
+        elseBody.ifPresent(temp::add);
 
         return temp;
     }

@@ -33,7 +33,7 @@ public class Parser {
 
     private void addToLexer(Token token) {
         this.lexer.addSyntheticToken(token);
-        this.token = token;
+        this.token = this.lexer.peekToken();
     }
 
     private record ExpectResult(Token token, boolean isError) {
@@ -378,7 +378,11 @@ public class Parser {
             return null;
         }
 
-        return result.makeError(error);
+        if (result != null) {
+            result = result.makeError(error);
+        }
+
+        return result;
     }
 
     private EmptyStatement parseEmptyStatement(TokenSet anchors) {
@@ -415,7 +419,7 @@ public class Parser {
 
             expectResult = expectNoConsume(anchors, Statement.first());
             error |= expectResult.isError;
-            elseStatement = Optional.of(parseStatement(anchors));
+            elseStatement = Optional.ofNullable(parseStatement(anchors));
         }
 
         return new IfStatement(condition, thenStatement, elseStatement).makeError(error);
@@ -469,7 +473,7 @@ public class Parser {
             error |= expectResult.isError;
             var expr = expressionResult.expression;
 
-            expression = Optional.of(expr);
+            expression = Optional.ofNullable(expr);
         }
 
         expectResult = expect(anchors, SemiColon);
@@ -502,7 +506,7 @@ public class Parser {
             error |= expressionResult.parentError;
             var expression = expressionResult.expression;
 
-            initializer = Optional.of(expression);
+            initializer = Optional.ofNullable(expression);
         }
 
         expectResult = expect(anchors, SemiColon);
@@ -537,18 +541,35 @@ public class Parser {
             if (token.type == RightSquareBracket) {
                 addToLexer(savedIdentifier);
                 addToLexer(savedLeftSquareBracket);
-                return parseLocalVariableDeclarationStatement(anchors).makeError(error);
+
+                Statement statement = parseLocalVariableDeclarationStatement(anchors).makeError(error);
+                if (statement != null) {
+                    statement.makeError(error);
+                }
+                return statement;
             } else {
                 addToLexer(savedIdentifier);
                 addToLexer(savedLeftSquareBracket);
-                return parseExpressionStatement(anchors).makeError(error);
+                Statement statement = parseExpressionStatement(anchors).makeError(error);
+                if (statement != null) {
+                    statement.makeError(error);
+                }
+                return statement;
             }
         } else if (token.type == Identifier) {
             addToLexer(savedIdentifier);
-            return parseLocalVariableDeclarationStatement(anchors).makeError(error);
+            Statement statement = parseLocalVariableDeclarationStatement(anchors);
+            if (statement != null) {
+                statement.makeError(error);
+            }
+            return statement;
         } else {
             addToLexer(savedIdentifier);
-            return parseExpressionStatement(anchors).makeError(error);
+            Statement statement = parseExpressionStatement(anchors).makeError(error);
+            if (statement != null) {
+                statement.makeError(error);
+            }
+            return statement;
         }
     }
 
@@ -703,7 +724,7 @@ public class Parser {
                     expectResult = expect(anchors, RightParen);
                     error |= expectResult.isError;
 
-                    expression = new MethodCallExpression(Optional.of(expression), ident, arguments.result).makeError(error);
+                    expression = new MethodCallExpression(Optional.ofNullable(expression), ident, arguments.result).makeError(error);
                 } else {
                     expression = new FieldAccessExpression(expression, ident).makeError(error);
                 }
@@ -782,8 +803,8 @@ public class Parser {
                 return new ParseExpressionResult(new IntLiteral(value), false);
             }
             case Identifier -> {
-                var token = assertExpect(Identifier);
-                String ident = token.getIdentContent();
+                var identToken = assertExpect(Identifier);
+                String ident = identToken.getIdentContent();
 
                 var expectResult = expectNoConsume(anchors, LeftParen, PrimaryExpression.follow());
                 var error = expectResult.isError;
@@ -797,7 +818,8 @@ public class Parser {
                     expectResult = expect(anchors, RightParen);
                     error |= expectResult.isError;
 
-                    return new MethodCallExpression(Optional.empty(), ident, arguments.result).makeError(error);
+                    Expression expression = new MethodCallExpression(Optional.empty(), ident, arguments.result).makeError(error);
+                    return new ParseExpressionResult(expression, false);
                 }
 
                 return new ParseExpressionResult(new Reference(ident), error);
@@ -815,7 +837,11 @@ public class Parser {
                 var expectResult = expect(anchors, RightParen);
                 error |= expectResult.isError;
 
-                expression = expression.makeError(error);
+                expression = expression;
+
+                if (expression != null) {
+                    expression.makeError(error);
+                }
 
                 return new ParseExpressionResult(expression, false);
             }
@@ -827,7 +853,11 @@ public class Parser {
 
                 var expressionResult = parseNewObjectOrArrayExpression(anchors);
                 var parentError = expressionResult.parentError;
-                Expression expression = expressionResult.expression.makeError(error);
+                Expression expression = expressionResult.expression;
+
+                if (expression != null) {
+                    expression.makeError(error);
+                }
 
                 return new ParseExpressionResult(expression, parentError);
             }
@@ -865,12 +895,16 @@ public class Parser {
                     var expressionResult = parseNewArrayExpression(anchors, type);
                     var parentError = expressionResult.parentError;
 
-                    Expression expression = expressionResult.expression.makeError(error);
+                    Expression expression = expressionResult.expression;
+
+                    if (expression != null) {
+                        expression.makeError(error);
+                    }
 
                     return new ParseExpressionResult(expression, parentError);
                 }
                 default -> {
-                    return new ParseExpressionResult(null, true);
+                    return new ParseExpressionResult(new NewObjectExpression(identToken.getIdentContent()).makeError(true), true);
                 }
             }
 
@@ -938,7 +972,8 @@ public class Parser {
         }
         List<AstNode> children = node.getChildren();
 
-        String line = runthrough + " [label=" + node.getName();
+        String line = runthrough + " [label=\"" + node.getClass().getSimpleName() + "\n" + node.getName() + "\"";
+
         if (node.isError()) {
             line += " color=red";
         }

@@ -68,6 +68,26 @@ public class MainCommand implements Callable<Integer> {
         return error ? -1 : 0;
     }
 
+    @Command(name = "--dump-dot-ast", description = "Generates a dot file with the ast.")
+    public Integer callDumpAst(@Parameters(paramLabel = "FILE", description = "The file to parse.") File file) {
+        boolean error = false;
+
+        try {
+            String content = Files.readString(file.toPath());
+            var parser = new Parser(new Lexer(content));
+            var ast = parser.parse();
+            parser.dotWriter(ast);
+        } catch (FileNotFoundException | NoSuchFileException e) {
+            System.err.format("error: Can not find file: '%s'\n", file.getName());
+            error = true;
+        } catch (IOException e) {
+            System.err.format("error: Can not read file: '%s'\n", file.getName());
+            error = true;
+        }
+
+        return error ? -1 : 0;
+    }
+
     @Override
     public Integer call() {
         // For now, a subcommand is required.

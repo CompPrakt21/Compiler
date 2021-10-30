@@ -1,7 +1,7 @@
 /* Method invocation is missing parentheses */
 
 class Foo {
-	int i;
+	public int i;
 
 	public void bar() {
 	}

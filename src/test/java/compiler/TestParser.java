@@ -250,7 +250,7 @@ public class TestParser {
     @Test
     public void myParserTest() {
         Lexer lexer = new Lexer("""
-                class MyClass {
+                /*class MyClass {
                                 
                     public  String myField;
                                 
@@ -264,11 +264,18 @@ public class TestParser {
                         this.test(44);
                         return;
                     }
+                }*/
+                                
+                class Main {
+                    public static void main(String[] foo) {
+                        while if else 
+                    }
                 }
                 """);
 
         Parser parser = new Parser(lexer);
 
         var ast = parser.parse();
+        parser.dotWriter(ast);
     }
 }

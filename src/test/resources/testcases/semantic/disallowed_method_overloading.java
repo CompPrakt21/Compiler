@@ -1,7 +1,7 @@
 /* Method overloading is not allowed */
 
 class Foo {
-	int i;
+	public int i;
 
 	public void bar() {
 

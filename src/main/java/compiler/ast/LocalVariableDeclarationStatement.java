@@ -2,6 +2,7 @@ package compiler.ast;
 
 import java.util.ArrayList;
 import java.util.List;
+
 import compiler.utils.OptionalUtils;
 
 import java.util.Objects;
@@ -18,7 +19,7 @@ public final class LocalVariableDeclarationStatement extends Statement {
     public List<AstNode> getChildren() {
         ArrayList<AstNode> temp = new ArrayList<>();
         temp.add(type);
-        temp.add(initializer.get());
+        initializer.ifPresent(temp::add);
         return temp;
     }
 
@@ -26,6 +27,7 @@ public final class LocalVariableDeclarationStatement extends Statement {
     public String getName() {
         return identifier;
     }
+
     public LocalVariableDeclarationStatement(Type type, String identifier, Optional<Expression> initializer) {
         this.isError |= type == null || identifier == null || initializer.map(Objects::isNull).orElse(false);
 

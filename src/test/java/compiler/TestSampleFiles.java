@@ -32,21 +32,47 @@ public class TestSampleFiles {
         var syntaxTestFiles = SYNTAX_TEST_DIR.listFiles();
         assertNotNull(syntaxTestFiles, "No test files found");
 
-        return Arrays.stream(syntaxTestFiles).filter(file -> !file.getName().equals("local_variable_statement_after_if.java")).map((file -> {
-            try {
-                String content = Files.readString(file.toPath());
+        return Arrays.stream(syntaxTestFiles)
+                .filter(file -> !file.getName().equals("local_variable_statement_after_if.java"))
+                .filter(file -> file.getName().equals("simple_method_call.java"))
+                .map((file -> {
+                    try {
+                        String content = Files.readString(file.toPath());
 
-                boolean expected = content.startsWith(PASSING_TEST_PREFIX);
+                        boolean expected = content.startsWith(PASSING_TEST_PREFIX);
 
-                return DynamicTest.dynamicTest(file.getName(), () -> {
-                    boolean compiles = doesThisCompile(content);
-                    assertEquals(expected, compiles);
-                });
-            } catch (IOException e) {
-                fail(e);
-                return null;
-            }
-        }));
+                        return DynamicTest.dynamicTest(file.getName(), () -> {
+                            boolean compiles = doesThisCompile(content);
+                            assertEquals(expected, compiles);
+                        });
+                    } catch (IOException e) {
+                        fail(e);
+                        return null;
+                    }
+                }));
+    }
+
+    @TestFactory
+    public Stream<DynamicTest> generateSyntaxTestForSemantic() {
+        var syntaxTestFiles = SEMANTIC_TEST_DIR.listFiles();
+        assertNotNull(syntaxTestFiles, "No test files found");
+
+        return Arrays.stream(syntaxTestFiles)
+                .map((file -> {
+                    try {
+                        String content = Files.readString(file.toPath());
+
+                        boolean expected = true;
+
+                        return DynamicTest.dynamicTest(file.getName(), () -> {
+                            boolean compiles = doesThisCompile(content);
+                            assertEquals(expected, compiles);
+                        });
+                    } catch (IOException e) {
+                        fail(e);
+                        return null;
+                    }
+                }));
     }
 
 }

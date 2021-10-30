@@ -1,6 +1,7 @@
 package compiler.ast;
 
 import java.util.ArrayList;
+
 import compiler.utils.OptionalUtils;
 import compiler.utils.StreamUtils;
 
@@ -26,6 +27,7 @@ public final class MethodCallExpression extends Expression {
     @Override
     public List<AstNode> getChildren() {
         ArrayList<AstNode> temp = new ArrayList<>();
+        target.ifPresent(temp::add);
         temp.addAll(arguments);
         return temp;
     }

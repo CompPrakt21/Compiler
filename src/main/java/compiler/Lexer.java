@@ -13,6 +13,7 @@ public class Lexer {
     // First by length, and then for each length by the concrete string repr.
     // This index allows for quickly matching the longest operator.
     private static final List<Map<String, TokenType>> INDEXED_OPERATORS;
+
     static {
         Map<Integer, Map<String, TokenType>> operatorsByLength = TokenType.OPERATORS.stream()
                 .collect(Collectors.groupingBy(o -> o.repr.length(),
@@ -54,7 +55,7 @@ public class Lexer {
 
     private String lookahead(int n) {
         StringBuilder result = new StringBuilder();
-        for (int i = currentPos; i < currentPos+n; i++) {
+        for (int i = currentPos; i < currentPos + n; i++) {
             if (isEOFAt(i)) {
                 return result.toString();
             }
@@ -76,7 +77,8 @@ public class Lexer {
         return actual.equals(expected);
     }
 
-    private record ConsumedString(String text, Span span) { }
+    private record ConsumedString(String text, Span span) {
+    }
 
     private ConsumedString consumeWhile(BooleanSupplier predicate) {
         int startPos = currentPos;
@@ -85,7 +87,7 @@ public class Lexer {
             wordBuilder.append(peek());
             next();
         }
-        return new ConsumedString(wordBuilder.toString(), new Span(startPos, currentPos-startPos));
+        return new ConsumedString(wordBuilder.toString(), new Span(startPos, currentPos - startPos));
     }
 
     private static boolean isWhitespace(char c) {
@@ -173,7 +175,7 @@ public class Lexer {
         // first character.
         // If we were to extend the language with more operators, this part of the lexer
         // might need adjustment.
-        for (int i = INDEXED_OPERATORS.size()-1; i >= 0; i--) {
+        for (int i = INDEXED_OPERATORS.size() - 1; i >= 0; i--) {
             Map<String, TokenType> ops = INDEXED_OPERATORS.get(i);
             String code = lookahead(i);
             if (ops.containsKey(code)) {
@@ -212,11 +214,15 @@ public class Lexer {
      * @return The next token.
      */
     public Token peekToken() {
-        int startPos = currentPos;
-        Token next = nextToken();
-        // i wish all side effects allowed for time travel
-        currentPos = startPos;
-        return next;
+        if (this.syntheticTokens.isEmpty()) {
+            int startPos = currentPos;
+            Token next = nextToken();
+            // i wish all side effects allowed for time travel
+            currentPos = startPos;
+            return next;
+        } else {
+            return this.syntheticTokens.getFirst();
+        }
     }
 
     public void addSyntheticToken(Token t) {
