@@ -4,10 +4,7 @@ import compiler.ast.Class;
 import compiler.ast.*;
 import compiler.diagnostics.CompilerMessage;
 import compiler.diagnostics.CompilerMessageReporter;
-import compiler.errors.EmptyFileWarning;
-import compiler.errors.InvalidLocalVariableDeclarationError;
-import compiler.errors.StaticFieldError;
-import compiler.errors.UnexpectedTokenError;
+import compiler.errors.*;
 
 import java.io.BufferedWriter;
 import java.io.FileOutputStream;
@@ -939,11 +936,22 @@ public class Parser {
                 case LeftParen -> {
                     var openParen = assertExpect(LeftParen);
 
+                    var argumentResult = parseArguments(anchors.add(RightParen));
+                    error |= argumentResult.error;
+
                     expectResult = expect(anchors, RightParen);
                     var closeParen = expectResult.token;
                     error |= expectResult.isError;
 
-                    Expression expression = new NewObjectExpression(newToken, identToken, openParen, closeParen).makeError(error);
+                    Expression expression = new NewObjectExpression(newToken, identToken, openParen, closeParen);
+
+                    if (argumentResult.result.size() > 0) {
+                        reportError(new NewObjectWithArgumentsError(expression, argumentResult.result));
+                        error = true;
+                    }
+
+                    expression.makeError(error);
+
                     return new ParseExpressionResult(expression, false);
                 }
                 case LeftSquareBracket -> {
@@ -1003,9 +1011,21 @@ public class Parser {
 
             error |= parentError;
 
-            expectResult = expect(anchors.add(LeftSquareBracket), RightSquareBracket);
+            // Expressions are not allowed here, but a user might write them anyway.
+            expectResult = expectNoConsume(anchors.add(LeftSquareBracket, NewArrayExpression.follow()), RightSquareBracket, Expression.first());
+            error |= expectResult.isError;
+
+            if (Expression.firstContains(token.type)) {
+                var expressionStartToken = token;
+                expressionResult = parseExpression(anchors.add(RightSquareBracket, LeftSquareBracket, NewArrayExpression.follow()), 0);
+
+                reportError(new NewArrayExpressionWithDisallowedExpressions(expressionResult.expression, expressionStartToken));
+            }
+
+            expectResult = expect(anchors.add(LeftSquareBracket, NewArrayExpression.follow()), RightSquareBracket);
             error |= expectResult.isError;
             dimensions++;
+
 
             expectResult = expectNoConsume(anchors, LeftSquareBracket, NewArrayExpression.follow());
             lastBracket = expectResult.token != null ? expectResult.token : lastBracket;
