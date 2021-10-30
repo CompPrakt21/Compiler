@@ -19,7 +19,7 @@ public sealed class CompilerMessage
     record Annotation(Span location, Optional<String> message, AnnotationType annotationType) {
     }
 
-    private final String message;
+    private String message;
 
     private final List<String> notes;
 
@@ -32,6 +32,10 @@ public sealed class CompilerMessage
         this.notes = new ArrayList<>();
         this.annotations = new ArrayList<>();
         this.style = style;
+    }
+
+    public void setMessage(String message) {
+        this.message = message;
     }
 
     public void addNote(String note) {
@@ -127,7 +131,7 @@ public sealed class CompilerMessage
 
     private final static class ActiveMultilineAnnotation extends ActiveAnnotation implements Cloneable {
         int column;
-        Optional<String> message; // TODO remove and extract from origin.
+        Optional<String> message;
         DisplayList.MultiLineAnnotation.MultiLineType multiLineType;
 
         public ActiveMultilineAnnotation(
@@ -239,6 +243,10 @@ public sealed class CompilerMessage
     }
 
     private void generateSourceLines(Source source, List<DisplayList.DisplayLine> result) {
+        if (this.annotations.isEmpty()) {
+            return;
+        }
+
         int firstStart = this.annotations.stream()
                 .map((Annotation a) -> a.location.start())
                 .min(Integer::compare)

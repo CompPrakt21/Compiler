@@ -33,7 +33,6 @@ public class TestSampleFiles {
         assertNotNull(syntaxTestFiles, "No test files found");
 
         return Arrays.stream(syntaxTestFiles)
-                .filter(file -> !file.getName().equals("local_variable_statement_after_if.java"))
                 .map((file -> {
                     try {
                         String content = Files.readString(file.toPath());

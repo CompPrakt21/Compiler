@@ -4,6 +4,7 @@ import compiler.ast.Class;
 import compiler.ast.*;
 import compiler.diagnostics.CompilerMessage;
 import compiler.diagnostics.CompilerMessageReporter;
+import compiler.errors.EmptyFileWarning;
 import compiler.errors.InvalidLocalVariableDeclarationError;
 import compiler.errors.StaticFieldError;
 import compiler.errors.UnexpectedTokenError;
@@ -24,7 +25,7 @@ public class Parser {
     private Token token;
     private boolean errorMode;
     public boolean successfulParse;
-    private Optional<CompilerMessageReporter> reporter;
+    private final Optional<CompilerMessageReporter> reporter;
 
     public Parser(Lexer lexer) {
         this.lexer = lexer;
@@ -45,9 +46,7 @@ public class Parser {
     private void reportError(CompilerMessage error) {
         this.successfulParse = false;
 
-        if (this.reporter.isPresent()) {
-            this.reporter.get().reportMessage(error);
-        }
+        this.reporter.ifPresent(compilerMessageReporter -> compilerMessageReporter.reportMessage(error));
     }
 
     private void addToLexer(Token token) {
@@ -115,13 +114,18 @@ public class Parser {
 
     private Program parseS(TokenSet anchors) {
 
-        // TODO: don't ignore errors here;
-        var expectResult = expectNoConsume(anchors, Program.first());
-        var error = expectResult.isError;
-        var ast = parseProgram(anchors.add(EOF));
+        var expectResult = expectNoConsume(anchors, Program.first(), EOF);
 
-        expectResult = expect(anchors, EOF);
-        error |= expectResult.isError;
+        Program ast;
+
+        if (!expectResult.isError && token.type == EOF) {
+            reportError(new EmptyFileWarning());
+            ast = new Program(List.of());
+        } else {
+            ast = parseProgram(anchors.add(EOF));
+        }
+
+        expect(anchors, EOF);
 
         return ast;
     }
@@ -216,6 +220,7 @@ public class Parser {
 
                 if (staticToken.isPresent()) {
                     reportError(new StaticFieldError(staticToken.get()));
+                    error = true;
                 }
 
                 return new Field(publicToken, type, identToken, semicolonToken).makeError(error);
@@ -236,6 +241,7 @@ public class Parser {
             case null, default -> {
                 if (staticToken.isPresent()) {
                     reportError(new StaticFieldError(staticToken.get()));
+                    error = true;
                 }
 
                 return new Field(publicToken, type, identToken, null).makeError(error);
@@ -458,6 +464,7 @@ public class Parser {
 
         if (thenStatement != null && thenStatement instanceof LocalVariableDeclarationStatement) {
             reportError(new InvalidLocalVariableDeclarationError(thenStatement));
+            error = true;
         }
 
         Optional<Statement> elseStatement = Optional.empty();
@@ -473,6 +480,7 @@ public class Parser {
 
             if (elseStmt != null && elseStmt instanceof LocalVariableDeclarationStatement) {
                 reportError(new InvalidLocalVariableDeclarationError(elseStmt));
+                error = true;
             }
 
             elseStatement = Optional.ofNullable(elseStmt);
@@ -518,6 +526,7 @@ public class Parser {
 
         if (body != null && body instanceof LocalVariableDeclarationStatement) {
             reportError(new InvalidLocalVariableDeclarationError(body));
+            error = true;
         }
 
         return new WhileStatement(whileToken, openParen, condition, closeParen, body).makeError(error);

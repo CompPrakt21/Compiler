@@ -184,7 +184,7 @@ public class Lexer {
                 return result;
             }
         }
-        Token err = Token.error("Invalid symbol.", new Span(currentPos, 1));
+        Token err = Token.error(this.fileContent.substring(currentPos, currentPos + 1), new Span(currentPos, 1));
         next();
         return err;
     }

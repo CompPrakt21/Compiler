@@ -250,28 +250,21 @@ public class TestParser {
     @Test
     public void myParserTest() {
         Lexer lexer = new Lexer("""
-                /*class MyClass {
-                                
-                    public  String myField;
-                                
-                    public void test(int i) {
-                        return ifoo + 12;
-                    }
-                    
-                    public static void main(String[] args) {
-                        int[][][] x = new int[123][][];
-                        x[0] = new MyClass();
-                        this.test(44);
-                        return;
-                    }
-                }*/
-                                
                 class Main {
-                    public static void main(String[] foo) {
-                        while if else 
-                    }
+                	public static void main (String[] args) {
+                		System.out.println(args[0]);
+                	}
+
+                	public static int y
+
+                	public int fib (int i, boolean b) {
+                		if (i == 0) { int x = 123; } else boolean b = d;
+
+                		while (true) s;
+                	}
                 }
-                """);
+
+                                """);
 
         Parser parser = new Parser(lexer);
 
