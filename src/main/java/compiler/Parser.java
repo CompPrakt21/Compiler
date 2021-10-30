@@ -2,8 +2,11 @@ package compiler;
 
 import compiler.ast.Class;
 import compiler.ast.*;
+import compiler.diagnostics.CompilerMessage;
 import compiler.diagnostics.CompilerMessageReporter;
-import picocli.CommandLine;
+import compiler.errors.InvalidLocalVariableDeclarationError;
+import compiler.errors.StaticFieldError;
+import compiler.errors.UnexpectedTokenError;
 
 import java.io.BufferedWriter;
 import java.io.FileOutputStream;
@@ -39,6 +42,14 @@ public class Parser {
         this.reporter = Optional.of(reporter);
     }
 
+    private void reportError(CompilerMessage error) {
+        this.successfulParse = false;
+
+        if (this.reporter.isPresent()) {
+            this.reporter.get().reportMessage(error);
+        }
+    }
+
     private void addToLexer(Token token) {
         this.lexer.addSyntheticToken(token);
         this.token = this.lexer.peekToken();
@@ -71,7 +82,7 @@ public class Parser {
             this.successfulParse = false;
 
             if (!this.errorMode) {
-                this.reporter.ifPresent(compilerMessageReporter -> compilerMessageReporter.reportMessage(new ParserError(this.token, type)));
+                this.reporter.ifPresent(compilerMessageReporter -> compilerMessageReporter.reportMessage(new UnexpectedTokenError(this.token, type)));
             }
 
             this.errorMode = true;
@@ -151,7 +162,7 @@ public class Parser {
         error |= expectResult.isError;
 
         while (ClassMember.firstContains(token.type)) {
-            var ast = parseClassMember(anchors.add(RightCurlyBracket));
+            var ast = parseClassMember(anchors.add(RightCurlyBracket, ClassMember.first()));
             switch (ast) {
                 case Field field -> fields.add(field);
                 case Method method -> methods.add(method);
@@ -201,9 +212,13 @@ public class Parser {
 
         switch (token.type) {
             case SemiColon -> {
-                assertExpect(SemiColon);
-                // TODO: if isStatic true report error;
-                return new Field(publicToken, type, identToken).makeError(error);
+                var semicolonToken = assertExpect(SemiColon);
+
+                if (staticToken.isPresent()) {
+                    reportError(new StaticFieldError(staticToken.get()));
+                }
+
+                return new Field(publicToken, type, identToken, semicolonToken).makeError(error);
             }
             case LeftParen -> {
                 assertExpect(LeftParen);
@@ -219,7 +234,11 @@ public class Parser {
                 return method;
             }
             case null, default -> {
-                return null;
+                if (staticToken.isPresent()) {
+                    reportError(new StaticFieldError(staticToken.get()));
+                }
+
+                return new Field(publicToken, type, identToken, null).makeError(error);
             }
         }
     }
@@ -437,6 +456,10 @@ public class Parser {
         error |= expectResult.isError;
         var thenStatement = parseStatement(anchors.add(Else));
 
+        if (thenStatement != null && thenStatement instanceof LocalVariableDeclarationStatement) {
+            reportError(new InvalidLocalVariableDeclarationError(thenStatement));
+        }
+
         Optional<Statement> elseStatement = Optional.empty();
 
         expectNoConsume(anchors, Else, IfStatement.follow());
@@ -446,7 +469,13 @@ public class Parser {
 
             expectResult = expectNoConsume(anchors, Statement.first());
             error |= expectResult.isError;
-            elseStatement = Optional.ofNullable(parseStatement(anchors));
+            var elseStmt = parseStatement(anchors);
+
+            if (elseStmt != null && elseStmt instanceof LocalVariableDeclarationStatement) {
+                reportError(new InvalidLocalVariableDeclarationError(elseStmt));
+            }
+
+            elseStatement = Optional.ofNullable(elseStmt);
         }
 
         return new IfStatement(ifToken, openParen, condition, closeParen, thenStatement, elseStatement).makeError(error);
@@ -486,6 +515,10 @@ public class Parser {
         expectResult = expectNoConsume(anchors, Statement.first());
         error |= expectResult.isError;
         var body = parseStatement(anchors);
+
+        if (body != null && body instanceof LocalVariableDeclarationStatement) {
+            reportError(new InvalidLocalVariableDeclarationError(body));
+        }
 
         return new WhileStatement(whileToken, openParen, condition, closeParen, body).makeError(error);
     }

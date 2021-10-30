@@ -1,11 +1,14 @@
-package compiler;
+package compiler.errors;
 
+import compiler.Token;
+import compiler.TokenSet;
+import compiler.TokenSetLike;
 import compiler.diagnostics.CompilerError;
 
 import java.util.stream.Collectors;
 
-public class ParserError extends CompilerError {
-    public ParserError(Token unexpectedToken, TokenSetLike... expected) {
+public class UnexpectedTokenError extends CompilerError {
+    public UnexpectedTokenError(Token unexpectedToken, TokenSetLike... expected) {
         super("Whooops, I didn't see this '" + unexpectedToken.type.repr + "' comming.");
 
         TokenSet expectedTokens = TokenSet.empty();

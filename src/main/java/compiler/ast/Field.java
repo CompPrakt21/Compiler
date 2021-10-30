@@ -12,10 +12,10 @@ public class Field extends AstNode {
 
     private Type type;
 
-    public Field(Token publicToken, Type type, Token identifier) {
+    public Field(Token publicToken, Type type, Token identifier, Token semicolon) {
         assert identifier.type == TokenType.Identifier;
-        this.isError |= identifier == null || type == null;
-        setSpan(publicToken, type, identifier);
+        this.isError |= identifier == null || type == null || semicolon == null;
+        setSpan(publicToken, type, identifier, semicolon);
 
         this.identifier = identifier.getIdentContent();
         this.type = type;
