@@ -3,6 +3,7 @@ package compiler.ast;
 import java.util.ArrayList;
 import java.util.List;
 
+import compiler.Token;
 import compiler.utils.OptionalUtils;
 
 import java.util.Objects;
@@ -13,8 +14,11 @@ public final class IfStatement extends Statement {
     private Statement thenBody;
     private Optional<Statement> elseBody;
 
-    public IfStatement(Expression condition, Statement thenBody, Optional<Statement> elseBody) {
-        this.isError |= condition == null || thenBody == null || elseBody.map(Objects::isNull).orElse(false);
+    public IfStatement(Token ifToken, Token openParen, Expression condition, Token closeParen, Statement thenBody, Optional<Statement> elseBody) {
+        this.isError |= ifToken == null || openParen == null || condition == null || closeParen == null || thenBody == null
+                || elseBody.map(Objects::isNull).orElse(false);
+
+        setSpan(ifToken, openParen, condition, closeParen, thenBody, new OptionalWrapper(elseBody));
 
         this.condition = condition;
         this.thenBody = thenBody;

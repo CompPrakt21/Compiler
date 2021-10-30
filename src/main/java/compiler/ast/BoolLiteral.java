@@ -1,12 +1,21 @@
 package compiler.ast;
 
+import compiler.Token;
+
 import java.util.List;
 
 public final class BoolLiteral extends Expression {
     private boolean value;
 
-    public BoolLiteral(boolean value) {
-        this.value = value;
+    public BoolLiteral(Token value) {
+        this.isError |= value == null;
+        setSpan(value);
+
+        this.value = switch (value.type) {
+            case True -> true;
+            case False, null -> false;
+            default -> throw new AssertionError("Invalid bool token.");
+        };
     }
 
     @Override

@@ -8,10 +8,7 @@ import java.io.BufferedWriter;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
-import java.util.ArrayList;
-import java.util.EnumSet;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static compiler.Grammar.NonT.*;
@@ -43,8 +40,8 @@ public class Parser {
         return this.expectInternal(anchors, true, type);
     }
 
-    private Token assertExpect(TokenType type) {
-        assert this.token.type == type;
+    private Token assertExpect(TokenType... type) {
+        assert Arrays.stream(type).anyMatch(t -> t == this.token.type);
         var oldToken = this.token;
         this.lexer.nextToken();
         this.token = this.lexer.peekToken();
@@ -127,13 +124,15 @@ public class Parser {
         var methods = new ArrayList<Method>();
 
         var expectResult = expect(anchors.add(Identifier, LeftCurlyBracket, ClassDeclaration.first(), RightCurlyBracket), Class);
+        var classToken = expectResult.token;
         var error = expectResult.isError;
 
         expectResult = expect(anchors.add(LeftCurlyBracket, ClassDeclaration.first(), RightCurlyBracket), Identifier);
+        var identToken = expectResult.token;
         error |= expectResult.isError;
-        var identifier = expectResult.isError ? null : expectResult.token.getIdentContent();
 
         expectResult = expect(anchors.add(ClassDeclaration.first(), RightCurlyBracket), LeftCurlyBracket);
+        var openCurly = expectResult.token;
         error |= expectResult.isError;
 
         expectResult = expectNoConsume(anchors, ClassMember.first(), RightCurlyBracket);
@@ -152,24 +151,26 @@ public class Parser {
         }
 
         expectResult = expect(anchors, RightCurlyBracket);
+        var closeCurly = expectResult.token;
         error |= expectResult.isError;
 
-        return new Class(identifier, fields, methods).makeError(error);
+        return new Class(classToken, identToken, openCurly, fields, methods, closeCurly).makeError(error);
     }
 
     private AstNode parseClassMember(TokenSet anchors) {
         // This parses methods until the left paren, including
-        boolean isStatic = false;
 
         var expectResult = expect(anchors.add(Type.first(), Identifier, SemiColon, LeftParen), TokenType.Public);
+        var publicToken = expectResult.token;
         var error = expectResult.isError;
 
         expectResult = expectNoConsume(anchors.add(Type.first(), Identifier, SemiColon, LeftParen), Static, Type.first());
         error |= expectResult.isError;
 
+        Optional<Token> staticToken = Optional.empty();
         if (token.type == TokenType.Static) {
-            assertExpect(TokenType.Static);
-            isStatic = true;
+            var tok = assertExpect(TokenType.Static);
+            staticToken = Optional.ofNullable(tok);
         }
 
         expectResult = expectNoConsume(anchors.add(Identifier, SemiColon, LeftParen), Type.first());
@@ -180,8 +181,8 @@ public class Parser {
         var type = parseTypeResult.type;
 
         expectResult = expect(anchors.add(SemiColon, LeftParen), Identifier);
+        var identToken = expectResult.token;
         error |= expectResult.isError;
-        var ident = expectResult.isError ? null : expectResult.token.getIdentContent();
 
         expectResult = expectNoConsume(anchors, SemiColon, LeftParen);
         error |= expectResult.isError;
@@ -190,14 +191,20 @@ public class Parser {
             case SemiColon -> {
                 assertExpect(SemiColon);
                 // TODO: if isStatic true report error;
-                return new Field(ident, type).makeError(error);
+                return new Field(publicToken, type, identToken).makeError(error);
             }
             case LeftParen -> {
                 assertExpect(LeftParen);
 
                 expectResult = expectNoConsume(anchors, Parameter.first(), RightParen);
                 error |= expectResult.isError();
-                return parseMethod(anchors, type, ident, isStatic).makeError(error);
+
+                var method = parseMethod(anchors, publicToken, type, identToken, staticToken);
+                if (method != null) {
+                    method.makeError(error);
+                }
+
+                return method;
             }
             case null, default -> {
                 return null;
@@ -205,12 +212,12 @@ public class Parser {
         }
     }
 
-    private Method parseMethod(TokenSet anchors, Type returnType, String name, boolean isStatic) {
+    private Method parseMethod(TokenSet anchors, Token publicToken, Type returnType, Token nameIdent, Optional<Token> isStatic) {
         var parameters = new ArrayList<Parameter>();
 
         boolean error = false;
 
-        if (isStatic) {
+        if (isStatic.isPresent()) {
             // Handling MainMethod, parse up to the closing paren,
             // rest will be parsed together
             var parameter = parseParameter(anchors.add(RightParen, MethodRest.first(), Block.first()));
@@ -256,7 +263,7 @@ public class Parser {
         error |= expectResult.isError;
         var body = parseBlock(anchors);
 
-        return new Method(isStatic, name, returnType, parameters, body).makeError(error);
+        return new Method(publicToken, isStatic, nameIdent, returnType, parameters, body).makeError(error);
     }
 
     private Parameter parseParameter(TokenSet anchors) {
@@ -265,8 +272,8 @@ public class Parser {
         var type = parseTypeResult.type;
 
         var expectResult = expect(anchors, Identifier);
+        var identifier = expectResult.token;
         error |= expectResult.isError;
-        var identifier = expectResult.isError ? null : expectResult.token.getIdentContent();
 
         return new Parameter(type, identifier).makeError(error);
     }
@@ -281,11 +288,13 @@ public class Parser {
         var error = expectResult.isError;
 
         while (token.type == TokenType.LeftSquareBracket) {
-            assertExpect(LeftSquareBracket);
+            var openBracket = assertExpect(LeftSquareBracket);
+
             expectResult = expect(anchors.add(LeftSquareBracket), RightSquareBracket);
+            var closedBracket = expectResult.token;
             error |= expectResult.isError;
 
-            type = new ArrayType(type).makeError(error);
+            type = new ArrayType(type, openBracket, closedBracket).makeError(error);
 
             expectResult = expectNoConsume(anchors, LeftSquareBracket, Type.follow());
             error = expectResult.isError; /* Not |= because we either start parsing a new ArrayType or consume garbage tokens
@@ -299,20 +308,20 @@ public class Parser {
 
         switch (token.type) {
             case Int -> {
-                assertExpect(Int);
-                return new IntType();
+                var intToken = assertExpect(Int);
+                return new IntType(intToken);
             }
             case Boolean -> {
-                assertExpect(Boolean);
-                return new BoolType();
+                var boolToken = assertExpect(Boolean);
+                return new BoolType(boolToken);
             }
             case Void -> {
-                assertExpect(Void);
-                return new VoidType();
+                var voidToken = assertExpect(Void);
+                return new VoidType(voidToken);
             }
             case Identifier -> {
                 var identifier = assertExpect(Identifier);
-                return new ClassType(identifier.getIdentContent());
+                return new ClassType(identifier);
             }
             default -> {
                 return null;
@@ -324,6 +333,7 @@ public class Parser {
         var statements = new ArrayList<Statement>();
 
         var expectResult = expect(anchors.add(BlockStatement.first(), RightCurlyBracket), LeftCurlyBracket);
+        var openCurly = expectResult.token;
         var error = expectResult.isError;
 
         expectResult = expectNoConsume(anchors, BlockStatement.first(), RightCurlyBracket);
@@ -338,9 +348,10 @@ public class Parser {
         }
 
         expectResult = expect(anchors, RightCurlyBracket);
+        var closedCurly = expectResult.token;
         error |= expectResult.isError;
 
-        return new Block(statements).makeError(error);
+        return new Block(openCurly, statements, closedCurly).makeError(error);
     }
 
     private Statement parseStatement(TokenSet anchors) {
@@ -387,14 +398,17 @@ public class Parser {
 
     private EmptyStatement parseEmptyStatement(TokenSet anchors) {
         var expectResult = expect(anchors, TokenType.SemiColon);
-        return new EmptyStatement().makeError(expectResult.isError);
+        var semicolon = expectResult.token;
+        return new EmptyStatement(semicolon).makeError(expectResult.isError);
     }
 
     private IfStatement parseIfStatement(TokenSet anchors) {
         var expectResult = expect(anchors.add(LeftParen, Expression.first(), RightParen, Statement.first(), Else), If);
+        var ifToken = expectResult.token;
         var error = expectResult.isError;
 
         expectResult = expect(anchors.add(Expression.first(), RightParen, Statement.first(), Else), LeftParen);
+        var openParen = expectResult.token;
         error |= expectResult.isError;
 
         expectResult = expectNoConsume(anchors.add(RightParen, Statement.first(), Else), Expression.first());
@@ -404,6 +418,7 @@ public class Parser {
         var condition = expressionResult.expression;
 
         expectResult = expect(anchors.add(Statement.first(), Else), RightParen);
+        var closeParen = expectResult.token;
         error |= expectResult.isError;
 
         expectResult = expectNoConsume(anchors.add(Else), Statement.first());
@@ -422,7 +437,7 @@ public class Parser {
             elseStatement = Optional.ofNullable(parseStatement(anchors));
         }
 
-        return new IfStatement(condition, thenStatement, elseStatement).makeError(error);
+        return new IfStatement(ifToken, openParen, condition, closeParen, thenStatement, elseStatement).makeError(error);
     }
 
     private ExpressionStatement parseExpressionStatement(TokenSet anchors) {
@@ -431,16 +446,19 @@ public class Parser {
         var expression = expressionResult.expression;
 
         var expectResult = expect(anchors, SemiColon);
+        var semicolon = expectResult.token;
         error |= expectResult.isError;
 
-        return new ExpressionStatement(expression).makeError(error);
+        return new ExpressionStatement(expression, semicolon).makeError(error);
     }
 
     WhileStatement parseWhileStatement(TokenSet anchors) {
         var expectResult = expect(anchors.add(LeftParen, Expression.first(), RightParen, Statement.first()), While);
+        var whileToken = expectResult.token;
         var error = expectResult.isError;
 
         expectResult = expect(anchors.add(Expression.first(), RightParen, Statement.first()), LeftParen);
+        var openParen = expectResult.token;
         error |= expectResult.isError;
 
         expectResult = expectNoConsume(anchors.add(RightParen, Statement.first()), Expression.first());
@@ -450,17 +468,19 @@ public class Parser {
         var condition = expressionResult.expression;
 
         expectResult = expect(anchors.add(Statement.first()), RightParen);
+        var closeParen = expectResult.token;
         error |= expectResult.isError;
 
         expectResult = expectNoConsume(anchors, Statement.first());
         error |= expectResult.isError;
         var body = parseStatement(anchors);
 
-        return new WhileStatement(condition, body).makeError(error);
+        return new WhileStatement(whileToken, openParen, condition, closeParen, body).makeError(error);
     }
 
     private ReturnStatement parseReturnStatement(TokenSet anchors) {
-        var expectResult = expect(anchors.add(Expression.first(), SemiColon), TokenType.Return);
+        var expectResult = expect(anchors.add(Expression.first(), SemiColon), Return);
+        var returnToken = expectResult.token;
         var error = expectResult.isError;
 
         Optional<Expression> expression = Optional.empty();
@@ -479,7 +499,7 @@ public class Parser {
         expectResult = expect(anchors, SemiColon);
         error |= expectResult.isError;
 
-        return new ReturnStatement(expression).makeError(error);
+        return new ReturnStatement(returnToken, expression).makeError(error);
     }
 
     private LocalVariableDeclarationStatement parseLocalVariableDeclarationStatement(TokenSet anchors) {
@@ -489,15 +509,16 @@ public class Parser {
         var type = parseTypeResult.type;
 
         var expectResult = expect(anchors.add(Assign, SemiColon), Identifier);
+        var identToken = expectResult.token;
         error |= expectResult.isError;
-        var ident = expectResult.isError ? null : expectResult.token.getIdentContent();
 
         expectResult = expectNoConsume(anchors, Assign, SemiColon);
         error |= expectResult.isError;
 
         Optional<Expression> initializer = Optional.empty();
+        Optional<Token> assignToken = Optional.empty();
         if (token.type == Assign) {
-            assertExpect(Assign);
+            assignToken = Optional.of(assertExpect(Assign));
 
             expectResult = expectNoConsume(anchors.add(SemiColon), Expression.first());
             error |= expectResult.isError;
@@ -512,7 +533,7 @@ public class Parser {
         expectResult = expect(anchors, SemiColon);
         error |= expectResult.isError;
 
-        return new LocalVariableDeclarationStatement(type, ident, initializer).makeError(error);
+        return new LocalVariableDeclarationStatement(type, identToken, assignToken, initializer).makeError(error);
     }
 
     private static final TokenSet EXPRESSION_FIRST_SECOND_TOKEN = TokenSet.of(
@@ -599,7 +620,7 @@ public class Parser {
             error |= expressionResult.parentError;
             var rhs = expressionResult.expression;
 
-            result = constructBinOpExpression(result, oldToken.type, rhs).makeError(error);
+            result = constructBinOpExpression(result, oldToken, rhs).makeError(error);
 
             expectResult = expectNoConsume(anchors, BINARY_OPERATORS, Expression.follow());
             parentError = expectResult.isError; // not |= because the error might need to be handled by the parent.
@@ -608,28 +629,12 @@ public class Parser {
         return new ParseExpressionResult(result, parentError);
     }
 
-    private static Expression constructBinOpExpression(Expression lhs, TokenType token, Expression rhs) {
-        if (token == TokenType.Assign) {
-            return new AssignmentExpression(lhs, rhs);
+    private static Expression constructBinOpExpression(Expression lhs, Token token, Expression rhs) {
+        if (token.type == TokenType.Assign) {
+            return new AssignmentExpression(lhs, token, rhs);
+        } else {
+            return new BinaryOpExpression(lhs, token, rhs);
         }
-        var op = switch (token) {
-            case Or -> BinaryOpExpression.BinaryOp.Or;
-            case And -> BinaryOpExpression.BinaryOp.And;
-            case Equals -> BinaryOpExpression.BinaryOp.Equal;
-            case NotEquals -> BinaryOpExpression.BinaryOp.NotEqual;
-            case GreaterThan -> BinaryOpExpression.BinaryOp.Greater;
-            case GreaterThanOrEquals -> BinaryOpExpression.BinaryOp.GreaterEqual;
-            case LessThan -> BinaryOpExpression.BinaryOp.Less;
-            case LessThanOrEquals -> BinaryOpExpression.BinaryOp.LessEqual;
-            case Add -> BinaryOpExpression.BinaryOp.Addition;
-            case Subtract -> BinaryOpExpression.BinaryOp.Subtraction;
-            case Multiply -> BinaryOpExpression.BinaryOp.Multiplication;
-            case Divide -> BinaryOpExpression.BinaryOp.Division;
-            case Modulo -> BinaryOpExpression.BinaryOp.Modulo;
-            default -> throw new AssertionError("Only call this function with binary op tokens.");
-        };
-
-        return new BinaryOpExpression(lhs, op, rhs);
     }
 
     private static TokenSet getTokensWithHigherPrecendence(int prec) {
@@ -667,7 +672,7 @@ public class Parser {
             return parsePostfixExpression(anchors);
         }
         if (token.type == TokenType.Not) {
-            assertExpect(Not);
+            var notToken = assertExpect(Not);
 
             var expectResult = expectNoConsume(anchors, UnaryExpression.first());
             var error = expectResult.isError;
@@ -676,12 +681,12 @@ public class Parser {
             var child = parseExpressionResult.expression;
             var parentError = parseExpressionResult.parentError;
 
-            Expression expr = new UnaryExpression(child, compiler.ast.UnaryExpression.UnaryOp.LogicalNot).makeError(error);
+            Expression expr = new UnaryExpression(child, notToken).makeError(error);
 
             return new ParseExpressionResult(expr, parentError);
         }
         if (token.type == TokenType.Subtract) {
-            assertExpect(Subtract);
+            var minusToken = assertExpect(Subtract);
 
             var expectResult = expectNoConsume(anchors, UnaryExpression.first());
             var error = expectResult.isError;
@@ -689,7 +694,7 @@ public class Parser {
             var child = parseExpressionResult.expression;
             var parentError = parseExpressionResult.parentError;
 
-            Expression expr = new UnaryExpression(child, compiler.ast.UnaryExpression.UnaryOp.Negate).makeError(error);
+            Expression expr = new UnaryExpression(child, minusToken).makeError(error);
 
             return new ParseExpressionResult(expr, parentError);
         }
@@ -707,14 +712,14 @@ public class Parser {
 
         while (true) {
             if (token.type == TokenType.Dot) {
-                assertExpect(TokenType.Dot);
+                var dotToken = assertExpect(TokenType.Dot);
 
                 expectResult = expect(anchors.add(LeftParen), Identifier);
+                var identToken = expectResult.token;
                 error = expectResult.isError;
-                var ident = expectResult.isError ? null : expectResult.token.getIdentContent();
 
                 if (token.type == LeftParen) {
-                    assertExpect(LeftParen);
+                    var openParen = assertExpect(LeftParen);
 
                     expectResult = expectNoConsume(anchors.add(RightParen), Arguments.first(), RightParen); // We might consume no tokens and still parse successfully.
                     error |= expectResult.isError;
@@ -722,14 +727,15 @@ public class Parser {
                     error |= arguments.error;
 
                     expectResult = expect(anchors, RightParen);
+                    var closeParen = expectResult.token;
                     error |= expectResult.isError;
 
-                    expression = new MethodCallExpression(Optional.ofNullable(expression), ident, arguments.result).makeError(error);
+                    expression = new MethodCallExpression(Optional.ofNullable(expression), Optional.ofNullable(dotToken), identToken, openParen, arguments.result, closeParen).makeError(error);
                 } else {
-                    expression = new FieldAccessExpression(expression, ident).makeError(error);
+                    expression = new FieldAccessExpression(expression, dotToken, identToken).makeError(error);
                 }
             } else if (token.type == LeftSquareBracket) {
-                assertExpect(LeftSquareBracket);
+                var openBracket = assertExpect(LeftSquareBracket);
 
                 expectResult = expectNoConsume(anchors.add(RightSquareBracket), Expression.first());
                 expressionResult = parseExpression(anchors.add(RightSquareBracket), 0);
@@ -737,9 +743,10 @@ public class Parser {
                 var inner = expressionResult.expression;
 
                 expectResult = expect(anchors, RightSquareBracket);
+                var closedBracket = expectResult.token;
                 error |= expectResult.isError;
 
-                expression = new ArrayAccessExpression(expression, inner).makeError(error);
+                expression = new ArrayAccessExpression(expression, openBracket, inner, closedBracket).makeError(error);
             } else {
                 return new ParseExpressionResult(expression, error);
             }
@@ -786,47 +793,42 @@ public class Parser {
     private ParseExpressionResult parsePrimaryExpression(TokenSet anchors) {
         switch (token.type) {
             case Null -> {
-                assertExpect(Null);
-                return new ParseExpressionResult(new NullExpression(), false);
+                var nullToken = assertExpect(Null);
+                return new ParseExpressionResult(new NullExpression(nullToken), false);
             }
-            case False -> {
-                assertExpect(False);
-                return new ParseExpressionResult(new BoolLiteral(false), false);
-            }
-            case True -> {
-                assertExpect(True);
-                return new ParseExpressionResult(new BoolLiteral(true), false);
+            case True, False -> {
+                var boolToken = assertExpect(True, False);
+                return new ParseExpressionResult(new BoolLiteral(boolToken), false);
             }
             case IntLiteral -> {
                 var token = assertExpect(IntLiteral);
-                String value = token.getIntLiteralContent();
-                return new ParseExpressionResult(new IntLiteral(value), false);
+                return new ParseExpressionResult(new IntLiteral(token), false);
             }
             case Identifier -> {
                 var identToken = assertExpect(Identifier);
-                String ident = identToken.getIdentContent();
 
                 var expectResult = expectNoConsume(anchors, LeftParen, PrimaryExpression.follow());
                 var error = expectResult.isError;
 
                 if (token.type == LeftParen) {
-                    assertExpect(LeftParen);
+                    var openParen = assertExpect(LeftParen);
 
                     var arguments = parseArguments(anchors.add(RightParen));
                     error |= arguments.error;
 
                     expectResult = expect(anchors, RightParen);
+                    var closeParen = expectResult.token;
                     error |= expectResult.isError;
 
-                    Expression expression = new MethodCallExpression(Optional.empty(), ident, arguments.result).makeError(error);
+                    Expression expression = new MethodCallExpression(Optional.empty(), Optional.empty(), identToken, openParen, arguments.result, closeParen).makeError(error);
                     return new ParseExpressionResult(expression, false);
                 }
 
-                return new ParseExpressionResult(new Reference(ident), error);
+                return new ParseExpressionResult(new Reference(identToken), error);
             }
             case This -> {
-                assertExpect(This);
-                return new ParseExpressionResult(new ThisExpression(), false);
+                var thisToken = assertExpect(This);
+                return new ParseExpressionResult(new ThisExpression(thisToken), false);
             }
             case LeftParen -> {
                 assertExpect(LeftParen);
@@ -846,12 +848,12 @@ public class Parser {
                 return new ParseExpressionResult(expression, false);
             }
             case New -> {
-                assertExpect(New);
+                var newToken = assertExpect(New);
 
                 var expectResult = expectNoConsume(anchors, BasicType.first(), Identifier);
                 var error = expectResult.isError;
 
-                var expressionResult = parseNewObjectOrArrayExpression(anchors);
+                var expressionResult = parseNewObjectOrArrayExpression(anchors, newToken);
                 var parentError = expressionResult.parentError;
                 Expression expression = expressionResult.expression;
 
@@ -867,7 +869,7 @@ public class Parser {
         }
     }
 
-    private ParseExpressionResult parseNewObjectOrArrayExpression(TokenSet anchors) {
+    private ParseExpressionResult parseNewObjectOrArrayExpression(TokenSet anchors, Token newToken) {
         // new keyword has been parsed already.
 
         if (token.type == Identifier) {
@@ -878,16 +880,17 @@ public class Parser {
 
             switch (token.type) {
                 case LeftParen -> {
-                    assertExpect(LeftParen);
+                    var openParen = assertExpect(LeftParen);
 
                     expectResult = expect(anchors, RightParen);
+                    var closeParen = expectResult.token;
                     error |= expectResult.isError;
 
-                    Expression expression = new NewObjectExpression(identToken.getIdentContent()).makeError(error);
+                    Expression expression = new NewObjectExpression(newToken, identToken, openParen, closeParen).makeError(error);
                     return new ParseExpressionResult(expression, false);
                 }
                 case LeftSquareBracket -> {
-                    var type = new ClassType(identToken.getIdentContent());
+                    var type = new ClassType(identToken);
 
                     expectResult = expectNoConsume(anchors, LeftSquareBracket);
                     error |= expectResult.isError;
@@ -904,7 +907,7 @@ public class Parser {
                     return new ParseExpressionResult(expression, parentError);
                 }
                 default -> {
-                    return new ParseExpressionResult(new NewObjectExpression(identToken.getIdentContent()).makeError(true), true);
+                    return new ParseExpressionResult(new NewObjectExpression(newToken, identToken, null, null).makeError(true), true);
                 }
             }
 
@@ -932,13 +935,14 @@ public class Parser {
         var expression = expressionResult.expression;
 
         expectResult = expect(anchors.add(LeftSquareBracket), RightSquareBracket);
+        var lastBracket = expectResult.token;
         error |= expectResult.isError;
 
         expectResult = expectNoConsume(anchors, LeftSquareBracket, NewArrayExpression.follow());
         var parentError = expectResult.isError;
 
         while (token.type == LeftSquareBracket) {
-            assertExpect(LeftSquareBracket);
+            lastBracket = assertExpect(LeftSquareBracket);
 
             error |= parentError;
 
@@ -947,10 +951,11 @@ public class Parser {
             dimensions++;
 
             expectResult = expectNoConsume(anchors, LeftSquareBracket, NewArrayExpression.follow());
+            lastBracket = expectResult.token != null ? expectResult.token : lastBracket;
             parentError = expectResult.isError;
         }
 
-        Expression expr = new NewArrayExpression(type, expression, dimensions).makeError(error);
+        Expression expr = new NewArrayExpression(type, expression, dimensions, lastBracket).makeError(error);
         return new ParseExpressionResult(expr, parentError);
     }
 
@@ -972,7 +977,11 @@ public class Parser {
         }
         List<AstNode> children = node.getChildren();
 
-        String line = runthrough + " [label=\"" + node.getClass().getSimpleName() + "\n" + node.getName() + "\"";
+        String line = runthrough + " [label=\"" + node.getClass().getSimpleName() + "\n" + node.getName() + "\n";
+
+        line += node.getSpan() + "\n";
+
+        line += "\"";
 
         if (node.isError()) {
             line += " color=red";

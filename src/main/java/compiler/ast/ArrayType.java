@@ -1,13 +1,16 @@
 package compiler.ast;
 
+import compiler.Token;
+
 import java.util.ArrayList;
 import java.util.List;
 
 public final class ArrayType extends Type {
     private Type childType;
 
-    public ArrayType(Type childType) {
-        this.isError |= childType == null;
+    public ArrayType(Type childType, Token openBracket, Token closeBracked) {
+        this.isError |= childType == null || openBracket == null || closeBracked == null;
+        setSpan(childType, openBracket, closeBracked);
 
         this.childType = childType;
     }

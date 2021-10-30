@@ -1,5 +1,7 @@
 package compiler.ast;
 
+import compiler.Token;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -24,11 +26,17 @@ public final class UnaryExpression extends Expression {
     private Expression expression;
     private UnaryOp operator;
 
-    public UnaryExpression(Expression expression, UnaryOp operator) {
+    public UnaryExpression(Expression expression, Token operator) {
         this.isError |= expression == null || operator == null;
 
+        setSpan(expression, operator);
+
         this.expression = expression;
-        this.operator = operator;
+        this.operator = switch (operator != null ? operator.type : null) {
+            case Not -> UnaryOp.LogicalNot;
+            case Subtract -> UnaryOp.Negate;
+            case null, default -> null;
+        };
     }
 
     @Override

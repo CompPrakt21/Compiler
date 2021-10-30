@@ -1,18 +1,20 @@
 package compiler.ast;
 
+import compiler.Token;
+
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 public final class AssignmentExpression extends Expression {
-    private Expression lftexpression;
-    private Expression rgtExpression;
+    private Expression lvalue;
+    private Expression rvalue;
 
-    public AssignmentExpression(Expression lftexpression, Expression rgExpression) {
-        this.isError |= lftexpression == null || rgExpression == null;
+    public AssignmentExpression(Expression lvalue, Token assign, Expression rvalue) {
+        this.isError |= lvalue == null || assign == null || rvalue == null;
+        setSpan(lvalue, assign, rvalue);
 
-        this.lftexpression = lftexpression;
-        this.rgtExpression = rgExpression;
+        this.lvalue = lvalue;
+        this.rvalue = rvalue;
     }
 
     @Override
@@ -20,15 +22,15 @@ public final class AssignmentExpression extends Expression {
         if (!(otherAst instanceof AssignmentExpression other)) {
             return false;
         }
-        return this.lftexpression.syntacticEq(other.lftexpression)
-                && this.rgtExpression.syntacticEq(other.rgtExpression);
+        return this.lvalue.syntacticEq(other.lvalue)
+                && this.rvalue.syntacticEq(other.rvalue);
     }
 
     @Override
     public List<AstNode> getChildren() {
         ArrayList<AstNode> temp = new ArrayList<>();
-        temp.add(lftexpression);
-        temp.add(rgtExpression);
+        temp.add(lvalue);
+        temp.add(rvalue);
         return temp;
     }
 

@@ -1,8 +1,15 @@
 package compiler.ast;
 
+import compiler.Token;
+
 import java.util.List;
 
 public final class IntType extends Type {
+    public IntType(Token intType) {
+        this.isError |= intType == null;
+        setSpan(intType);
+    }
+
     @Override
     public List<AstNode> getChildren() {
         return null;

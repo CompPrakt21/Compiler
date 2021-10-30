@@ -1,17 +1,23 @@
 package compiler.ast;
 
+import compiler.Token;
+import compiler.TokenType;
+
 import java.util.ArrayList;
 import java.util.List;
 
+@SuppressWarnings("ConstantConditions")
 public class Field extends AstNode {
     private String identifier;
 
     private Type type;
 
-    public Field(String identifier, Type type) {
+    public Field(Token publicToken, Type type, Token identifier) {
+        assert identifier.type == TokenType.Identifier;
         this.isError |= identifier == null || type == null;
+        setSpan(publicToken, type, identifier);
 
-        this.identifier = identifier;
+        this.identifier = identifier.getIdentContent();
         this.type = type;
     }
 

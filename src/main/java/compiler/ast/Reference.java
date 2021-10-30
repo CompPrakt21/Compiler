@@ -1,13 +1,17 @@
 package compiler.ast;
 
+import compiler.Token;
+
 import java.util.List;
 
 public final class Reference extends Expression {
     private String identifier;
 
-    public Reference(String identifier) {
+    public Reference(Token identifier) {
         this.isError |= identifier == null;
-        this.identifier = identifier;
+        setSpan(identifier);
+
+        this.identifier = identifier != null ? identifier.getIdentContent() : null;
     }
 
     @Override

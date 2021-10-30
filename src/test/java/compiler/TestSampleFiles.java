@@ -34,7 +34,6 @@ public class TestSampleFiles {
 
         return Arrays.stream(syntaxTestFiles)
                 .filter(file -> !file.getName().equals("local_variable_statement_after_if.java"))
-                .filter(file -> file.getName().equals("simple_method_call.java"))
                 .map((file -> {
                     try {
                         String content = Files.readString(file.toPath());

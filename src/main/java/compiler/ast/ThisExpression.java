@@ -1,8 +1,14 @@
 package compiler.ast;
 
+import compiler.Token;
+
 import java.util.List;
 
 public final class ThisExpression extends Expression {
+    public ThisExpression(Token thisToken) {
+        setSpan(thisToken);
+    }
+
     @Override
     public List<AstNode> getChildren() {
         return null;

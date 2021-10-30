@@ -3,6 +3,8 @@ package compiler.ast;
 import java.util.ArrayList;
 import java.util.List;
 
+import compiler.HasSpan;
+import compiler.Token;
 import compiler.utils.OptionalUtils;
 
 import java.util.Objects;
@@ -28,11 +30,14 @@ public final class LocalVariableDeclarationStatement extends Statement {
         return identifier;
     }
 
-    public LocalVariableDeclarationStatement(Type type, String identifier, Optional<Expression> initializer) {
+    public LocalVariableDeclarationStatement(Type type, Token identifier, Optional<Token> assign, Optional<Expression> initializer) {
+        //noinspection ConstantConditions
         this.isError |= type == null || identifier == null || initializer.map(Objects::isNull).orElse(false);
 
+        setSpan(type, identifier, new OptionalWrapper(assign), new OptionalWrapper(initializer));
+
         this.type = type;
-        this.identifier = identifier;
+        this.identifier = identifier != null ? identifier.getIdentContent() : null;
         this.initializer = initializer;
     }
 

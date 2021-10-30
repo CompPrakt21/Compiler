@@ -1,8 +1,15 @@
 package compiler;
 
-public record Span(int start, int length) {
+public record Span(int start, int length) implements HasSpan {
     public int end() {
         return this.start + this.length;
+    }
+
+    public Span merge(Span other) {
+        int start = Math.min(this.start, other.start);
+        int end = Math.max(this.end(), other.end());
+
+        return Span.fromStartEnd(start, end);
     }
 
     public boolean intersect(Span other) {
@@ -15,5 +22,18 @@ public record Span(int start, int length) {
 
     public static Span fromStartEnd(int start, int end) {
         return new Span(start, end - start);
+    }
+
+    @Override
+    public String toString() {
+        return "Span{" +
+                "start=" + start +
+                ", length=" + length +
+                '}';
+    }
+
+    @Override
+    public Span getSpan() {
+        return this;
     }
 }

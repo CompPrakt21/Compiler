@@ -1,5 +1,7 @@
 package compiler.ast;
 
+import compiler.Token;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -7,8 +9,9 @@ public final class WhileStatement extends Statement {
     private Expression condition;
     private Statement body;
 
-    public WhileStatement(Expression condition, Statement body) {
-        this.isError |= condition == null || body == null;
+    public WhileStatement(Token whileToken, Token openParen, Expression condition, Token closeParen, Statement body) {
+        this.isError |= whileToken == null || openParen == null || condition == null || closeParen == null || body == null;
+        setSpan(whileToken, openParen, condition, closeParen, body);
 
         this.condition = condition;
         this.body = body;

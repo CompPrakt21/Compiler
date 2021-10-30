@@ -1,14 +1,17 @@
 package compiler.ast;
 
+import compiler.Token;
+
 import java.util.List;
 
 public final class ClassType extends Type {
     private String identifier;
 
-    public ClassType(String identifier) {
+    public ClassType(Token identifier) {
         this.isError |= identifier == null;
+        setSpan(identifier);
 
-        this.identifier = identifier;
+        this.identifier = identifier != null ? identifier.getIdentContent() : null;
     }
 
     @Override

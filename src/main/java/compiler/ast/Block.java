@@ -1,5 +1,7 @@
 package compiler.ast;
 
+import compiler.HasSpan;
+import compiler.Token;
 import compiler.utils.StreamUtils;
 
 import java.util.ArrayList;
@@ -9,8 +11,9 @@ import java.util.Objects;
 public final class Block extends Statement {
     private List<Statement> statements;
 
-    public Block(List<Statement> statements) {
+    public Block(Token openCurly, List<Statement> statements, Token closedCurly) {
         this.isError |= statements.stream().anyMatch(Objects::isNull);
+        setSpan(openCurly, new HasSpan.ListWrapper(statements), closedCurly);
 
         this.statements = statements;
     }

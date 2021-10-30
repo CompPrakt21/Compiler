@@ -1,6 +1,8 @@
 package compiler.ast;
 
 import java.util.ArrayList;
+
+import compiler.Token;
 import compiler.utils.StreamUtils;
 
 import java.util.List;
@@ -12,10 +14,13 @@ public final class Class extends AstNode {
     private List<Field> fields;
     private List<Method> methods;
 
-    public Class(String identifier, List<Field> fields, List<Method> methods) {
-        this.isError |= identifier == null || fields.stream().anyMatch(Objects::isNull) || methods.stream().anyMatch(Objects::isNull);
+    public Class(Token classToken, Token identifier, Token openCurly, List<Field> fields, List<Method> methods, Token closeCurly) {
+        this.isError |= classToken == null || openCurly == null || identifier == null
+                || fields.stream().anyMatch(Objects::isNull) || methods.stream().anyMatch(Objects::isNull) || closeCurly == null;
 
-        this.identifier = identifier;
+        setSpan(classToken, identifier, openCurly, new ListWrapper(fields), new ListWrapper(methods), closeCurly);
+
+        this.identifier = identifier != null ? identifier.getIdentContent() : null;
         this.fields = fields;
         this.methods = methods;
     }

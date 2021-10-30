@@ -1,8 +1,14 @@
 package compiler.ast;
 
+import compiler.Token;
+
 import java.util.List;
 
 public final class EmptyStatement extends Statement {
+    public EmptyStatement(Token semicolon) {
+        setSpan(semicolon);
+    }
+
     @Override
     public List<AstNode> getChildren() {
         return null;

@@ -1,14 +1,18 @@
 package compiler.ast;
 
+import compiler.Token;
+
 import java.util.List;
 
 public final class NewObjectExpression extends Expression {
     private String typeIdentifier;
 
-    public NewObjectExpression(String typeIdentifier) {
-        this.isError |= typeIdentifier == null;
+    public NewObjectExpression(Token newToken, Token typeIdentifier, Token openParen, Token closeParen) {
+        this.isError |= newToken == null || typeIdentifier == null || openParen == null || closeParen == null;
 
-        this.typeIdentifier = typeIdentifier;
+        setSpan(newToken, typeIdentifier, openParen, closeParen);
+
+        this.typeIdentifier = typeIdentifier != null ? typeIdentifier.getIdentContent() : null;
     }
 
     @Override

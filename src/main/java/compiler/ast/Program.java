@@ -1,6 +1,7 @@
 package compiler.ast;
 
 import java.util.ArrayList;
+
 import compiler.utils.StreamUtils;
 
 import java.util.List;
@@ -11,6 +12,8 @@ public final class Program extends AstNode {
 
     public Program(List<Class> classes) {
         this.isError |= classes.stream().anyMatch(Objects::isNull);
+
+        setSpan(new ListWrapper(classes));
 
         this.classes = classes;
     }

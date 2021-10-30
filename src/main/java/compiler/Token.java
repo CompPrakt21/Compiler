@@ -1,6 +1,6 @@
 package compiler;
 
-public class Token {
+public class Token implements HasSpan {
 
     public TokenType type;
     private Content content;
@@ -43,21 +43,36 @@ public class Token {
         return new Token(type, null, span);
     }
 
-    private static sealed class Content permits IdentifierContent, IntLiteralContent, ErrorContent {}
+    @Override
+    public Span getSpan() {
+        return this.span;
+    }
+
+    private static sealed class Content permits IdentifierContent, IntLiteralContent, ErrorContent {
+    }
 
     private static final class IdentifierContent extends Content {
         private String content;
-        private IdentifierContent(String content) { this.content = content; }
+
+        private IdentifierContent(String content) {
+            this.content = content;
+        }
     }
 
     private static final class IntLiteralContent extends Content {
         private String content;
-        private IntLiteralContent(String content) { this.content = content; }
+
+        private IntLiteralContent(String content) {
+            this.content = content;
+        }
     }
 
     private static final class ErrorContent extends Content {
         private String errorMessage;
-        private ErrorContent(String errorMessage) { this.errorMessage = errorMessage; }
+
+        private ErrorContent(String errorMessage) {
+            this.errorMessage = errorMessage;
+        }
     }
 
     public String getIdentContent() {

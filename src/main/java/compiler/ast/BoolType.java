@@ -1,8 +1,14 @@
 package compiler.ast;
 
+import compiler.Token;
+
 import java.util.List;
 
 public final class BoolType extends Type {
+    public BoolType(Token token) {
+        setSpan(token);
+    }
+
     @Override
     public List<AstNode> getChildren() {
         return null;

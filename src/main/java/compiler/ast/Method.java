@@ -1,10 +1,14 @@
 package compiler.ast;
 
 import java.util.ArrayList;
+
+import compiler.HasSpan;
+import compiler.Token;
 import compiler.utils.StreamUtils;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 public class Method extends AstNode {
 
@@ -18,11 +22,12 @@ public class Method extends AstNode {
 
     private Block body;
 
-    public Method(boolean isStatic, String identifier, Type returnType, List<Parameter> parameters, Block body) {
-        this.isError |= identifier == null || returnType == null || parameters.stream().anyMatch(Objects::isNull) || body == null;
+    public Method(Token publicToken, Optional<Token> isStatic, Token identifier, Type returnType, List<Parameter> parameters, Block body) {
+        this.isError |= publicToken == null || identifier != null || returnType != null || parameters.stream().anyMatch(Objects::isNull) || body == null;
+        setSpan(publicToken, new HasSpan.OptionalWrapper(isStatic), identifier, returnType, new HasSpan.ListWrapper(parameters), body);
 
-        this.isStatic = isStatic;
-        this.identifier = identifier;
+        this.isStatic = isStatic.isPresent();
+        this.identifier = identifier != null ? identifier.getIdentContent() : null;
         this.returnType = returnType;
         this.parameters = parameters;
         this.body = body;

@@ -1,16 +1,17 @@
 package compiler.ast;
 
+import compiler.Token;
+
 import java.util.List;
 
 public final class IntLiteral extends Expression {
     private String value;
 
-    public IntLiteral(String value) {
-        this.value = value;
-    }
+    public IntLiteral(Token value) {
+        this.isError |= value == null;
+        setSpan(value);
 
-    public IntLiteral(long value) {
-        this(String.valueOf(value));
+        this.value = value != null ? value.getIntLiteralContent() : null;
     }
 
     @Override

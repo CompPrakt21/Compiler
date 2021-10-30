@@ -1,13 +1,16 @@
 package compiler.ast;
 
+import compiler.Token;
+
 import java.util.ArrayList;
 import java.util.List;
 
 public final class ExpressionStatement extends Statement {
     private Expression expression;
 
-    public ExpressionStatement(Expression expression) {
-        this.isError |= expression == null;
+    public ExpressionStatement(Expression expression, Token semicolon) {
+        this.isError |= expression == null || semicolon == null;
+        setSpan(expression, semicolon);
 
         this.expression = expression;
     }

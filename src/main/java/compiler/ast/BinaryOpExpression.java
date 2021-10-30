@@ -1,5 +1,8 @@
 package compiler.ast;
 
+import compiler.Token;
+import compiler.TokenType;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -37,11 +40,29 @@ public final class BinaryOpExpression extends Expression {
     private BinaryOp operator;
     private Expression rhs;
 
-    public BinaryOpExpression(Expression lhs, BinaryOp operator, Expression rhs) {
+    public BinaryOpExpression(Expression lhs, Token operator, Expression rhs) {
         this.isError |= lhs == null || operator == null || rhs == null;
+        setSpan(lhs, operator, rhs);
+
+        var op = switch (operator.type) {
+            case Or -> BinaryOp.Or;
+            case And -> BinaryOp.And;
+            case Equals -> BinaryOp.Equal;
+            case NotEquals -> BinaryOp.NotEqual;
+            case GreaterThan -> BinaryOp.Greater;
+            case GreaterThanOrEquals -> BinaryOp.GreaterEqual;
+            case LessThan -> BinaryOp.Less;
+            case LessThanOrEquals -> BinaryOp.LessEqual;
+            case Add -> BinaryOp.Addition;
+            case Subtract -> BinaryOp.Subtraction;
+            case Multiply -> BinaryOp.Multiplication;
+            case Divide -> BinaryOp.Division;
+            case Modulo -> BinaryOp.Modulo;
+            default -> throw new AssertionError("Only call this function with binary op tokens.");
+        };
 
         this.lhs = lhs;
-        this.operator = operator;
+        this.operator = op;
         this.rhs = rhs;
     }
 

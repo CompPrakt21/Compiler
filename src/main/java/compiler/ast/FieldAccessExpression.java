@@ -1,16 +1,20 @@
 package compiler.ast;
 
+import compiler.Token;
+
 import java.util.List;
 
 public final class FieldAccessExpression extends Expression {
     private Expression target;
     private String identifier;
 
-    public FieldAccessExpression(Expression target, String identifier) {
-        this.isError |= target == null || identifier == null;
+    public FieldAccessExpression(Expression target, Token dot, Token identifier) {
+        this.isError |= target == null || dot == null || identifier == null;
+
+        setSpan(target, dot, identifier);
 
         this.target = target;
-        this.identifier = identifier;
+        this.identifier = identifier != null ? identifier.getIdentContent() : null;
     }
 
     @Override

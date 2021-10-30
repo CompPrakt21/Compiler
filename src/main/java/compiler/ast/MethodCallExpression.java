@@ -2,6 +2,8 @@ package compiler.ast;
 
 import java.util.ArrayList;
 
+import compiler.HasSpan;
+import compiler.Token;
 import compiler.utils.OptionalUtils;
 import compiler.utils.StreamUtils;
 
@@ -16,11 +18,14 @@ public final class MethodCallExpression extends Expression {
 
     private List<Expression> arguments;
 
-    public MethodCallExpression(Optional<Expression> target, String identifier, List<Expression> arguments) {
+    public MethodCallExpression(Optional<Expression> target, Optional<Token> dot, Token identifier, Token openParen, List<Expression> arguments, Token closedParen) {
+        //noinspection ConstantConditions
         this.isError |= target.map(Objects::isNull).orElse(false) || identifier == null || arguments.stream().anyMatch(Objects::isNull);
 
+        setSpan(new HasSpan.OptionalWrapper(target), new HasSpan.OptionalWrapper(dot), identifier, openParen, new HasSpan.ListWrapper(arguments), closedParen);
+
         this.target = target;
-        this.identifier = identifier;
+        this.identifier = identifier != null ? identifier.getIdentContent() : null;
         this.arguments = arguments;
     }
 

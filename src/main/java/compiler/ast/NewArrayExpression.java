@@ -1,5 +1,7 @@
 package compiler.ast;
 
+import compiler.Token;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -9,8 +11,10 @@ public final class NewArrayExpression extends Expression {
     private Expression firstDimensionSize;
     private int dimensions;
 
-    public NewArrayExpression(Type type, Expression firstDimensionSize, int dimensions) {
-        this.isError |= type == null || firstDimensionSize == null;
+    public NewArrayExpression(Type type, Expression firstDimensionSize, int dimensions, Token lastBracket) {
+        this.isError |= type == null || firstDimensionSize == null || lastBracket == null;
+
+        setSpan(type, firstDimensionSize, lastBracket);
 
         this.type = type;
         this.dimensions = dimensions;
@@ -27,7 +31,7 @@ public final class NewArrayExpression extends Expression {
 
     @Override
     public String getName() {
-        return "Array_Size_" + dimensions ;
+        return "Array_Size_" + dimensions;
     }
 
     @Override

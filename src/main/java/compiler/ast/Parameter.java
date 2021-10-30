@@ -1,5 +1,7 @@
 package compiler.ast;
 
+import compiler.Token;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -7,11 +9,13 @@ public final class Parameter extends AstNode {
     private Type type;
     private String identifier;
 
-    public Parameter(Type type, String identifier) {
+    public Parameter(Type type, Token identifier) {
         this.isError |= type == null || identifier == null;
 
+        setSpan(type, identifier);
+
         this.type = type;
-        this.identifier = identifier;
+        this.identifier = identifier != null ? identifier.getIdentContent() : null;
     }
 
     @Override

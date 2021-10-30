@@ -3,6 +3,7 @@ package compiler.ast;
 import java.util.ArrayList;
 import java.util.List;
 
+import compiler.Token;
 import compiler.utils.OptionalUtils;
 
 import java.util.Objects;
@@ -12,8 +13,9 @@ public final class ReturnStatement extends Statement {
     private Optional<Expression> expression;
 
     @SuppressWarnings("ConstantConditions")
-    public ReturnStatement(Optional<Expression> expression) {
-        this.isError |= expression.map(Objects::isNull).orElse(false);
+    public ReturnStatement(Token returnToken, Optional<Expression> expression) {
+        this.isError |= returnToken == null || expression.map(Objects::isNull).orElse(false);
+        setSpan(returnToken, new OptionalWrapper(expression));
 
         this.expression = expression;
     }

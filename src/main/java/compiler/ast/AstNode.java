@@ -1,10 +1,13 @@
 package compiler.ast;
 
+import compiler.HasSpan;
 import compiler.Span;
 
+import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
-public abstract class AstNode {
+public abstract class AstNode implements HasSpan {
     protected Span span;
     protected boolean isError;
 
@@ -22,5 +25,20 @@ public abstract class AstNode {
     public <T> T makeError(boolean isError) {
         this.isError |= isError;
         return (T) this;
+    }
+
+    @Override
+    public Span getSpan() {
+        return this.span;
+    }
+
+    protected void setSpan(HasSpan... spans) {
+        this.span = Arrays.stream(spans)
+                .filter(Objects::nonNull)
+                .map(HasSpan::getSpan)
+                .filter(Objects::nonNull)
+                .filter(span -> span.length() > 0)
+                .reduce(Span::merge)
+                .orElse(new Span(-1, 0));
     }
 }
