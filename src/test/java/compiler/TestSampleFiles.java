@@ -33,6 +33,7 @@ public class TestSampleFiles {
         assertNotNull(syntaxTestFiles, "No test files found");
 
         return Arrays.stream(syntaxTestFiles)
+                .filter(file -> file.getName().startsWith("every_possible"))
                 .map((file -> {
                     try {
                         String content = Files.readString(file.toPath());

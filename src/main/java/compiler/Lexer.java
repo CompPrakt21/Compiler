@@ -228,4 +228,8 @@ public class Lexer {
     public void addSyntheticToken(Token t) {
         syntheticTokens.add(t);
     }
+
+    public String getRemaining() {
+        return this.fileContent.substring(this.currentPos);
+    }
 }
