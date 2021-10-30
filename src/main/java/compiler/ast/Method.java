@@ -96,15 +96,6 @@ public final class Method extends AstNode {
         return identifier.getContent();
     }
 
-    @Override
-    public boolean startsNewBlock() {
-        return true;
-    }
-
-    @Override
-    public String getVariable() {
-        return identifier;
-    }
 
     @Override
     public boolean syntacticEq(AstNode otherAst) {
