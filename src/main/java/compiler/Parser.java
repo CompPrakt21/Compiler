@@ -270,15 +270,17 @@ public class Parser {
                 parameters.add(parameter);
             }
 
-            expectResult = expectNoConsume(anchors.add(RightParen, MethodRest.first(), Block.first()), Comma, RightParen);
+            expectResult = expectNoConsume(anchors.add(Parameter.first(), RightParen, MethodRest.first(), Block.first()), Comma, RightParen);
             error |= expectResult.isError;
 
-            while (token.type == Comma) {
-                assertExpect(Comma);
+            while (token.type == Comma || Parameter.firstContains(token.type)) {
+                expectResult = expect(anchors.add(Parameter.first(), RightParen, MethodRest.first(), Block.first()), Comma);
+                error |= expectResult.isError;
+
                 var parameter = parseParameter(anchors.add(Comma, Parameter.first(), RightParen, MethodRest.first(), Block.first()));
                 parameters.add(parameter);
 
-                expectResult = expectNoConsume(anchors.add(RightParen, MethodRest.first(), Block.first()), Comma, RightParen);
+                expectResult = expectNoConsume(anchors.add(Parameter.first(), RightParen, MethodRest.first(), Block.first()), Comma, RightParen);
                 error |= expectResult.isError;
             }
         }
@@ -501,7 +503,7 @@ public class Parser {
         return new ExpressionStatement(expression, semicolon).makeError(error);
     }
 
-    WhileStatement parseWhileStatement(TokenSet anchors) {
+    private WhileStatement parseWhileStatement(TokenSet anchors) {
         var expectResult = expect(anchors.add(LeftParen, Expression.first(), RightParen, Statement.first()), While);
         var whileToken = expectResult.token;
         var error = expectResult.isError;
@@ -651,7 +653,7 @@ public class Parser {
     record ParseExpressionResult(Expression expression, boolean parentError) {
     }
 
-    ParseExpressionResult parseExpression(TokenSet anchors, int minPrec) {
+    private ParseExpressionResult parseExpression(TokenSet anchors, int minPrec) {
         var expressionResult = this.parseUnaryExpression(anchors.add(getTokensWithHigherPrecendence(minPrec)));
         var result = expressionResult.expression;
         var parentError = expressionResult.parentError;
@@ -824,11 +826,12 @@ public class Parser {
 
             arguments.add(expr);
 
-            var expectResult = expectNoConsume(anchors, Comma, Arguments.follow());
+            var expectResult = expectNoConsume(anchors.add(Expression.first()), Comma, Arguments.follow());
             error |= expectResult.isError;
 
-            while (token.type == Comma) {
-                assertExpect(Comma);
+            while (token.type == Comma || Expression.firstContains(token.type)) {
+                expectResult = expect(anchors.add(Expression.first()), Comma);
+                error |= expectResult.isError;
 
                 expressionResult = parseExpression(anchors.add(Comma), 0);
                 error |= expressionResult.parentError;
@@ -836,7 +839,7 @@ public class Parser {
 
                 arguments.add(expr);
 
-                expectResult = expectNoConsume(anchors, Comma, Arguments.follow());
+                expectResult = expectNoConsume(anchors.add(Expression.first()), Comma, Arguments.follow());
                 error |= expectResult.isError;
             }
         }

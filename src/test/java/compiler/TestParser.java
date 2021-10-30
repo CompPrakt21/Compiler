@@ -251,17 +251,8 @@ public class TestParser {
     public void myParserTest() {
         Lexer lexer = new Lexer("""
                 class Main {
-                	public static void main (String[] args) {
-                		System.out.println(args[0]);
-                	}
-
-                	public static int y
-
-                	public int fib (int i, boolean b) {
-                		if (i == 0) { int x = 123; } else boolean b = d;
-
-                		while (true) s;
-                	}
+                    public void test(int i int j) {
+                    }
                 }
 
                                 """);
