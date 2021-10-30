@@ -2,6 +2,7 @@ package compiler;
 
 import java.util.Arrays;
 import java.util.EnumSet;
+import java.util.stream.Stream;
 
 public class TokenSet implements TokenSetLike {
 
@@ -23,6 +24,10 @@ public class TokenSet implements TokenSetLike {
         }
 
         return result;
+    }
+
+    public Stream<TokenType> stream() {
+        return this.set.stream();
     }
 
     public TokenSet add(TokenSetLike... others) {

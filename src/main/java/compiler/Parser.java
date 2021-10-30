@@ -2,6 +2,7 @@ package compiler;
 
 import compiler.ast.Class;
 import compiler.ast.*;
+import compiler.diagnostics.CompilerMessageReporter;
 import picocli.CommandLine;
 
 import java.io.BufferedWriter;
@@ -20,12 +21,22 @@ public class Parser {
     private Token token;
     private boolean errorMode;
     public boolean successfulParse;
+    private Optional<CompilerMessageReporter> reporter;
 
     public Parser(Lexer lexer) {
         this.lexer = lexer;
         this.token = lexer.peekToken();
         this.errorMode = false;
         this.successfulParse = true;
+        this.reporter = Optional.empty();
+    }
+
+    public Parser(Lexer lexer, CompilerMessageReporter reporter) {
+        this.lexer = lexer;
+        this.token = lexer.peekToken();
+        this.errorMode = false;
+        this.successfulParse = true;
+        this.reporter = Optional.of(reporter);
     }
 
     private void addToLexer(Token token) {
@@ -60,8 +71,9 @@ public class Parser {
             this.successfulParse = false;
 
             if (!this.errorMode) {
-                // TODO: emit error;
+                this.reporter.ifPresent(compilerMessageReporter -> compilerMessageReporter.reportMessage(new ParserError(this.token, type)));
             }
+
             this.errorMode = true;
             error = true;
             this.skipUntilAnchorSet(anchors.add(expectedTokens));

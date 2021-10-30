@@ -41,6 +41,9 @@ public class CompilerMessageReporter {
             var output = new MessagePrinter(this.output, message.style, this.colors);
 
             displayList.format(output);
+
+            output.println();
+
         } catch (Exception e) {
             // If error message generation fails, don't stop the program.
             e.printStackTrace(this.output);
@@ -57,7 +60,6 @@ public class CompilerMessageReporter {
     public int finish() {
         if (this.errorsReported + this.warningsReported > 0) {
             var out = new MessagePrinter(this.output, CompilerError.style, this.colors);
-            out.println();
             out.printWithStyle(String.format("%d error%s", this.errorsReported, this.errorsReported != 1 ? "s" : ""), CompilerError.style.primaryStyle);
             out.printWithStyle(" and ", TextStyle.BOLD);
             out.printWithStyle(String.format("%d warning%s", this.warningsReported, this.warningsReported != 1 ? "s" : ""), CompilerWarning.style.primaryStyle);

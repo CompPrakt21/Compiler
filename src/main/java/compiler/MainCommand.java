@@ -1,5 +1,6 @@
 package compiler;
 
+import compiler.diagnostics.CompilerMessageReporter;
 import picocli.CommandLine;
 
 import picocli.CommandLine.Command;
@@ -74,8 +75,14 @@ public class MainCommand implements Callable<Integer> {
 
         try {
             String content = Files.readString(file.toPath());
-            var parser = new Parser(new Lexer(content));
+            var reporter = new CompilerMessageReporter(new PrintWriter(System.out), content);
+
+            var parser = new Parser(new Lexer(content), reporter);
+
             var ast = parser.parse();
+
+            reporter.finish();
+
             parser.dotWriter(ast);
         } catch (FileNotFoundException | NoSuchFileException e) {
             System.err.format("error: Can not find file: '%s'\n", file.getName());
