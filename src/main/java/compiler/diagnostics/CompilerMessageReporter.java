@@ -35,6 +35,8 @@ public class CompilerMessageReporter {
             default -> throw new IllegalStateException("Unexpected value: " + message);
         }
 
+        message.generate(this.source);
+
         try {
             var displayList = message.generateDisplayList(this.source);
 

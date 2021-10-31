@@ -2,10 +2,19 @@ package compiler.errors;
 
 import compiler.Token;
 import compiler.diagnostics.CompilerError;
+import compiler.diagnostics.Source;
 
 public class StaticFieldError extends CompilerError {
+    private Token staticToken;
+
     public StaticFieldError(Token staticToken) {
-        super("Fields can not be static.");
+        this.staticToken = staticToken;
+    }
+
+    @Override
+    public void generate(Source source) {
+        this.setMessage("Fields can not be static.");
+        this.staticToken = staticToken;
 
         this.addPrimaryAnnotation(staticToken.getSpan());
     }

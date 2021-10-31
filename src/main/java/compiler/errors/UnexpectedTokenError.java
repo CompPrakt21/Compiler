@@ -5,15 +5,24 @@ import compiler.TokenSet;
 import compiler.TokenSetLike;
 import compiler.TokenType;
 import compiler.diagnostics.CompilerError;
+import compiler.diagnostics.Source;
 
 import java.util.stream.Collectors;
 
 public class UnexpectedTokenError extends CompilerError {
-    public UnexpectedTokenError(Token unexpectedToken, TokenSetLike... expected) {
-        super("");
+    private final Token unexpectedToken;
+    private final TokenSetLike[] expected;
 
+    public UnexpectedTokenError(Token unexpectedToken, TokenSetLike... expected) {
+        this.unexpectedToken = unexpectedToken;
+        this.expected = expected;
+    }
+
+    public void generate(Source source) {
         if (unexpectedToken.type == TokenType.Error) {
-            this.setMessage(String.format("'%s' is not a valid token.", unexpectedToken.getErrorContent()));
+            var errorString = source.getSpanString(unexpectedToken.getSpan());
+            this.setMessage(String.format("'%s' is not a valid token.", errorString));
+            this.addNote(unexpectedToken.getErrorContent());
         } else {
             this.setMessage(String.format("Unexpected token '%s'.", unexpectedToken.type.repr));
         }

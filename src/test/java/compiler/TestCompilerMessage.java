@@ -36,17 +36,22 @@ public class TestCompilerMessage {
                     }
                 """;
 
-        var msg = new CompilerError("Something went badly");
-        msg.addPrimaryAnnotation(new Span(106, 330));
-        msg.addSecondaryAnnotation(new Span(5, 14), "C");
-        msg.addSecondaryAnnotation(new Span(0, 8), "B");
-        msg.addPrimaryAnnotation(Span.fromStartEnd(0, 417), "Expected B");
-        msg.addSecondaryAnnotation(Span.fromStartEnd(421, 427), "Blocking a label");
-        msg.addSecondaryAnnotation(new Span(46, 600), "hey");
+        var msg = new CompilerError() {
+            @Override
+            public void generate(Source source) {
+                this.setMessage("Something went badly");
+                this.addPrimaryAnnotation(new Span(106, 330));
+                this.addSecondaryAnnotation(new Span(5, 14), "C");
+                this.addSecondaryAnnotation(new Span(0, 8), "B");
+                this.addPrimaryAnnotation(Span.fromStartEnd(0, 417), "Expected B");
+                this.addSecondaryAnnotation(Span.fromStartEnd(421, 427), "Blocking a label");
+                this.addSecondaryAnnotation(new Span(46, 600), "hey");
 
-        msg.addPrimaryAnnotation(new Span(221, 5), "Whats defined right here...");
-        msg.addPrimaryAnnotation(new Span(243, 5), "... is used right here!");
-        msg.addSecondaryAnnotation(new Span(215, 50), "The entire line");
+                this.addPrimaryAnnotation(new Span(221, 5), "Whats defined right here...");
+                this.addPrimaryAnnotation(new Span(243, 5), "... is used right here!");
+                this.addSecondaryAnnotation(new Span(215, 50), "The entire line");
+            }
+        };
 
         var expectedResult = """
                 ERROR: Something went badly
@@ -103,11 +108,16 @@ public class TestCompilerMessage {
                 }
                 """;
 
-        var msg = new CompilerError("`if` and `else` have incompatible types");
-        msg.addPrimaryAnnotation(Span.fromStartEnd(68, 79), "expected `i32`, found `u32`");
-        msg.addSecondaryAnnotation(Span.fromStartEnd(42, 46), "expected because of this");
-        msg.addSecondaryAnnotation(Span.fromStartEnd(24, 84), "`if` and `else`·have incompatible types");
-        msg.addNote("For more information about this error,\ntry `rustc --explain E0308`.");
+        var msg = new CompilerError() {
+            @Override
+            public void generate(Source source) {
+                this.setMessage("`if` and `else` have incompatible types");
+                this.addPrimaryAnnotation(Span.fromStartEnd(68, 79), "expected `i32`, found `u32`");
+                this.addSecondaryAnnotation(Span.fromStartEnd(42, 46), "expected because of this");
+                this.addSecondaryAnnotation(Span.fromStartEnd(24, 84), "`if` and `else`·have incompatible types");
+                this.addNote("For more information about this error,\ntry `rustc --explain E0308`.");
+            }
+        };
 
         var expectedResult = """
                 ERROR: `if` and `else` have incompatible types
@@ -155,10 +165,15 @@ public class TestCompilerMessage {
                 }
                 """;
 
-        var msg = new CompilerError("Return of unexpected type.");
-        msg.addPrimaryAnnotation(Span.fromStartEnd(94, 99), "returning value of type `int`");
-        msg.addSecondaryAnnotation(Span.fromStartEnd(48, 53), "expected type `Point`");
-        msg.addSecondaryAnnotation(Span.fromStartEnd(41, 105), "error in this method");
+        var msg = new CompilerError() {
+            @Override
+            public void generate(Source source) {
+                this.setMessage("Return of unexpected type.");
+                this.addPrimaryAnnotation(Span.fromStartEnd(94, 99), "returning value of type `int`");
+                this.addSecondaryAnnotation(Span.fromStartEnd(48, 53), "expected type `Point`");
+                this.addSecondaryAnnotation(Span.fromStartEnd(41, 105), "error in this method");
+            }
+        };
 
         var expectedResult = """
                 ERROR: Return of unexpected type.

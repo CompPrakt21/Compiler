@@ -71,4 +71,8 @@ public class Source {
 
         return this.sourceCode.substring(lineSpan.start(), lineSpan.end());
     }
+
+    public String getSpanString(Span span) {
+        return this.sourceCode.substring(span.start(), span.end());
+    }
 }

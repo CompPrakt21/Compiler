@@ -8,7 +8,7 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-public sealed class CompilerMessage
+public abstract sealed class CompilerMessage
         permits CompilerError, CompilerWarning, CompilerDebug {
 
     enum AnnotationType {
@@ -27,12 +27,14 @@ public sealed class CompilerMessage
 
     final CompilerMessageStyle style;
 
-    protected CompilerMessage(String message, CompilerMessageStyle style) {
-        this.message = message;
+    protected CompilerMessage(CompilerMessageStyle style) {
+        this.message = "";
         this.notes = new ArrayList<>();
         this.annotations = new ArrayList<>();
         this.style = style;
     }
+
+    public abstract void generate(Source source);
 
     public void setMessage(String message) {
         this.message = message;

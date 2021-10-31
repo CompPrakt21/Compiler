@@ -1,10 +1,10 @@
 package compiler.diagnostics;
 
-public non-sealed class CompilerError extends CompilerMessage {
+public abstract non-sealed class CompilerError extends CompilerMessage {
 
     static final CompilerMessageStyle style = CompilerMessageStyle.DEFAULT_ERROR;
 
-    public CompilerError(String message) {
-        super(message, style);
+    public CompilerError() {
+        super(style);
     }
 }
