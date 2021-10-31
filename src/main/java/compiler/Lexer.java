@@ -77,8 +77,7 @@ public class Lexer {
         return actual.equals(expected);
     }
 
-    private record ConsumedString(String text, Span span) {
-    }
+    private record ConsumedString(String text, Span span) {}
 
     private ConsumedString consumeWhile(BooleanSupplier predicate) {
         int startPos = currentPos;
@@ -99,14 +98,15 @@ public class Lexer {
     }
 
     private Optional<Span> consumeComment() {
+        int startPos = currentPos;
         if (!expected("/*")) {
             return Optional.empty();
         }
         next(2);
-        ConsumedString cs = consumeWhile(() -> !expected("*/"));
+        consumeWhile(() -> !expected("*/"));
         // isEOF() = true => no end of comment symbol was found
         if (isEOF()) {
-            return Optional.of(cs.span);
+            return Optional.of(new Span(startPos, currentPos - startPos));
         }
         next(2);
         return Optional.empty();
@@ -184,7 +184,7 @@ public class Lexer {
                 return result;
             }
         }
-        Token err = Token.error(this.fileContent.substring(currentPos, currentPos + 1), new Span(currentPos, 1));
+        Token err = Token.error(fileContent.substring(currentPos, currentPos + 1), new Span(currentPos, 1));
         next();
         return err;
     }
@@ -214,15 +214,14 @@ public class Lexer {
      * @return The next token.
      */
     public Token peekToken() {
-        if (this.syntheticTokens.isEmpty()) {
-            int startPos = currentPos;
-            Token next = nextToken();
-            // i wish all side effects allowed for time travel
-            currentPos = startPos;
-            return next;
-        } else {
-            return this.syntheticTokens.getFirst();
+        if (!syntheticTokens.isEmpty()) {
+            return syntheticTokens.getFirst();
         }
+        int startPos = currentPos;
+        Token next = nextToken();
+        // i wish all side effects allowed for time travel
+        currentPos = startPos;
+        return next;
     }
 
     public void addSyntheticToken(Token t) {
