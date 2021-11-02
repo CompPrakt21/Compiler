@@ -22,6 +22,7 @@ public class Parser {
     private Token token;
     private boolean errorMode;
     public boolean successfulParse;
+    private int lastErrorPos;
     private final Optional<CompilerMessageReporter> reporter;
 
     public Parser(Lexer lexer) {
@@ -30,6 +31,7 @@ public class Parser {
         this.errorMode = false;
         this.successfulParse = true;
         this.reporter = Optional.empty();
+        this.lastErrorPos = -1;
     }
 
     public Parser(Lexer lexer, CompilerMessageReporter reporter) {
@@ -77,9 +79,10 @@ public class Parser {
         if (!expectedTokens.contains(this.token.type)) {
             this.successfulParse = false;
 
-            if (!this.errorMode) {
+            if (!this.errorMode && this.lastErrorPos < this.token.getSpan().start()) {
                 this.reporter.ifPresent(compilerMessageReporter -> compilerMessageReporter.reportMessage(new UnexpectedTokenError(this.token, type)));
             }
+            this.lastErrorPos = this.token.getSpan().start();
 
             this.errorMode = true;
             error = true;
@@ -589,34 +592,33 @@ public class Parser {
         return new LocalVariableDeclarationStatement(type, identToken, assignToken, initializer).makeError(error);
     }
 
-    private static final TokenSet EXPRESSION_FIRST_SECOND_TOKEN = TokenSet.of(
-            BINARY_OPERATORS, Not, Subtract, LeftParen, LeftSquareBracket, New,
-            True, False, Null, This, IntLiteral, Identifier, Dot
+    private static final TokenSet EXPRESSION_TOKEN_FOLLOWED_BY_IDENT = TokenSet.of(
+            BINARY_OPERATORS, LeftParen, LeftSquareBracket, Dot
     );
 
-    private static final TokenSet EXPRESSION_FIRST_THIRD_TOKEN = TokenSet.of(
-            BINARY_OPERATORS, Not, Subtract, LeftParen, LeftSquareBracket, New,
-            True, False, Null, This, IntLiteral, Identifier, RightParen, RightSquareBracket, Dot
+    private static final TokenSet EXPRESSION_TOKEN_FOLLOWED_BY_IDENT_LEFTSQUAREBRACKET = TokenSet.of(
+            Expression.first()
     );
 
     private Statement parseExpressionStatementOrLocalVariableDeclarationStatement(TokenSet anchors) {
         var savedIdentifier = assertExpect(Identifier);
 
-        // Discard tokens that can not be the second token of an Expression or Type.
-        var expectResult = expectNoConsume(anchors, anchors, EXPRESSION_FIRST_SECOND_TOKEN, LeftSquareBracket, Identifier);
+        // Discard tokens that can not be the second token of an Expression or Type (beginning with an identifier).
+        var expectResult = expectNoConsume(anchors, EXPRESSION_TOKEN_FOLLOWED_BY_IDENT, LeftSquareBracket, Identifier);
         var error = expectResult.isError;
 
         if (token.type == LeftSquareBracket) {
             var savedLeftSquareBracket = assertExpect(LeftSquareBracket);
 
-            expectResult = expectNoConsume(anchors, anchors, EXPRESSION_FIRST_THIRD_TOKEN, LeftSquareBracket, Identifier);
+            // Discard tokens that can not be the third token of an Expression or Type (beginning with an identifier and LeftSquareBracket).
+            expectResult = expectNoConsume(anchors, EXPRESSION_TOKEN_FOLLOWED_BY_IDENT_LEFTSQUAREBRACKET, RightSquareBracket, Identifier);
             error = expectResult.isError;
 
             if (token.type == RightSquareBracket) {
                 addToLexer(savedIdentifier);
                 addToLexer(savedLeftSquareBracket);
 
-                Statement statement = parseLocalVariableDeclarationStatement(anchors).makeError(error);
+                Statement statement = parseLocalVariableDeclarationStatement(anchors);
                 if (statement != null) {
                     statement.makeError(error);
                 }
@@ -624,7 +626,7 @@ public class Parser {
             } else {
                 addToLexer(savedIdentifier);
                 addToLexer(savedLeftSquareBracket);
-                Statement statement = parseExpressionStatement(anchors).makeError(error);
+                Statement statement = parseExpressionStatement(anchors);
                 if (statement != null) {
                     statement.makeError(error);
                 }
@@ -639,7 +641,7 @@ public class Parser {
             return statement;
         } else {
             addToLexer(savedIdentifier);
-            Statement statement = parseExpressionStatement(anchors).makeError(error);
+            Statement statement = parseExpressionStatement(anchors);
             if (statement != null) {
                 statement.makeError(error);
             }
