@@ -55,15 +55,13 @@ public class Semantic {
     }
 
     private void update (List<String> removed) {
-        ListIterator<Pair<String, AstNode>> iterator = semanticMap.listIterator();
-        while (iterator.hasNext()) {
-            Pair<String, AstNode> pair = iterator.next();
+        ListIterator<Pair<String, AstNode>> iterator = semanticMap.listIterator(semanticMap.size());
+        while (iterator.hasPrevious()) {
+            Pair<String, AstNode> pair = iterator.previous();
             if (removed.contains(pair.first)) {
                 stringMap.put(pair.first, pair.second);
+                removed.remove(pair.first);
             }
-        }
-        if (removed.size() > 0) {
-
         }
 
     }
