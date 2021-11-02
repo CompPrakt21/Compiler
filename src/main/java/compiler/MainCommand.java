@@ -69,13 +69,42 @@ public class MainCommand implements Callable<Integer> {
         return error ? -1 : 0;
     }
 
+    @Command(name = "--parsetest", description = "Checks whether the input file parses.")
+    public Integer callParseTest(@Parameters(paramLabel = "FILE", description = "The file to parse.") File file) {
+        boolean error = false;
+
+        try {
+            String content = Files.readString(file.toPath());
+            var reporter = new CompilerMessageReporter(new PrintWriter(System.err), content);
+
+            var parser = new Parser(new Lexer(content), reporter);
+
+            var ast = parser.parse();
+
+            if (!parser.successfulParse) {
+                error = true;
+            }
+
+            reporter.finish();
+
+        } catch (FileNotFoundException | NoSuchFileException e) {
+            System.err.format("error: Can not find file: '%s'\n", file.getName());
+            error = true;
+        } catch (IOException e) {
+            System.err.format("error: Can not read file: '%s'\n", file.getName());
+            error = true;
+        }
+
+        return error ? -1 : 0;
+    }
+
     @Command(name = "--dump-dot-ast", description = "Generates a dot file with the ast.")
     public Integer callDumpAst(@Parameters(paramLabel = "FILE", description = "The file to parse.") File file) {
         boolean error = false;
 
         try {
             String content = Files.readString(file.toPath());
-            var reporter = new CompilerMessageReporter(new PrintWriter(System.out), content);
+            var reporter = new CompilerMessageReporter(new PrintWriter(System.err), content);
 
             var parser = new Parser(new Lexer(content), reporter);
 
