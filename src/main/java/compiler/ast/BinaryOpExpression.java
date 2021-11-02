@@ -7,6 +7,16 @@ import java.util.List;
 
 public final class BinaryOpExpression extends Expression {
 
+    @Override
+    public boolean startsNewBlock() {
+        return false;
+    }
+
+    @Override
+    public String getVariable() {
+        return null;
+    }
+
     public enum BinaryOp {
         And,
         Or,

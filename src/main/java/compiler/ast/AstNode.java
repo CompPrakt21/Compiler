@@ -42,13 +42,6 @@ public abstract sealed class AstNode implements HasSpan
         return (T) this;
     }
 
-    public String getId() {
-        return id;
-    }
-    public void setId(String id) {
-        this.id = id;
-    }
-
     @Override
     public Span getSpan() {
         return this.span;

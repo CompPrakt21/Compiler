@@ -22,6 +22,16 @@ public final class IntType extends Type {
     }
 
     @Override
+    public boolean startsNewBlock() {
+        return false;
+    }
+
+    @Override
+    public String getVariable() {
+        return null;
+    }
+
+    @Override
     public boolean syntacticEq(AstNode otherAst) {
         return otherAst instanceof IntType;
     }

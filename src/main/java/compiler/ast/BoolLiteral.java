@@ -34,6 +34,16 @@ public final class BoolLiteral extends Expression {
     }
 
     @Override
+    public boolean startsNewBlock() {
+        return false;
+    }
+
+    @Override
+    public String getVariable() {
+        return null;
+    }
+
+    @Override
     public boolean syntacticEq(AstNode otherAst) {
         if (!(otherAst instanceof BoolLiteral other)) {
             return false;

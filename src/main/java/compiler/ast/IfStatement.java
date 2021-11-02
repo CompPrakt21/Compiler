@@ -52,6 +52,16 @@ public final class IfStatement extends Statement {
     }
 
     @Override
+    public boolean startsNewBlock() {
+        return true;
+    }
+
+    @Override
+    public String getVariable() {
+        return null;
+    }
+
+    @Override
     public boolean syntacticEq(AstNode otherAst) {
         if (!(otherAst instanceof IfStatement other)) {
             return false;

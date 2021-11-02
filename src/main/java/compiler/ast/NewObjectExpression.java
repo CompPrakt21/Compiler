@@ -31,6 +31,16 @@ public final class NewObjectExpression extends Expression {
     }
 
     @Override
+    public boolean startsNewBlock() {
+        return false;
+    }
+
+    @Override
+    public String getVariable() {
+        return typeIdentifier;
+    }
+
+    @Override
     public boolean syntacticEq(AstNode otherAst) {
         if (!(otherAst instanceof NewObjectExpression other)) {
             return false;
