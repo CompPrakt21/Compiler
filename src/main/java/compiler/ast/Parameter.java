@@ -41,6 +41,16 @@ public final class Parameter extends AstNode implements VariableDefinition {
     }
 
     @Override
+    public boolean startsNewBlock() {
+        return false;
+    }
+
+    @Override
+    public String getVariable() {
+        return identifier;
+    }
+
+    @Override
     public boolean syntacticEq(AstNode otherAst) {
         if (!(otherAst instanceof Parameter other)) {
             return false;

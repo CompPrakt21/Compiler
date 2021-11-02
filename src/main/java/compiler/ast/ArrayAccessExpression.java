@@ -40,6 +40,16 @@ public final class ArrayAccessExpression extends Expression {
     }
 
     @Override
+    public boolean startsNewBlock() {
+        return false;
+    }
+
+    @Override
+    public String getVariable() {
+        return null;
+    }
+
+    @Override
     public boolean syntacticEq(AstNode otherAst) {
         if (!(otherAst instanceof ArrayAccessExpression other)) {
             return false;

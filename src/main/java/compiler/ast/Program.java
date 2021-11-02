@@ -35,6 +35,16 @@ public final class Program extends AstNode {
     }
 
     @Override
+    public boolean startsNewBlock() {
+        return true;
+    }
+
+    @Override
+    public String getVariable() {
+        return null;
+    }
+
+    @Override
     public boolean syntacticEq(AstNode otherAst) {
         if (!(otherAst instanceof Program other)) {
             return false;

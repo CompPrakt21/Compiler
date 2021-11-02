@@ -65,6 +65,16 @@ public final class MethodCallExpression extends Expression {
     }
 
     @Override
+    public boolean startsNewBlock() {
+        return false;
+    }
+
+    @Override
+    public String getVariable() {
+        return identifier;
+    }
+
+    @Override
     public boolean syntacticEq(AstNode otherAst) {
         if (!(otherAst instanceof MethodCallExpression other)) {
             return false;
