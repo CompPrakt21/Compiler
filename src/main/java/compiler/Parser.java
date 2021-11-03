@@ -1084,7 +1084,7 @@ public class Parser {
         line += "]\n";
 
         if (node instanceof Reference && !node.isError()) {
-            line += node.getId() + " -> " + ((Reference) node).getReference().getId() + " [style=dashed color=blue]\n";
+            line += ((Reference) node).getReference().getId() + " -> " + node.getId() + " [style=dashed color=blue dir=back]\n";
         }
 
         if (children != null) {
