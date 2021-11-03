@@ -2,6 +2,7 @@ package compiler;
 
 import compiler.ast.Class;
 import compiler.ast.*;
+import compiler.diagnostics.CompilerError;
 import compiler.diagnostics.CompilerMessage;
 import compiler.diagnostics.CompilerMessageReporter;
 import compiler.errors.*;
@@ -43,7 +44,9 @@ public class Parser {
     }
 
     private void reportError(CompilerMessage error) {
-        this.successfulParse = false;
+        if (error instanceof CompilerError) {
+            this.successfulParse = false;
+        }
 
         this.reporter.ifPresent(compilerMessageReporter -> compilerMessageReporter.reportMessage(error));
     }
@@ -170,7 +173,7 @@ public class Parser {
             switch (ast) {
                 case Field field -> fields.add(field);
                 case Method method -> methods.add(method);
-                case null, default -> error = true;
+                case null, default -> error = true; // This should never happen
             }
 
             expectResult = expectNoConsume(anchors, ClassMember.first(), RightCurlyBracket);
@@ -425,7 +428,7 @@ public class Parser {
         } else if (LocalVariableDeclarationStatement.firstContains(token.type)) {
             result = parseLocalVariableDeclarationStatement(anchors);
         } else {
-            return null;
+            return null; // This should never happen
         }
 
         if (result != null) {
@@ -464,7 +467,7 @@ public class Parser {
         error |= expectResult.isError;
         var thenStatement = parseStatement(anchors.add(Else));
 
-        if (thenStatement != null && thenStatement instanceof LocalVariableDeclarationStatement) {
+        if (thenStatement instanceof LocalVariableDeclarationStatement) {
             reportError(new InvalidLocalVariableDeclarationError(thenStatement));
             error = true;
         }
@@ -480,7 +483,7 @@ public class Parser {
             error |= expectResult.isError;
             var elseStmt = parseStatement(anchors);
 
-            if (elseStmt != null && elseStmt instanceof LocalVariableDeclarationStatement) {
+            if (elseStmt instanceof LocalVariableDeclarationStatement) {
                 reportError(new InvalidLocalVariableDeclarationError(elseStmt));
                 error = true;
             }
@@ -526,7 +529,7 @@ public class Parser {
         error |= expectResult.isError;
         var body = parseStatement(anchors);
 
-        if (body != null && body instanceof LocalVariableDeclarationStatement) {
+        if (body instanceof LocalVariableDeclarationStatement) {
             reportError(new InvalidLocalVariableDeclarationError(body));
             error = true;
         }
@@ -920,6 +923,7 @@ public class Parser {
                 return new ParseExpressionResult(expression, parentError);
             }
             case null, default -> {
+                // This should never happen, first set further up prevents it
                 return new ParseExpressionResult(null, true); // Token is in anchor set.
             }
         }
