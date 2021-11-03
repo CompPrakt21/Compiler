@@ -75,4 +75,16 @@ public final class BinaryOpExpression extends Expression {
                 && this.operator.equals(other.operator)
                 && this.rhs.syntacticEq(other.rhs);
     }
+
+    public Expression getLhs() {
+        return lhs;
+    }
+
+    public BinaryOp getOperator() {
+        return operator;
+    }
+
+    public Expression getRhs() {
+        return rhs;
+    }
 }

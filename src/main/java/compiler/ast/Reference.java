@@ -31,4 +31,8 @@ public final class Reference extends Expression {
         }
         return this.identifier.equals(other.identifier);
     }
+
+    public String getIdentifier() {
+        return identifier;
+    }
 }

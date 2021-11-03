@@ -43,4 +43,16 @@ public final class NewArrayExpression extends Expression {
                 && this.firstDimensionSize.syntacticEq(other.firstDimensionSize)
                 && this.dimensions == other.dimensions;
     }
+
+    public Type getType() {
+        return type;
+    }
+
+    public Expression getFirstDimensionSize() {
+        return firstDimensionSize;
+    }
+
+    public int getDimensions() {
+        return dimensions;
+    }
 }

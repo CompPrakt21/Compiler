@@ -49,4 +49,16 @@ public final class IfStatement extends Statement {
                 && this.thenBody.syntacticEq(other.thenBody)
                 && OptionalUtils.combine(this.elseBody, other.elseBody, AstNode::syntacticEq).orElse(true);
     }
+
+    public Expression getCondition() {
+        return condition;
+    }
+
+    public Statement getThenBody() {
+        return thenBody;
+    }
+
+    public Optional<Statement> getElseBody() {
+        return elseBody;
+    }
 }

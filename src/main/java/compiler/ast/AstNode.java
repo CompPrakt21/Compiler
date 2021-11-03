@@ -15,7 +15,6 @@ public abstract class AstNode implements HasSpan {
 
     public abstract String getName();
 
-
     public abstract boolean syntacticEq(AstNode otherAst);
 
     public boolean isError() {

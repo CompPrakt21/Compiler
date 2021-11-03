@@ -34,4 +34,8 @@ public final class ArrayType extends Type {
         }
         return childType.syntacticEq(other.childType);
     }
+
+    public Type getChildType() {
+        return childType;
+    }
 }

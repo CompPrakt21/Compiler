@@ -38,4 +38,12 @@ public final class AssignmentExpression extends Expression {
     public String getName() {
         return "AssignmentExpresssion";
     }
+
+    public Expression getLvalue() {
+        return lvalue;
+    }
+
+    public Expression getRvalue() {
+        return rvalue;
+    }
 }

@@ -47,4 +47,12 @@ public final class UnaryExpression extends Expression {
         return this.expression.syntacticEq(other.expression)
                 && this.operator.equals(other.operator);
     }
+
+    public Expression getExpression() {
+        return expression;
+    }
+
+    public UnaryOp getOperator() {
+        return operator;
+    }
 }

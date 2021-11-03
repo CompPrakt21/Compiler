@@ -38,4 +38,12 @@ public final class Parameter extends AstNode {
         return this.type.syntacticEq(other.type)
                 && this.identifier.equals(other.identifier);
     }
+
+    public Type getType() {
+        return type;
+    }
+
+    public String getIdentifier() {
+        return identifier;
+    }
 }

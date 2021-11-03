@@ -25,7 +25,6 @@ public final class Class extends AstNode {
         this.methods = methods;
     }
 
-
     @Override
     public List<AstNode> getChildren() {
         ArrayList<AstNode> temp = new ArrayList<>();
@@ -47,5 +46,17 @@ public final class Class extends AstNode {
         return this.identifier.equals(otherClass.identifier)
                 && StreamUtils.zip(this.fields.stream(), otherClass.fields.stream(), AstNode::syntacticEq).allMatch(x -> x)
                 && StreamUtils.zip(this.methods.stream(), otherClass.methods.stream(), AstNode::syntacticEq).allMatch(x -> x);
+    }
+
+    public String getIdentifier() {
+        return identifier;
+    }
+
+    public List<Field> getFields() {
+        return fields;
+    }
+
+    public List<Method> getMethods() {
+        return methods;
     }
 }

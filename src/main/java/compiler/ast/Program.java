@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Objects;
 
 public final class Program extends AstNode {
+
     private List<Class> classes;
 
     public Program(List<Class> classes) {
@@ -36,5 +37,9 @@ public final class Program extends AstNode {
             return false;
         }
         return StreamUtils.zip(this.classes.stream(), other.classes.stream(), AstNode::syntacticEq).allMatch(x -> x);
+    }
+
+    public List<Class> getClasses() {
+        return classes;
     }
 }

@@ -51,4 +51,15 @@ public final class LocalVariableDeclarationStatement extends Statement {
                 && OptionalUtils.combine(this.initializer, other.initializer, AstNode::syntacticEq).orElse(true);
     }
 
+    public Type getType() {
+        return type;
+    }
+
+    public String getIdentifier() {
+        return identifier;
+    }
+
+    public Optional<Expression> getInitializer() {
+        return initializer;
+    }
 }

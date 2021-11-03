@@ -58,4 +58,24 @@ public class Method extends AstNode {
                 && StreamUtils.zip(this.parameters.stream(), other.parameters.stream(), AstNode::syntacticEq).allMatch(x -> x)
                 && this.body.syntacticEq(other.body);
     }
+
+    public boolean isStatic() {
+        return isStatic;
+    }
+
+    public String getIdentifier() {
+        return identifier;
+    }
+
+    public Type getReturnType() {
+        return returnType;
+    }
+
+    public List<Parameter> getParameters() {
+        return parameters;
+    }
+
+    public Block getBody() {
+        return body;
+    }
 }

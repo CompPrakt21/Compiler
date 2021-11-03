@@ -40,4 +40,12 @@ public class Field extends AstNode {
         }
         return this.identifier.equals(other.identifier) && this.type.syntacticEq(other.type);
     }
+
+    public String getIdentifier() {
+        return identifier;
+    }
+
+    public Type getType() {
+        return type;
+    }
 }

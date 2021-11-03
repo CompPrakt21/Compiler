@@ -24,15 +24,15 @@ public final class IntLiteral extends Expression {
         return value;
     }
 
-    public String getValue() {
-        return value;
-    }
-
     @Override
     public boolean syntacticEq(AstNode otherAst) {
         if (!(otherAst instanceof IntLiteral other)) {
             return false;
         }
         return this.value.equals(other.value);
+    }
+
+    public String getValue() {
+        return value;
     }
 }

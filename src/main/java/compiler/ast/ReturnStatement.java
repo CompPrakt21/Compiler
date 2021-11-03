@@ -40,4 +40,7 @@ public final class ReturnStatement extends Statement {
         return OptionalUtils.combine(this.expression, other.expression, AstNode::syntacticEq).orElse(true);
     }
 
+    public Optional<Expression> getExpression() {
+        return expression;
+    }
 }

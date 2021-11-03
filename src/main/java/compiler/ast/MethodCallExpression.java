@@ -51,4 +51,16 @@ public final class MethodCallExpression extends Expression {
                 && this.identifier.equals(other.identifier)
                 && StreamUtils.zip(this.arguments.stream(), other.arguments.stream(), AstNode::syntacticEq).allMatch(x -> x);
     }
+
+    public Optional<Expression> getTarget() {
+        return target;
+    }
+
+    public String getIdentifier() {
+        return identifier;
+    }
+
+    public List<Expression> getArguments() {
+        return arguments;
+    }
 }
