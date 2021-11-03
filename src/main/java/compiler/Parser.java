@@ -1070,7 +1070,9 @@ public class Parser {
         }
         List<AstNode> children = node.getChildren();
 
-        String line = runthrough + " [label=\"" + node.getClass().getSimpleName() + "\n" + node.getName() + "\n";
+        node.setId(runthrough);
+
+        String line = node.getId() + " [label=\"" + node.getClass().getSimpleName() + "\n" + node.getName() + "\n";
 
         line += node.getSpan() + "\n";
 
@@ -1081,6 +1083,10 @@ public class Parser {
         }
         line += "]\n";
 
+        if (node instanceof Reference && !node.isError()) {
+            line += node.getId() + " -> " + ((Reference) node).getReference().getId() + " [style=dashed color=blue]\n";
+        }
+
         if (children != null) {
             int counter = 0;
             for (AstNode child : children) {
@@ -1089,14 +1095,18 @@ public class Parser {
                     counter++;
                     continue;
                 }
-                if (child.getClass() == VoidType.class) continue;
-                line += runthrough + " -> " + recursiveWriter(out, child, runthrough + "a" + counter) + "\n";
+                if (child.getId() == null) {
+                    line += node.getId() + " -> " + recursiveWriter(out, child, runthrough + "a" + counter) + "\n";
+                } else {
+                    line += node.getId() + " -> " + child.getId() + " [style=dashed color=blue]\n";
+                }
                 counter++;
+
             }
         }
         out.write(line);
         out.newLine();
-        return runthrough;
+        return node.getId();
     }
 
 }

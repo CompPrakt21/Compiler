@@ -32,6 +32,9 @@ public class Semantic {
 
         String variable = node.getVariable();
         if (node instanceof Reference) {
+            if (stringMap.get(variable) == null) {
+                node.makeError(true);
+            }
             ((Reference) node).setReference(stringMap.get(variable));
             return;
         }
@@ -39,8 +42,11 @@ public class Semantic {
             stringMap.put(variable, node);
             semanticMap.push(new Pair(variable, node)); //is it possible to initialize a var multiple times?
         }
-
-
+        if (children != null) {
+            for (AstNode child : children) {
+                semanticAnalysis(child);
+            }
+        }
         if (newBlock) {
             Pair<String, AstNode> old = semanticMap.pop();
             List<String> removed = new ArrayList<>();
@@ -51,7 +57,6 @@ public class Semantic {
             update(removed);
 
         }
-
     }
 
     private void update (List<String> removed) {
@@ -62,6 +67,9 @@ public class Semantic {
                 stringMap.put(pair.first, pair.second);
                 removed.remove(pair.first);
             }
+        }
+        for (int i = 0; i < removed.size(); i++) {
+            stringMap.remove(removed.get(i));
         }
 
     }
