@@ -210,6 +210,11 @@ public class Parser {
         error |= parseTypeResult.parentError;
         var type = parseTypeResult.type;
 
+        if (staticToken.isPresent() && !(type instanceof VoidType)) {
+            reportError(new StaticMethodReturnError(type, staticToken.get()));
+            error = true;
+        }
+
         expectResult = expect(anchors.add(SemiColon, LeftParen), Identifier);
         var identToken = expectResult.token;
         error |= expectResult.isError;

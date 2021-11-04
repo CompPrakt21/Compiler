@@ -14,7 +14,6 @@ public class StaticFieldError extends CompilerError {
     @Override
     public void generate(Source source) {
         this.setMessage("Fields can not be static.");
-        this.staticToken = staticToken;
 
         this.addPrimaryAnnotation(staticToken.getSpan());
     }
