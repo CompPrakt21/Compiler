@@ -26,21 +26,21 @@ public class Parser {
     private int lastErrorPos;
     private final Optional<CompilerMessageReporter> reporter;
 
-    public Parser(Lexer lexer) {
+    private Parser(Lexer lexer, Optional<CompilerMessageReporter> reporter) {
         this.lexer = lexer;
         this.token = lexer.peekToken();
         this.errorMode = false;
         this.successfulParse = true;
-        this.reporter = Optional.empty();
+        this.reporter = reporter;
         this.lastErrorPos = -1;
     }
 
+    public Parser(Lexer lexer) {
+        this(lexer, Optional.empty());
+    }
+
     public Parser(Lexer lexer, CompilerMessageReporter reporter) {
-        this.lexer = lexer;
-        this.token = lexer.peekToken();
-        this.errorMode = false;
-        this.successfulParse = true;
-        this.reporter = Optional.of(reporter);
+        this(lexer, Optional.of(reporter));
     }
 
     private void reportError(CompilerMessage error) {

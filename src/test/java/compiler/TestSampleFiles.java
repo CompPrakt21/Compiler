@@ -1,10 +1,12 @@
 package compiler;
 
+import compiler.diagnostics.CompilerMessageReporter;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.TestFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.stream.Stream;
@@ -20,7 +22,8 @@ public class TestSampleFiles {
 
     // TODO: This represents the frontend input, replace it once that is available.
     public boolean doesThisCompile(String content) {
-        var parser = new Parser(new Lexer(content));
+        var reporter = new CompilerMessageReporter(new PrintWriter(System.err), content);
+        var parser = new Parser(new Lexer(content), reporter);
 
         var ast = parser.parse();
 
