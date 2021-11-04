@@ -58,7 +58,7 @@ public final class BinaryOpExpression extends Expression {
             case Multiply -> BinaryOp.Multiplication;
             case Divide -> BinaryOp.Division;
             case Modulo -> BinaryOp.Modulo;
-            default -> throw new AssertionError("Only call this function with binary op tokens.");
+            case null, default -> null;
         };
 
         this.lhs = lhs;
