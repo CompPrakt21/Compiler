@@ -38,6 +38,7 @@ public final class BinaryOpExpression extends Expression {
 
     private Expression lhs;
     private BinaryOp operator;
+    private String operatorRepr;
     private Expression rhs;
 
     public BinaryOpExpression(Expression lhs, Token operator, Expression rhs) {
@@ -63,6 +64,7 @@ public final class BinaryOpExpression extends Expression {
 
         this.lhs = lhs;
         this.operator = op;
+        this.operatorRepr = operator.type.repr;
         this.rhs = rhs;
     }
 
@@ -82,6 +84,10 @@ public final class BinaryOpExpression extends Expression {
 
     public BinaryOp getOperator() {
         return operator;
+    }
+
+    public String getOperatorRepr() {
+        return operatorRepr;
     }
 
     public Expression getRhs() {

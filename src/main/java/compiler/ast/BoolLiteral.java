@@ -36,7 +36,7 @@ public final class BoolLiteral extends Expression {
         return this.value == other.value;
     }
 
-    public boolean isValue() {
+    public boolean getValue() {
         return value;
     }
 }

@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class NewArrayExpression extends Expression {
+    // Structure: new type[firstDimensionSize]([])^(dimensions - 1)
     /* Can not be ArrayType. */
     private Type type;
     private Expression firstDimensionSize;

@@ -25,6 +25,7 @@ public final class UnaryExpression extends Expression {
 
     private Expression expression;
     private UnaryOp operator;
+    private String operatorRepr;
 
     public UnaryExpression(Expression expression, Token operator) {
         this.isError |= expression == null || operator == null;
@@ -37,6 +38,7 @@ public final class UnaryExpression extends Expression {
             case Subtract -> UnaryOp.Negate;
             case null, default -> null;
         };
+        this.operatorRepr = operator.type.repr;
     }
 
     @Override
@@ -54,5 +56,9 @@ public final class UnaryExpression extends Expression {
 
     public UnaryOp getOperator() {
         return operator;
+    }
+
+    public String getOperatorRepr() {
+        return operatorRepr;
     }
 }
