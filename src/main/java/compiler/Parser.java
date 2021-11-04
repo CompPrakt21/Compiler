@@ -997,6 +997,7 @@ public class Parser {
         int dimensions = 1;
 
         var expectResult = expect(anchors.add(Expression.first(), RightSquareBracket), LeftSquareBracket);
+        var lastOpenBracket = expectResult.token;
         var error = expectResult.isError;
 
         expectResult = expectNoConsume(anchors.add(RightSquareBracket), Expression.first());
@@ -1006,14 +1007,14 @@ public class Parser {
         var expression = expressionResult.expression;
 
         expectResult = expect(anchors.add(LeftSquareBracket), RightSquareBracket);
-        var lastBracket = expectResult.token;
+        var lastCloseBracket = expectResult.token;
         error |= expectResult.isError;
 
         expectResult = expectNoConsume(anchors, LeftSquareBracket, NewArrayExpression.follow());
         var parentError = expectResult.isError;
 
         while (token.type == LeftSquareBracket) {
-            lastBracket = assertExpect(LeftSquareBracket);
+            lastOpenBracket = assertExpect(LeftSquareBracket);
 
             error |= parentError;
 
@@ -1022,23 +1023,20 @@ public class Parser {
             error |= expectResult.isError;
 
             if (Expression.firstContains(token.type)) {
-                var expressionStartToken = token;
-                expressionResult = parseExpression(anchors.add(RightSquareBracket, LeftSquareBracket, NewArrayExpression.follow()), 0);
-
-                reportError(new NewArrayExpressionWithDisallowedExpressions(expressionResult.expression, expressionStartToken));
+                this.addToLexer(lastOpenBracket);
+                break;
             }
 
             expectResult = expect(anchors.add(LeftSquareBracket, NewArrayExpression.follow()), RightSquareBracket);
             error |= expectResult.isError;
+            lastCloseBracket = expectResult.token;
             dimensions++;
 
-
             expectResult = expectNoConsume(anchors, LeftSquareBracket, NewArrayExpression.follow());
-            lastBracket = expectResult.token != null ? expectResult.token : lastBracket;
             parentError = expectResult.isError;
         }
 
-        Expression expr = new NewArrayExpression(type, expression, dimensions, lastBracket).makeError(error);
+        Expression expr = new NewArrayExpression(type, expression, dimensions, lastCloseBracket).makeError(error);
         return new ParseExpressionResult(expr, parentError);
     }
 
