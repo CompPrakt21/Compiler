@@ -671,7 +671,11 @@ public class Parser {
         while (getBinOpPrecedence(token.type) >= minPrec) {
             var error = parentError;
 
-            var tokenPrec = getBinOpPrecedence(token.type) + 1;
+            var tokenPrec = getBinOpPrecedence(token.type);
+
+            if (token.type != Assign) {
+                tokenPrec += 1; // Every binary operator is left associative except assign.
+            }
 
             expectResult = expect(anchors, getTokensWithHigherPrecendence(minPrec));
             error |= expectResult.isError;
