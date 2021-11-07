@@ -1,4 +1,4 @@
-/* new object only works on identifiers */
+/* OK  */
 
 class Main {
 	public static void main(String[] args) {
