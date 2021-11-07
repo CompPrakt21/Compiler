@@ -1,0 +1,7 @@
+/* new object only works on identifiers */
+
+class Main {
+	public static void main(String[] args) {
+		x = new boolean();
+	}
+}

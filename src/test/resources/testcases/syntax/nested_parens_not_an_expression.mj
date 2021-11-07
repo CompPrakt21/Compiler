@@ -1,0 +1,7 @@
+/* not ok, because a bunch of nested parens are not a valid expression. */
+
+class Main { 
+	public static void main(String[] args) {
+		this.foo((((((()))))));
+	}
+}

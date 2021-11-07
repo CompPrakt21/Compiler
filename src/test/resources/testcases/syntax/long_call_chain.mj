@@ -1,0 +1,45 @@
+
+class Main {
+	public static void main(String[] args) {
+		this.foo()
+			.bar()
+			.baz()
+			.a()
+			.b
+			.c
+			.e
+			.xyz(this.foo())
+			.y
+			.e
+			.e
+			.e
+			.e
+			.e
+			.e
+			.e
+			.e
+			.e
+			.e
+			.e
+			.e
+			.e
+			.e
+			.e
+			.e
+			.e
+			.e
+			.e
+			.e
+			.e
+			.e
+			.e
+			.e
+			.e
+			.e
+			.e
+			.e
+			.e
+			.e
+			;
+	}
+}

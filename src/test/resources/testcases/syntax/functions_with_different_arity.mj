@@ -1,0 +1,15 @@
+/* new object only works on identifiers */
+
+class Main {
+	public static void main(String[] args) {
+		foo();
+		foo(a);
+		foo(a, b);
+		foo(a, b, c);
+
+		this.foo();
+		this.foo(a);
+		this.foo(a, b);
+		this.foo(a, b, c);
+	}
+}

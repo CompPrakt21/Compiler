@@ -1,0 +1,10 @@
+/* OK */
+class Main { 
+	public static void main(String[] args) {
+		if ((x==y)[3]) if (true) if (false);
+		while(true) while(a) if (x) while (y) while (a) if (b) ; else c;
+		if (a);
+		else c;
+		if (a(b(c()))) ; while (true) { if (a) true; else {} };
+	}
+}

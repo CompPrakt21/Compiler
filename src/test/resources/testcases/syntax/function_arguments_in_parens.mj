@@ -1,0 +1,7 @@
+/* not ok */
+
+class Main {
+	public static void main(String[] args) {
+		foo(((a), (b)))
+	}
+}

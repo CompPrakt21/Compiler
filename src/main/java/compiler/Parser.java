@@ -601,7 +601,7 @@ public class Parser {
     }
 
     private static final TokenSet EXPRESSION_TOKEN_FOLLOWED_BY_IDENT = TokenSet.of(
-            BINARY_OPERATORS, LeftParen, LeftSquareBracket, Dot
+            BINARY_OPERATORS, LeftParen, LeftSquareBracket, Dot, Expression.follow()
     );
 
     private static final TokenSet EXPRESSION_TOKEN_FOLLOWED_BY_IDENT_LEFTSQUAREBRACKET = TokenSet.of(
@@ -735,9 +735,6 @@ public class Parser {
 
     private ParseExpressionResult parseUnaryExpression(TokenSet anchors) {
 
-        if (PostfixExpression.firstContains(token.type)) {
-            return parsePostfixExpression(anchors);
-        }
         if (token.type == TokenType.Not) {
             var notToken = assertExpect(Not);
 
@@ -751,8 +748,7 @@ public class Parser {
             Expression expr = new UnaryExpression(child, notToken).makeError(error);
 
             return new ParseExpressionResult(expr, parentError);
-        }
-        if (token.type == TokenType.Subtract) {
+        } else if (token.type == TokenType.Subtract) {
             var minusToken = assertExpect(Subtract);
 
             var expectResult = expectNoConsume(anchors, UnaryExpression.first());
@@ -764,8 +760,14 @@ public class Parser {
             Expression expr = new UnaryExpression(child, minusToken).makeError(error);
 
             return new ParseExpressionResult(expr, parentError);
+        } else {
+            var expectResult = expectNoConsume(anchors, PostfixExpression.first());
+            var error = expectResult.isError;
+
+            ParseExpressionResult result = parsePostfixExpression(anchors);
+
+            return new ParseExpressionResult(result.expression, result.parentError || error);
         }
-        return new ParseExpressionResult(null, true);
     }
 
     private ParseExpressionResult parsePostfixExpression(TokenSet anchors) {

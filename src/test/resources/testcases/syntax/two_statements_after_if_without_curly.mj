@@ -1,0 +1,8 @@
+/* not ok, because the second semicolon is a second statement after the if. */
+
+class Main { 
+	public static void main(String[] args) {
+		
+		if (a) return;; else {}
+	}
+}
