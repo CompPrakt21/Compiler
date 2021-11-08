@@ -5,7 +5,7 @@ import compiler.Token;
 import java.util.ArrayList;
 import java.util.List;
 
-public final class Parameter extends AstNode {
+public final class Parameter extends AstNode implements VariableDefinition {
     private Type type;
     private String identifier;
 
@@ -17,6 +17,14 @@ public final class Parameter extends AstNode {
 
         this.type = type;
         this.identifier = identifier != null ? identifier.getIdentContent() : null;
+    }
+
+    public Type getType() {
+        return type;
+    }
+
+    public String getIdentifier() {
+        return identifier;
     }
 
     @Override

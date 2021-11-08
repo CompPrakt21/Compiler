@@ -7,7 +7,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
-public sealed abstract class AstNode implements HasSpan
+public abstract sealed class AstNode implements HasSpan
         permits Expression, Statement, Type, Program, Class, Method, Field, Parameter {
     protected Span span;
     protected boolean isError;

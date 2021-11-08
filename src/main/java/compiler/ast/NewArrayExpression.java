@@ -23,6 +23,18 @@ public final class NewArrayExpression extends Expression {
         this.firstDimensionSize = firstDimensionSize;
     }
 
+    public Type getType() {
+        return type;
+    }
+
+    public Expression getFirstDimensionSize() {
+        return firstDimensionSize;
+    }
+
+    public int getDimensions() {
+        return dimensions;
+    }
+
     @Override
     public List<AstNode> getChildren() {
         ArrayList<AstNode> temp = new ArrayList<>();

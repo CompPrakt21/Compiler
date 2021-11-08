@@ -7,7 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @SuppressWarnings("ConstantConditions")
-public final class Field extends AstNode {
+public final class Field extends AstNode implements VariableDefinition {
     private String identifier;
 
     private Type type;
@@ -20,6 +20,14 @@ public final class Field extends AstNode {
 
         this.identifier = identifier != null ? identifier.getIdentContent() : null;
         this.type = type;
+    }
+
+    public String getIdentifier() {
+        return identifier;
+    }
+
+    public Type getType() {
+        return type;
     }
 
     @Override
@@ -40,13 +48,5 @@ public final class Field extends AstNode {
             return false;
         }
         return this.identifier.equals(other.identifier) && this.type.syntacticEq(other.type);
-    }
-
-    public String getIdentifier() {
-        return identifier;
-    }
-
-    public Type getType() {
-        return type;
     }
 }

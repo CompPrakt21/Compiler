@@ -18,6 +18,14 @@ public final class ArrayAccessExpression extends Expression {
         this.indexExpression = indexExpression;
     }
 
+    public Expression getTarget() {
+        return target;
+    }
+
+    public Expression getIndexExpression() {
+        return indexExpression;
+    }
+
     @Override
     public List<AstNode> getChildren() {
         ArrayList<AstNode> temp = new ArrayList<>();

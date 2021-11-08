@@ -19,6 +19,10 @@ public final class BoolLiteral extends Expression {
         };
     }
 
+    public boolean getValue() {
+        return value;
+    }
+
     @Override
     public List<AstNode> getChildren() {
         return null;

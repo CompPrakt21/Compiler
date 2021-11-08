@@ -16,6 +16,10 @@ public final class NewObjectExpression extends Expression {
         this.typeIdentifier = typeIdentifier != null ? typeIdentifier.getIdentContent() : null;
     }
 
+    public String getTypeIdentifier() {
+        return typeIdentifier;
+    }
+
     @Override
     public List<AstNode> getChildren() {
         return null;

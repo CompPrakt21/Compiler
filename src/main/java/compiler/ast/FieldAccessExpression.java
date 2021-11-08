@@ -18,6 +18,14 @@ public final class FieldAccessExpression extends Expression {
         this.identifier = identifier != null ? identifier.getIdentContent() : null;
     }
 
+    public Expression getTarget() {
+        return target;
+    }
+
+    public String getIdentifier() {
+        return identifier;
+    }
+
     @Override
     public List<AstNode> getChildren() {
         return List.of(target);

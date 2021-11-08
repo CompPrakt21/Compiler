@@ -18,6 +18,14 @@ public final class AssignmentExpression extends Expression {
         this.rvalue = rvalue;
     }
 
+    public Expression getLvalue() {
+        return lvalue;
+    }
+
+    public Expression getRvalue() {
+        return rvalue;
+    }
+
     @Override
     public boolean syntacticEq(AstNode otherAst) {
         if (!(otherAst instanceof AssignmentExpression other)) {

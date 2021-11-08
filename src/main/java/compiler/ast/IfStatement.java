@@ -26,6 +26,18 @@ public final class IfStatement extends Statement {
         this.elseBody = elseBody;
     }
 
+    public Expression getCondition() {
+        return condition;
+    }
+
+    public Statement getThenBody() {
+        return thenBody;
+    }
+
+    public Optional<Statement> getElseBody() {
+        return elseBody;
+    }
+
     @Override
     public List<AstNode> getChildren() {
         ArrayList<AstNode> temp = new ArrayList<>();

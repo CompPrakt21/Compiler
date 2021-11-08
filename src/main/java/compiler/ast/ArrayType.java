@@ -16,6 +16,10 @@ public final class ArrayType extends Type {
         this.childType = childType;
     }
 
+    public Type getChildType() {
+        return childType;
+    }
+
     @Override
     public List<AstNode> getChildren() {
         ArrayList<AstNode> temp = new ArrayList<>();

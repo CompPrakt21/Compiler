@@ -34,6 +34,26 @@ public final class Method extends AstNode {
         this.body = body;
     }
 
+    public boolean isStatic() {
+        return isStatic;
+    }
+
+    public String getIdentifier() {
+        return identifier;
+    }
+
+    public Type getReturnType() {
+        return returnType;
+    }
+
+    public List<Parameter> getParameters() {
+        return parameters;
+    }
+
+    public Block getBody() {
+        return body;
+    }
+
     @Override
     public List<AstNode> getChildren() {
         ArrayList<AstNode> temp = new ArrayList<>();

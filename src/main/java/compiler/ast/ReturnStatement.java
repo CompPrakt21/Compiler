@@ -21,6 +21,10 @@ public final class ReturnStatement extends Statement {
         this.expression = expression;
     }
 
+    public Optional<Expression> getExpression() {
+        return expression;
+    }
+
     @Override
     public List<AstNode> getChildren() {
         ArrayList<AstNode> temp = new ArrayList<>();

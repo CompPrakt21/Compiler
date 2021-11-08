@@ -15,6 +15,10 @@ public final class ClassType extends Type {
         this.identifier = identifier != null ? identifier.getIdentContent() : null;
     }
 
+    public String getIdentifier() {
+        return identifier;
+    }
+
     @Override
     public List<AstNode> getChildren() {
         return null;

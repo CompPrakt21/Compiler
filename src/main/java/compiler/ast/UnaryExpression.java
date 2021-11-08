@@ -30,6 +30,14 @@ public final class UnaryExpression extends Expression {
         this.operatorRepr = operator.type.repr;
     }
 
+    public Expression getExpression() {
+        return expression;
+    }
+
+    public UnaryOp getOperator() {
+        return operator;
+    }
+
     @Override
     public boolean syntacticEq(AstNode otherAst) {
         if (!(otherAst instanceof UnaryExpression other)) {

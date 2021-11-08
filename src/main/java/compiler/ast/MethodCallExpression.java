@@ -30,6 +30,18 @@ public final class MethodCallExpression extends Expression {
         this.arguments = arguments;
     }
 
+    public Optional<Expression> getTarget() {
+        return target;
+    }
+
+    public String getIdentifier() {
+        return identifier;
+    }
+
+    public List<Expression> getArguments() {
+        return arguments;
+    }
+
     @Override
     public List<AstNode> getChildren() {
         ArrayList<AstNode> temp = new ArrayList<>();

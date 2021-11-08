@@ -3,14 +3,13 @@ package compiler.ast;
 import java.util.ArrayList;
 import java.util.List;
 
-import compiler.HasSpan;
 import compiler.Token;
 import compiler.utils.OptionalUtils;
 
 import java.util.Objects;
 import java.util.Optional;
 
-public final class LocalVariableDeclarationStatement extends Statement {
+public final class LocalVariableDeclarationStatement extends Statement implements VariableDefinition {
 
     private Type type;
     private String identifier;
@@ -27,6 +26,18 @@ public final class LocalVariableDeclarationStatement extends Statement {
         this.type = type;
         this.identifier = identifier != null ? identifier.getIdentContent() : null;
         this.initializer = initializer;
+    }
+
+    public Type getType() {
+        return type;
+    }
+
+    public String getIdentifier() {
+        return identifier;
+    }
+
+    public Optional<Expression> getInitializer() {
+        return initializer;
     }
 
     @Override

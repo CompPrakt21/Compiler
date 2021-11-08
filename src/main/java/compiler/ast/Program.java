@@ -20,6 +20,10 @@ public final class Program extends AstNode {
         this.classes = classes;
     }
 
+    public List<Class> getClasses() {
+        return classes;
+    }
+
     @Override
     public List<AstNode> getChildren() {
         ArrayList<AstNode> temp = new ArrayList<>();
