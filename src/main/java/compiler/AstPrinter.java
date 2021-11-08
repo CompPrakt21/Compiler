@@ -126,7 +126,14 @@ public class AstPrinter {
 
     public static String prettyPrint(IfStatement i) {
         String thenBody = subStatement(i.getThenBody());
-        String elseBody = i.getElseBody().map(b -> "\nelse" + subStatement(b)).orElse("");
+        String elseBody = i.getElseBody().map(b -> {
+            String prefix = i.getThenBody() instanceof Block ? " " : "\n";
+            String printed = prettyPrint(b);
+            printed = b instanceof Block || b instanceof IfStatement
+                    ? " " + printed
+                    : "\n" + indent(printed);
+            return prefix + "else" + printed;
+        }).orElse("");
         return String.format("if (%s)%s%s", prettyPrintTopLevel(i.getCondition()), thenBody, elseBody);
     }
 
@@ -135,7 +142,7 @@ public class AstPrinter {
     }
 
     public static String prettyPrint(ReturnStatement r) {
-        return String.format("return%s;", r.getExpression().map(AstPrinter::prettyPrintTopLevel).orElse(""));
+        return String.format("return %s;", r.getExpression().map(AstPrinter::prettyPrintTopLevel).orElse(""));
     }
 
     public static String prettyPrint(LocalVariableDeclarationStatement l) {
@@ -171,7 +178,7 @@ public class AstPrinter {
     }
 
     public static String prettyPrint(Method m) {
-        String staticKeyword = m.isStatic() ? "static" : "";
+        String staticKeyword = m.isStatic() ? " static" : "";
         String type = prettyPrint(m.getReturnType());
         String parameters = String.join(", ", prettyPrintAll(m.getParameters(), AstPrinter::prettyPrint));
         String body = prettyPrint(m.getBody());
