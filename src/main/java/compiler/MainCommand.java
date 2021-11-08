@@ -110,6 +110,10 @@ public class MainCommand implements Callable<Integer> {
 
             var ast = parser.parse();
 
+            if (!parser.successfulParse) {
+                error = true;
+            }
+
             reporter.finish();
 
             parser.dotWriter(ast);
@@ -122,6 +126,33 @@ public class MainCommand implements Callable<Integer> {
         }
 
         return error ? 1 : 0;
+    }
+
+    @Command(name = "--print-ast", description = "Prett-prints the parsed AST.")
+    public Integer printAst(@Parameters(paramLabel = "FILE", description = "The file to parse.") File file) {
+        boolean error = false;
+
+        try {
+            String content = Files.readString(file.toPath());
+            var reporter = new CompilerMessageReporter(new PrintWriter(System.err), content);
+
+            var parser = new Parser(new Lexer(content), reporter);
+
+            var ast = parser.parse();
+
+            reporter.finish();
+
+            var pretty = AstPrinter.prettyPrint(ast);
+            System.out.println(pretty);
+        } catch (FileNotFoundException | NoSuchFileException e) {
+            System.err.format("error: Can not find file: '%s'\n", file.getName());
+            error = true;
+        } catch (IOException e) {
+            System.err.format("error: Can not read file: '%s'\n", file.getName());
+            error = true;
+        }
+
+        return error ? -1 : 0;
     }
 
     @Override
