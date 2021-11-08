@@ -23,6 +23,7 @@ class Main {
 		m.s = null;
 		m.o = new Object[3][][][];
 		m.o[m.x] = this.m.o[m.x / 123];
+		m.main(args);
 
 		if (null) return;
 		else ;;;;;

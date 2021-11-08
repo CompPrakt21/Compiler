@@ -18,6 +18,8 @@ public class Semantic {
 
     private Stack<Pair<String, AstNode>> semanticMap = new Stack<>();
 
+    private boolean foundMainMethod = false;
+
     public Semantic() {
 
     }
@@ -75,16 +77,54 @@ public class Semantic {
     }
 
     public void checkCorrectness(AstNode node) {
+        if(node == null) fail();
+        if(node.getName() != "Program") fail();
+        if (node.isError()) fail();
+        List<AstNode> children = node.getChildren();
+        foundMainMethod = false;
+        recursiveCheckPerBlock(children);
+
+
         boolean multipleInstanceInstanciations;
         boolean multipleMainMethods;
         boolean callsMain;
         boolean wrongAccess;
         boolean stringUsed;
         boolean correctMain;
+
+
+    }
+
+    private boolean recursiveCheckPerBlock(List<AstNode> node) {
+        boolean correct = true;
+        for (AstNode child: node) {
+            List<AstNode> children = child.getChildren();
+            ArrayList<String> instanciatedVars = new ArrayList<>();
+            switch (child) {
+                case MethodCallExpression methodCallExpression: if (methodCallExpression.getVariable() == "main"){ correct = false; fail();} break;
+                case Field field: if (instanciatedVars.contains(field.getVariable())) {correct = false;fail();}; instanciatedVars.add(field.getVariable()); break;
+                case LocalVariableDeclarationStatement localVariableDeclarationStatement: if (instanciatedVars.contains(localVariableDeclarationStatement.getVariable())) {correct = false;fail();} instanciatedVars.add(localVariableDeclarationStatement.getVariable()); break;
+                case Block block: recursiveCheckPerBlock(children); break;
+                case Method method: if (method.getIsStatic() && !foundMainMethod && checkMainMethod(method)) foundMainMethod = true; else {correct = false;fail();} break;
+                case null, default: continue;
+
+            }
+        }
+        return correct;
+    }
+
+    private boolean checkMainMethod(Method node){
         List<AstNode> children = node.getChildren();
-        if (node.isError()) fail();
+        boolean test = true;
+        test &= children.get(0) instanceof VoidType
+                && node.getIsStatic()
+                && children.get(1) instanceof Parameter
+                && children.get(1).getChildren().get(0) instanceof ArrayType
+                && children.get(1).getChildren().get(0).getChildren().get(0) instanceof ClassType
+                && children.get(1).getChildren().get(0).getChildren().get(0).getVariable() == "String"
+                && children.get(2) instanceof Block;
 
-
+        return test;
 
     }
 
