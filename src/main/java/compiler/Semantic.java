@@ -74,6 +74,24 @@ public class Semantic {
 
     }
 
+    public void checkCorrectness(AstNode node) {
+        boolean multipleInstanceInstanciations;
+        boolean multipleMainMethods;
+        boolean callsMain;
+        boolean wrongAccess;
+        boolean stringUsed;
+        boolean correctMain;
+        List<AstNode> children = node.getChildren();
+        if (node.isError()) fail();
+
+
+
+    }
+
+    private void fail() {
+
+    }
+
 
 
 }
