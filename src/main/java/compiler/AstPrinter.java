@@ -48,41 +48,41 @@ public class AstPrinter {
         } + arraySuffix;
     }
 
-    public static String prettyPrint(Parameter p) {
+    private static String prettyPrint(Parameter p) {
         return String.format("%s %s", prettyPrint(p.getType()), p.getIdentifier());
     }
 
-    public static String prettyPrint(AssignmentExpression a) {
+    private static String prettyPrint(AssignmentExpression a) {
         return String.format("%s = %s", prettyPrint(a.getLvalue()), prettyPrint(a.getRvalue()));
     }
 
-    public static String prettyPrint(BinaryOpExpression b) {
+    private static String prettyPrint(BinaryOpExpression b) {
         return String.format("%s %s %s", prettyPrint(b.getLhs()), b.getOperatorRepr(), prettyPrint(b.getRhs()));
     }
 
-    public static String prettyPrint(UnaryExpression u) {
+    private static String prettyPrint(UnaryExpression u) {
         return String.format("%s%s", u.getOperatorRepr(), prettyPrint(u.getExpression()));
     }
 
-    public static String prettyPrint(MethodCallExpression m) {
+    private static String prettyPrint(MethodCallExpression m) {
         String targetPrefix = m.getTarget().map(e -> prettyPrint(e) + ".").orElse("");
         String arguments = String.join(", ", prettyPrintAll(m.getArguments(), AstPrinter::prettyPrintTopLevel));
         return String.format("%s%s(%s)", targetPrefix, m.getIdentifier(), arguments);
     }
 
-    public static String prettyPrint(FieldAccessExpression e) {
+    private static String prettyPrint(FieldAccessExpression e) {
         return String.format("%s.%s", prettyPrint(e.getTarget()), e.getIdentifier());
     }
 
-    public static String prettyPrint(ArrayAccessExpression a) {
+    private static String prettyPrint(ArrayAccessExpression a) {
         return String.format("%s[%s]", prettyPrint(a.getTarget()), prettyPrintTopLevel(a.getIndexExpression()));
     }
 
-    public static String prettyPrint(NewObjectExpression n) {
+    private static String prettyPrint(NewObjectExpression n) {
         return String.format("new %s()", n.getTypeIdentifier());
     }
 
-    public static String prettyPrint(NewArrayExpression n) {
+    private static String prettyPrint(NewArrayExpression n) {
         String type = prettyPrint(n.getType());
         String firstDimensionSize = prettyPrintTopLevel(n.getFirstDimensionSize());
         String dimensionBrackets = "[]".repeat(n.getDimensions() - 1);
@@ -124,7 +124,7 @@ public class AstPrinter {
         return "\n" + indent(printed);
     }
 
-    public static String prettyPrint(IfStatement i) {
+    private static String prettyPrint(IfStatement i) {
         String thenBody = subStatement(i.getThenBody());
         String elseBody = i.getElseBody().map(b -> {
             String prefix = i.getThenBody() instanceof Block ? " " : "\n";
@@ -137,15 +137,15 @@ public class AstPrinter {
         return String.format("if (%s)%s%s", prettyPrintTopLevel(i.getCondition()), thenBody, elseBody);
     }
 
-    public static String prettyPrint(WhileStatement w) {
+    private static String prettyPrint(WhileStatement w) {
         return String.format("while (%s)%s", prettyPrintTopLevel(w.getCondition()), subStatement(w.getBody()));
     }
 
-    public static String prettyPrint(ReturnStatement r) {
+    private static String prettyPrint(ReturnStatement r) {
         return String.format("return %s;", r.getExpression().map(AstPrinter::prettyPrintTopLevel).orElse(""));
     }
 
-    public static String prettyPrint(LocalVariableDeclarationStatement l) {
+    private static String prettyPrint(LocalVariableDeclarationStatement l) {
         String initializer = l.getInitializer().map(e -> " = " + prettyPrintTopLevel(e)).orElse("");
         return String.format("%s %s%s;", prettyPrint(l.getType()), l.getIdentifier(), initializer);
     }
@@ -162,7 +162,7 @@ public class AstPrinter {
         };
     }
 
-    public static String prettyPrint(Block b) {
+    private static String prettyPrint(Block b) {
         List<Statement> statements = b.getStatements().stream()
                 .filter(s -> !(s instanceof EmptyStatement))
                 .collect(Collectors.toList());
