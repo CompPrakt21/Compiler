@@ -9,6 +9,7 @@ public final class ArrayType extends Type {
     private Type childType;
 
     public ArrayType(Type childType, Token openBracket, Token closeBracked) {
+        super();
         this.isError |= childType == null || openBracket == null || closeBracked == null;
         setSpan(childType, openBracket, closeBracked);
 

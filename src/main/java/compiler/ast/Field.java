@@ -13,6 +13,7 @@ public final class Field extends AstNode {
     private Type type;
 
     public Field(Token publicToken, Type type, Token identifier, Token semicolon) {
+        super();
         assert identifier == null || identifier.type == TokenType.Identifier;
         this.isError |= identifier == null || type == null || semicolon == null;
         setSpan(publicToken, type, identifier, semicolon);

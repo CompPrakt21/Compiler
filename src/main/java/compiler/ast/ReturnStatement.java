@@ -14,6 +14,7 @@ public final class ReturnStatement extends Statement {
 
     @SuppressWarnings("ConstantConditions")
     public ReturnStatement(Token returnToken, Optional<Expression> expression) {
+        super();
         this.isError |= returnToken == null || expression.map(Objects::isNull).orElse(false);
         setSpan(returnToken, new OptionalWrapper(expression));
 

@@ -17,20 +17,8 @@ public final class LocalVariableDeclarationStatement extends Statement {
 
     private Optional<Expression> initializer;
 
-    @Override
-    public List<AstNode> getChildren() {
-        ArrayList<AstNode> temp = new ArrayList<>();
-        temp.add(type);
-        initializer.ifPresent(temp::add);
-        return temp;
-    }
-
-    @Override
-    public String getName() {
-        return identifier;
-    }
-
     public LocalVariableDeclarationStatement(Type type, Token identifier, Optional<Token> assign, Optional<Expression> initializer) {
+        super();
         //noinspection ConstantConditions
         this.isError |= type == null || identifier == null || initializer.map(Objects::isNull).orElse(false);
 
@@ -61,5 +49,18 @@ public final class LocalVariableDeclarationStatement extends Statement {
 
     public Optional<Expression> getInitializer() {
         return initializer;
+    }
+
+    @Override
+    public List<AstNode> getChildren() {
+        ArrayList<AstNode> temp = new ArrayList<>();
+        temp.add(type);
+        initializer.ifPresent(temp::add);
+        return temp;
+    }
+
+    @Override
+    public String getName() {
+        return identifier;
     }
 }

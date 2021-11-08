@@ -12,6 +12,7 @@ public final class Program extends AstNode {
     private List<Class> classes;
 
     public Program(List<Class> classes) {
+        super();
         this.isError |= classes.stream().anyMatch(Objects::isNull);
 
         setSpan(new ListWrapper(classes));

@@ -23,6 +23,7 @@ public final class Method extends AstNode {
     private Block body;
 
     public Method(Token publicToken, Optional<Token> isStatic, Token identifier, Type returnType, List<Parameter> parameters, Block body) {
+        super();
         this.isError |= publicToken == null || identifier == null || returnType == null || parameters.stream().anyMatch(Objects::isNull) || body == null;
         setSpan(publicToken, new HasSpan.OptionalWrapper(isStatic), identifier, returnType, new HasSpan.ListWrapper(parameters), body);
 

@@ -10,6 +10,7 @@ public final class AssignmentExpression extends Expression {
     private Expression rvalue;
 
     public AssignmentExpression(Expression lvalue, Token assign, Expression rvalue) {
+        super();
         this.isError |= lvalue == null || assign == null || rvalue == null;
         setSpan(lvalue, assign, rvalue);
 

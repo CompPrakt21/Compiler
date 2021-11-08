@@ -10,6 +10,7 @@ public final class Parameter extends AstNode {
     private String identifier;
 
     public Parameter(Type type, Token identifier) {
+        super();
         this.isError |= type == null || identifier == null;
 
         setSpan(type, identifier);

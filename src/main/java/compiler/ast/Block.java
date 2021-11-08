@@ -12,6 +12,7 @@ public final class Block extends Statement {
     private List<Statement> statements;
 
     public Block(Token openCurly, List<Statement> statements, Token closedCurly) {
+        super();
         this.isError |= statements.stream().anyMatch(Objects::isNull);
         setSpan(openCurly, new HasSpan.ListWrapper(statements), closedCurly);
 

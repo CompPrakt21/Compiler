@@ -8,6 +8,7 @@ public final class ClassType extends Type {
     private String identifier;
 
     public ClassType(Token identifier) {
+        super();
         this.isError |= identifier == null;
         setSpan(identifier);
 

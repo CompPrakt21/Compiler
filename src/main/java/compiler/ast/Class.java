@@ -15,6 +15,7 @@ public final class Class extends AstNode {
     private List<Method> methods;
 
     public Class(Token classToken, Token identifier, Token openCurly, List<Field> fields, List<Method> methods, Token closeCurly) {
+        super();
         this.isError |= classToken == null || openCurly == null || identifier == null
                 || fields.stream().anyMatch(Objects::isNull) || methods.stream().anyMatch(Objects::isNull) || closeCurly == null;
 

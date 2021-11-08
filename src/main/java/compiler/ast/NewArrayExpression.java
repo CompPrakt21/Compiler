@@ -13,6 +13,7 @@ public final class NewArrayExpression extends Expression {
     private int dimensions;
 
     public NewArrayExpression(Type type, Expression firstDimensionSize, int dimensions, Token lastBracket) {
+        super();
         this.isError |= type == null || firstDimensionSize == null || lastBracket == null;
 
         setSpan(type, firstDimensionSize, lastBracket);

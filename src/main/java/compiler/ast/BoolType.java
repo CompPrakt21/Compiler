@@ -6,6 +6,7 @@ import java.util.List;
 
 public final class BoolType extends Type {
     public BoolType(Token token) {
+        super();
         setSpan(token);
     }
 

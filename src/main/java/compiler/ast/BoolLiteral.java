@@ -8,6 +8,7 @@ public final class BoolLiteral extends Expression {
     private boolean value;
 
     public BoolLiteral(Token value) {
+        super();
         this.isError |= value == null;
         setSpan(value);
 

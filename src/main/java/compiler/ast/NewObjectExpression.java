@@ -8,6 +8,7 @@ public final class NewObjectExpression extends Expression {
     private String typeIdentifier;
 
     public NewObjectExpression(Token newToken, Token typeIdentifier, Token openParen, Token closeParen) {
+        super();
         this.isError |= newToken == null || typeIdentifier == null || openParen == null || closeParen == null;
 
         setSpan(newToken, typeIdentifier, openParen, closeParen);

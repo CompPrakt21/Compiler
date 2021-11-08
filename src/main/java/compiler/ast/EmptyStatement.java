@@ -6,6 +6,7 @@ import java.util.List;
 
 public final class EmptyStatement extends Statement {
     public EmptyStatement(Token semicolon) {
+        super();
         setSpan(semicolon);
     }
 

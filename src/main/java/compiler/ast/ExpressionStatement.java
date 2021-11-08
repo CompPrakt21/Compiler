@@ -9,6 +9,7 @@ public final class ExpressionStatement extends Statement {
     private Expression expression;
 
     public ExpressionStatement(Expression expression, Token semicolon) {
+        super();
         this.isError |= expression == null || semicolon == null;
         setSpan(expression, semicolon);
 

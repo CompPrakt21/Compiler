@@ -6,6 +6,7 @@ import java.util.List;
 
 public final class ThisExpression extends Expression {
     public ThisExpression(Token thisToken) {
+        super();
         setSpan(thisToken);
     }
 

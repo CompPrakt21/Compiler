@@ -42,6 +42,7 @@ public final class BinaryOpExpression extends Expression {
     private Expression rhs;
 
     public BinaryOpExpression(Expression lhs, Token operator, Expression rhs) {
+        super();
         this.isError |= lhs == null || operator == null || rhs == null;
         setSpan(lhs, operator, rhs);
 

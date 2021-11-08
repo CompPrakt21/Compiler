@@ -10,6 +10,7 @@ public final class WhileStatement extends Statement {
     private Statement body;
 
     public WhileStatement(Token whileToken, Token openParen, Expression condition, Token closeParen, Statement body) {
+        super();
         this.isError |= whileToken == null || openParen == null || condition == null || closeParen == null || body == null;
         setSpan(whileToken, openParen, condition, closeParen, body);
 

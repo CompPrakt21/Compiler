@@ -6,6 +6,7 @@ import java.util.List;
 
 public final class IntType extends Type {
     public IntType(Token intType) {
+        super();
         this.isError |= intType == null;
         setSpan(intType);
     }

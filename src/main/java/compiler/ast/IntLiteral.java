@@ -8,6 +8,7 @@ public final class IntLiteral extends Expression {
     private String value;
 
     public IntLiteral(Token value) {
+        super();
         this.isError |= value == null;
         setSpan(value);
 

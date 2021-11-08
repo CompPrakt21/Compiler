@@ -9,6 +9,7 @@ public final class FieldAccessExpression extends Expression {
     private String identifier;
 
     public FieldAccessExpression(Expression target, Token dot, Token identifier) {
+        super();
         this.isError |= target == null || dot == null || identifier == null;
 
         setSpan(target, dot, identifier);

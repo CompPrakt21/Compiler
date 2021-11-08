@@ -11,10 +11,22 @@ public sealed abstract class AstNode implements HasSpan
         permits Expression, Statement, Type, Program, Class, Method, Field, Parameter {
     protected Span span;
     protected boolean isError;
+    private int id;
+
+    private static int next_id = 1;
 
     public abstract List<AstNode> getChildren();
 
     public abstract String getName();
+
+    protected AstNode() {
+        this.id = next_id;
+        next_id += 1;
+    }
+
+    public int getID() {
+        return this.id;
+    }
 
     public abstract boolean syntacticEq(AstNode otherAst);
 

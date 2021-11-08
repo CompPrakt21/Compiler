@@ -6,6 +6,7 @@ import java.util.List;
 
 public final class NullExpression extends Expression {
     public NullExpression(Token nullToken) {
+        super();
         setSpan(nullToken);
     }
 

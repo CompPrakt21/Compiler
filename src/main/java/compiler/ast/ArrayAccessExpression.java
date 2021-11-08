@@ -10,6 +10,7 @@ public final class ArrayAccessExpression extends Expression {
     private Expression indexExpression;
 
     public ArrayAccessExpression(Expression target, Token openBracket, Expression indexExpression, Token closedBracket) {
+        super();
         this.isError |= target == null || indexExpression == null || openBracket == null || closedBracket == null;
         setSpan(target, openBracket, indexExpression, closedBracket);
 

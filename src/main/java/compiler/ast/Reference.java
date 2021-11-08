@@ -8,6 +8,7 @@ public final class Reference extends Expression {
     private String identifier;
 
     public Reference(Token identifier) {
+        super();
         this.isError |= identifier == null;
         setSpan(identifier);
 

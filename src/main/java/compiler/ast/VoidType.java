@@ -8,6 +8,7 @@ import compiler.utils.StreamUtils;
 
 public final class VoidType extends Type {
     public VoidType(Token voidType) {
+        super();
         setSpan(voidType);
     }
 

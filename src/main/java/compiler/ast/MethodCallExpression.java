@@ -19,6 +19,7 @@ public final class MethodCallExpression extends Expression {
     private List<Expression> arguments;
 
     public MethodCallExpression(Optional<Expression> target, Optional<Token> dot, Token identifier, Token openParen, List<Expression> arguments, Token closedParen) {
+        super();
         //noinspection ConstantConditions
         this.isError |= target.map(Objects::isNull).orElse(false) || identifier == null || arguments.stream().anyMatch(Objects::isNull);
 
