@@ -29,10 +29,10 @@ public class MainCommand implements Callable<Integer> {
             return 0;
         } catch (FileNotFoundException | NoSuchFileException e) {
             System.err.format("error: Can not find file: '%s'\n", file.getName());
-            return -1;
+            return 1;
         } catch (IOException e) {
             System.err.format("error: Can not read file: '%s'\n", file.getName());
-            return -1;
+            return 1;
         }
     }
 
@@ -66,7 +66,7 @@ public class MainCommand implements Callable<Integer> {
             System.err.format("error: Can not read file: '%s'\n", file.getName());
             error = true;
         }
-        return error ? -1 : 0;
+        return error ? 1 : 0;
     }
 
     @Command(name = "--parsetest", description = "Checks whether the input file parses.")
@@ -95,7 +95,7 @@ public class MainCommand implements Callable<Integer> {
             error = true;
         }
 
-        return error ? -1 : 0;
+        return error ? 1 : 0;
     }
 
     @Command(name = "--dump-dot-ast", description = "Generates a dot file with the ast.")
@@ -121,7 +121,7 @@ public class MainCommand implements Callable<Integer> {
             error = true;
         }
 
-        return error ? -1 : 0;
+        return error ? 1 : 0;
     }
 
     @Override
