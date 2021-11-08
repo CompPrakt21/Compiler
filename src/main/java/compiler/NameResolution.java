@@ -97,7 +97,6 @@ public class NameResolution {
             for (Field f : klass.getFields()) {
                 env.addField(f);
             }
-
             data.set(klass, env);
         }
 
@@ -113,6 +112,7 @@ public class NameResolution {
 
         return map;
     }
+
 
     public static NameResolutionResult performNameResolution(Program program, CompilerMessageReporter reporter) {
         var resolution = new NameResolution(reporter);
@@ -348,7 +348,6 @@ public class NameResolution {
 
                 // If not present, resolveTypeIdent will report an error
                 classTy.ifPresent(ty -> this.types.set(newObject, ty));
-
             }
         }
     }

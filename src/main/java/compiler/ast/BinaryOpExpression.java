@@ -57,16 +57,6 @@ public final class BinaryOpExpression extends Expression {
         this.rhs = rhs;
     }
 
-    @Override
-    public boolean syntacticEq(AstNode otherAst) {
-        if (!(otherAst instanceof BinaryOpExpression other)) {
-            return false;
-        }
-        return this.lhs.syntacticEq(other.lhs)
-                && this.operator.equals(other.operator)
-                && this.rhs.syntacticEq(other.rhs);
-    }
-
     public Expression getLhs() {
         return lhs;
     }
@@ -75,12 +65,22 @@ public final class BinaryOpExpression extends Expression {
         return operator;
     }
 
+    public Expression getRhs() {
+        return rhs;
+    }
+
     public String getOperatorRepr() {
         return operatorRepr;
     }
 
-    public Expression getRhs() {
-        return rhs;
+    @Override
+    public boolean syntacticEq(AstNode otherAst) {
+        if (!(otherAst instanceof BinaryOpExpression other)) {
+            return false;
+        }
+        return this.lhs.syntacticEq(other.lhs)
+                && this.operator.equals(other.operator)
+                && this.rhs.syntacticEq(other.rhs);
     }
 
     @Override
