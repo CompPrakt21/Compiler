@@ -9,6 +9,8 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -51,6 +53,49 @@ public class TestSampleFiles {
                         return null;
                     }
                 }));
+    }
+
+    @TestFactory
+    public Stream<DynamicTest> generateIdempotenceTests() {
+        var syntaxTestFiles = SYNTAX_TEST_DIR.listFiles();
+        var semanticTestFiles = SEMANTIC_TEST_DIR.listFiles();
+        assertNotNull(syntaxTestFiles, "No test files found");
+        assertNotNull(semanticTestFiles, "No test files found");
+
+        record TestCase(String name, String content) { }
+        var syntaxTestContents = Arrays.stream(syntaxTestFiles)
+            .map(file -> {
+                try {
+                    return new TestCase(file.getName(), Files.readString(file.toPath()));
+                } catch (IOException e) {
+                    fail(e);
+                    return null;
+                }
+            }).filter(testCase -> testCase.content.startsWith(PASSING_TEST_PREFIX));
+        var semanticTestContents = Arrays.stream(semanticTestFiles)
+            .map(file -> {
+                try {
+                    return new TestCase(file.getName(), Files.readString(file.toPath()));
+                } catch (IOException e) {
+                    fail(e);
+                    return null;
+                }
+            });
+        var testContents = Stream.concat(syntaxTestContents, semanticTestContents).collect(Collectors.toList());
+
+        return testContents.stream()
+                .map(testCase ->
+                        DynamicTest.dynamicTest(testCase.name, () -> {
+                            var firstParser = new Parser(new Lexer(testCase.content));
+                            var firstAst = firstParser.parse();
+                            assertTrue(firstParser.successfulParse);
+                            String firstOutput = AstPrinter.print(firstAst);
+                            var secondParser = new Parser(new Lexer(firstOutput));
+                            var secondAst = secondParser.parse();
+                            assertTrue(secondParser.successfulParse);
+                            String secondOutput = AstPrinter.print(secondAst);
+                            assertEquals(firstOutput, secondOutput);
+                        }));
     }
 
     @TestFactory
