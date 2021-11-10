@@ -97,6 +97,7 @@ public class NameResolution {
             for (Field f : klass.getFields()) {
                 env.addField(f);
             }
+
             data.set(klass, env);
         }
 
@@ -350,6 +351,7 @@ public class NameResolution {
                 classTy.ifPresent(ty -> this.types.set(newObject, ty));
             }
         }
+
     }
 
     private void resolveType(Type ty) {
