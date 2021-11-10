@@ -274,18 +274,18 @@ public class NameResolution {
                         var classEnv = this.classEnvironments.get(classTy.getDefinition()).get();
 
                         var fieldDef = classEnv.fields.get(fieldAccess.getIdentifier());
-                        if (fieldDef == null) {
+                        if (fieldDef != null) {
+
+                            this.definitions.set(fieldAccess, fieldDef);
+
+                            var type = fieldDef.getType();
+
+                            if (!(type instanceof VoidType)) {
+                                this.types.set(fieldAccess, Ty.fromAstType(type, this.definitions));
+                            }
+                        } else {
                             reportError(new UnresolveableMemberAccess(classTy.getDefinition(), fieldAccess));
                         }
-
-                        this.definitions.set(fieldAccess, fieldDef);
-
-                        var type = fieldDef.getType();
-
-                        if (!(type instanceof VoidType)) {
-                            this.types.set(fieldAccess, Ty.fromAstType(type, this.definitions));
-                        }
-
                     } else {
                         reportError(new MemberAccessOnNonClassType(fieldAccess, targetType.get()));
                     }

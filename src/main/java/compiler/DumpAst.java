@@ -36,7 +36,7 @@ class DotWriter {
             return;
         }
 
-        this.out.format("%s -> %s\n [label=\"%s\"]", start.getID(), end.getID(), label);
+        this.out.format("%s -> %s [label=\"%s\"]", start.getID(), end.getID(), label);
     }
 
     void finish() {
