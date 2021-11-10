@@ -114,7 +114,6 @@ public class NameResolution {
         return map;
     }
 
-
     public static NameResolutionResult performNameResolution(Program program, CompilerMessageReporter reporter) {
         var resolution = new NameResolution(reporter);
 
