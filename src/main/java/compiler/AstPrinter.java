@@ -14,8 +14,8 @@ public class AstPrinter {
 
     // Important ERROR related invariants ensured by the parser:
     // - Optionals will never be null
-    // - Lists will never
-    private static String e = "<ERROR>";
+    // - Lists will never be null
+    private static String error = "<ERROR>";
 
     private static String lines(String... ls) {
         return String.join("\n", ls);
@@ -32,8 +32,8 @@ public class AstPrinter {
     }
 
     private static <T, U extends Comparable<? super U>> List<T> sortedBy(List<? extends T> xs, Function<? super T, ? extends U> f) {
-        var nulls = xs.stream().filter(x -> x == null);
-        var sorted = xs.stream().filter(x -> x != null).sorted(Comparator.comparing(f));
+        Stream<? extends T> nulls = xs.stream().filter(x -> x == null);
+        Stream<? extends T> sorted = xs.stream().filter(x -> x != null).sorted(Comparator.comparing(f));
         return Stream.concat(nulls, sorted).collect(Collectors.toList());
     }
 
@@ -44,7 +44,7 @@ public class AstPrinter {
     private static String fmt(String format, Object... args) {
         List<Object> fmtArgs = Arrays.stream(args).map(arg -> {
             if (arg == null) {
-                return e;
+                return error;
             }
             if (arg instanceof AstNode a) {
                 return print(a);
@@ -61,7 +61,7 @@ public class AstPrinter {
             t = a.getChildType();
         }
         return switch (t) {
-            case null -> e;
+            case null -> error;
             case VoidType v -> "void";
             case BoolType b -> "boolean";
             case IntType i -> "int";
@@ -70,63 +70,46 @@ public class AstPrinter {
         } + arraySuffix;
     }
 
-    private static String parameter(Parameter p) {
+    public static String parameter(Parameter p) {
         return fmt("%s %s", p.getType(), p.getIdentifier());
     }
 
-    private static String assignmentExpression(AssignmentExpression a) {
-        return fmt("%s = %s", a.getLvalue(), a.getRvalue());
-    }
-
-    private static String binaryOpExpression(BinaryOpExpression b) {
-        return fmt("%s %s %s", b.getLhs(), b.getOperatorRepr(), b.getRhs());
-    }
-
-    private static String unaryExpression(UnaryExpression u) {
-        return fmt("%s%s", u.getOperatorRepr(), u.getExpression());
-    }
-
-    private static String methodCallExpression(MethodCallExpression m) {
-        String targetPrefix = m.getTarget().map(e -> fmt("%s.", e)).orElse("");
-        String args = m.getArguments().stream()
-                .map(AstPrinter::expressionTopLevel)
-                .collect(Collectors.joining(", "));
-        return fmt("%s%s(%s)", targetPrefix, m.getIdentifier(), args);
-    }
-
-    private static String fieldAccessExpression(FieldAccessExpression e) {
-        return fmt("%s.%s", e.getTarget(), e.getIdentifier());
-    }
-
-    private static String arrayAccessExpression(ArrayAccessExpression a) {
-        return fmt("%s[%s]", a.getTarget(), expressionTopLevel(a.getIndexExpression()));
-    }
-
-    private static String newObjectExpression(NewObjectExpression n) {
-        return fmt("new %s()", n.getTypeIdentifier());
-    }
-
-    private static String newArrayExpression(NewArrayExpression n) {
-        String dimensionBrackets = "[]".repeat(n.getDimensions() - 1);
-        return fmt("new %s[%s]%s", n.getType(), expressionTopLevel(n.getFirstDimensionSize()), dimensionBrackets);
-    }
-
     public static String expressionTopLevel(Expression e) {
-        if (e == null) return AstPrinter.e;
+        if (e == null) return error;
         return switch (e) {
-            case AssignmentExpression a -> assignmentExpression(a);
-            case BinaryOpExpression b -> binaryOpExpression(b);
-            case UnaryExpression u -> unaryExpression(u);
-            case MethodCallExpression m -> methodCallExpression(m);
-            case FieldAccessExpression f -> fieldAccessExpression(f);
-            case ArrayAccessExpression a -> arrayAccessExpression(a);
-            case BoolLiteral b -> String.valueOf(b.getValue());
-            case IntLiteral i -> print(i.getValue());
-            case ThisExpression t -> "this";
-            case NewObjectExpression n -> newObjectExpression(n);
-            case NewArrayExpression n -> newArrayExpression(n);
-            case Reference r -> print(r.getIdentifier());
-            case NullExpression n -> "null";
+            case AssignmentExpression a ->
+                    fmt("%s = %s", a.getLvalue(), a.getRvalue());
+            case BinaryOpExpression b ->
+                    fmt("%s %s %s", b.getLhs(), b.getOperatorRepr(), b.getRhs());
+            case UnaryExpression u ->
+                    fmt("%s%s", u.getOperatorRepr(), u.getExpression());
+            case MethodCallExpression m -> {
+                String targetPrefix = m.getTarget().map(t -> fmt("%s.", t)).orElse("");
+                String args = m.getArguments().stream()
+                        .map(AstPrinter::expressionTopLevel)
+                        .collect(Collectors.joining(", "));
+                yield fmt("%s%s(%s)", targetPrefix, m.getIdentifier(), args);
+            }
+            case FieldAccessExpression f ->
+                    fmt("%s.%s", f.getTarget(), f.getIdentifier());
+            case ArrayAccessExpression a ->
+                    fmt("%s[%s]", a.getTarget(), expressionTopLevel(a.getIndexExpression()));
+            case BoolLiteral b ->
+                    String.valueOf(b.getValue());
+            case IntLiteral i ->
+                    print(i.getValue());
+            case ThisExpression t ->
+                    "this";
+            case NewObjectExpression n ->
+                    fmt("new %s()", n.getTypeIdentifier());
+            case NewArrayExpression n -> {
+                String dimensionBrackets = "[]".repeat(n.getDimensions() - 1);
+                yield fmt("new %s[%s]%s", n.getType(), expressionTopLevel(n.getFirstDimensionSize()), dimensionBrackets);
+            }
+            case Reference r ->
+                    print(r.getIdentifier());
+            case NullExpression n ->
+                    "null";
         };
     }
 
@@ -160,32 +143,6 @@ public class AstPrinter {
         return fmt("if (%s)%s%s", expressionTopLevel(i.getCondition()), thenBody, elseBody);
     }
 
-    private static String whileStatement(WhileStatement w) {
-        return fmt("while (%s)%s", expressionTopLevel(w.getCondition()), subStatement(w.getBody()));
-    }
-
-    private static String returnStatement(ReturnStatement r) {
-        return fmt("return %s;", r.getExpression().map(AstPrinter::expressionTopLevel).orElse(""));
-    }
-
-    private static String localVariableDeclarationStatement(LocalVariableDeclarationStatement l) {
-        String initializer = l.getInitializer().map(e -> " = " + expressionTopLevel(e)).orElse("");
-        return fmt("%s %s%s;", l.getType(), l.getIdentifier(), initializer);
-    }
-
-    public static String statement(Statement s) {
-        if (s == null) return e;
-        return switch (s) {
-            case Block b -> block(b);
-            case EmptyStatement e -> ";";
-            case IfStatement i -> ifStatement(i);
-            case ExpressionStatement e -> expressionTopLevel(e.getExpression()) + ";";
-            case WhileStatement w -> whileStatement(w);
-            case ReturnStatement r -> returnStatement(r);
-            case LocalVariableDeclarationStatement l -> localVariableDeclarationStatement(l);
-        };
-    }
-
     private static String block(Block b) {
         List<Statement> statements = b.getStatements().stream()
                 .filter(s -> !(s instanceof EmptyStatement))
@@ -199,6 +156,28 @@ public class AstPrinter {
                 "%s",
                 "}"
         ), formattedStatements);
+    }
+
+    public static String statement(Statement s) {
+        if (s == null) return error;
+        return switch (s) {
+            case Block b ->
+                    block(b);
+            case EmptyStatement e ->
+                    ";";
+            case IfStatement i ->
+                    ifStatement(i);
+            case ExpressionStatement e ->
+                    expressionTopLevel(e.getExpression()) + ";";
+            case WhileStatement w ->
+                    fmt("while (%s)%s", expressionTopLevel(w.getCondition()), subStatement(w.getBody()));
+            case ReturnStatement r ->
+                    fmt("return %s;", r.getExpression().map(AstPrinter::expressionTopLevel).orElse(""));
+            case LocalVariableDeclarationStatement l -> {
+                String initializer = l.getInitializer().map(e -> " = " + expressionTopLevel(e)).orElse("");
+                yield fmt("%s %s%s;", l.getType(), l.getIdentifier(), initializer);
+            }
+        };
     }
 
     public static String method(Method m) {
@@ -232,7 +211,7 @@ public class AstPrinter {
     }
 
     public static String print(AstNode a) {
-        if (a == null) return e;
+        if (a == null) return error;
         return switch (a) {
             case Expression e -> expression(e);
             case Statement s -> statement(s);
@@ -246,7 +225,7 @@ public class AstPrinter {
     }
 
     public static String print(String s) {
-        if (s == null) return e;
+        if (s == null) return error;
         return s;
     }
 
