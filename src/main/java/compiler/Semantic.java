@@ -76,7 +76,7 @@ public class Semantic {
 
     }
 
-    public void checkCorrectness(AstNode node) {
+    public void checkWellFormdness(AstNode node) {
         if(node == null) fail();
         if(node.getName() != "Program") fail();
         if (node.isError()) fail();
@@ -85,32 +85,50 @@ public class Semantic {
         recursiveCheckPerBlock(children);
 
 
-        boolean multipleInstanceInstanciations;
-        boolean multipleMainMethods;
-        boolean callsMain;
-        boolean wrongAccess;
-        boolean stringUsed;
-        boolean correctMain;
-
-
     }
 
-    private boolean recursiveCheckPerBlock(List<AstNode> node) {
+    private boolean recursiveCheckPerBlock(List<AstNode> nodes) {
         boolean correct = true;
-        for (AstNode child: node) {
+        for (AstNode child: nodes) {
             List<AstNode> children = child.getChildren();
             ArrayList<String> instanciatedVars = new ArrayList<>();
             switch (child) {
-                case MethodCallExpression methodCallExpression: if (methodCallExpression.getVariable() == "main"){ correct = false; fail();} break;
-                case Field field: if (instanciatedVars.contains(field.getVariable())) {correct = false;fail();}; instanciatedVars.add(field.getVariable()); break;
-                case LocalVariableDeclarationStatement localVariableDeclarationStatement: if (instanciatedVars.contains(localVariableDeclarationStatement.getVariable())) {correct = false;fail();} instanciatedVars.add(localVariableDeclarationStatement.getVariable()); break;
-                case Block block: recursiveCheckPerBlock(children); break;
-                case Method method: if (method.getIsStatic() && !foundMainMethod && checkMainMethod(method)) foundMainMethod = true; else {correct = false;fail();} break;
+                case MethodCallExpression methodCallExpression:
+                    if (methodCallExpression.getVariable() == "main") {
+                        correct = false;
+                        fail();
+                    }
+                    break;
+                case Field field:
+                    if (instanciatedVars.contains(field.getVariable())) {
+                        correct = false;
+                        fail();
+                    }
+                    instanciatedVars.add(field.getVariable());
+                    break;
+                case LocalVariableDeclarationStatement localVariableDeclarationStatement:
+                    if (instanciatedVars.contains(localVariableDeclarationStatement.getVariable())) {
+                        correct = false;
+                        fail();
+                    }
+                    instanciatedVars.add(localVariableDeclarationStatement.getVariable());
+                    break;
+                case Block block:
+                    recursiveCheckPerBlock(children);
+                    break;
+                case Method method:
+                    if (method.getIsStatic() && !foundMainMethod && checkMainMethod(method))
+                        foundMainMethod = true;
+                    else {
+                        correct = false;
+                        fail();
+                    }
+                    break;
                 case null, default: continue;
 
             }
         }
-        return correct;
+        return correct  && foundMainMethod;
     }
 
     private boolean checkMainMethod(Method node){
