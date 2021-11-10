@@ -28,6 +28,7 @@ public final class LocalVariableDeclarationStatement extends Statement implement
         this.initializer = initializer;
     }
 
+    @Override
     public Type getType() {
         return type;
     }
@@ -48,18 +49,6 @@ public final class LocalVariableDeclarationStatement extends Statement implement
         return this.type.syntacticEq(other.type)
                 && this.identifier.equals(other.identifier)
                 && OptionalUtils.combine(this.initializer, other.initializer, AstNode::syntacticEq).orElse(true);
-    }
-
-    public Type getType() {
-        return type;
-    }
-
-    public String getIdentifier() {
-        return identifier;
-    }
-
-    public Optional<Expression> getInitializer() {
-        return initializer;
     }
 
     @Override

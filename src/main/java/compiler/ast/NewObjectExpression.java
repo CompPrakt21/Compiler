@@ -37,8 +37,4 @@ public final class NewObjectExpression extends Expression {
         }
         return this.typeIdentifier.equals(other.typeIdentifier);
     }
-
-    public String getTypeIdentifier() {
-        return typeIdentifier;
-    }
 }

@@ -26,6 +26,7 @@ public final class Field extends AstNode implements VariableDefinition {
         return identifier;
     }
 
+    @Override
     public Type getType() {
         return type;
     }

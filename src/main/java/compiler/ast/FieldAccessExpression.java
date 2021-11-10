@@ -44,12 +44,4 @@ public final class FieldAccessExpression extends Expression {
         return this.identifier.equals(other.identifier)
                 && target.syntacticEq(other.target);
     }
-
-    public Expression getTarget() {
-        return target;
-    }
-
-    public String getIdentifier() {
-        return identifier;
-    }
 }

@@ -47,12 +47,4 @@ public final class ArrayAccessExpression extends Expression {
         return this.target.syntacticEq(other.target)
                 && this.indexExpression.syntacticEq(other.indexExpression);
     }
-
-    public Expression getTarget() {
-        return target;
-    }
-
-    public Expression getIndexExpression() {
-        return indexExpression;
-    }
 }

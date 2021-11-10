@@ -19,6 +19,7 @@ public final class Parameter extends AstNode implements VariableDefinition {
         this.identifier = identifier != null ? identifier.getIdentContent() : null;
     }
 
+    @Override
     public Type getType() {
         return type;
     }
@@ -46,13 +47,5 @@ public final class Parameter extends AstNode implements VariableDefinition {
         }
         return this.type.syntacticEq(other.type)
                 && this.identifier.equals(other.identifier);
-    }
-
-    public Type getType() {
-        return type;
-    }
-
-    public String getIdentifier() {
-        return identifier;
     }
 }

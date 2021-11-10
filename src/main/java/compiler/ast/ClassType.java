@@ -36,8 +36,4 @@ public final class ClassType extends Type {
         }
         return this.identifier.equals(other.identifier);
     }
-
-    public String getIdentifier() {
-        return identifier;
-    }
 }

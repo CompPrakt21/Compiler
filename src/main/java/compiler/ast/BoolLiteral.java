@@ -40,8 +40,4 @@ public final class BoolLiteral extends Expression {
         }
         return this.value == other.value;
     }
-
-    public boolean getValue() {
-        return value;
-    }
 }

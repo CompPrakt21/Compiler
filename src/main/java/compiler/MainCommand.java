@@ -99,7 +99,7 @@ public class MainCommand implements Callable<Integer> {
     @Command(name = "--dump-dot-ast", description = "Generates a dot file with the ast.")
     public Integer callDumpAst(@Parameters(paramLabel = "FILE", description = "The file to parse.") File file) {
         return callWithParsed(file, (reporter, parser, ast) -> {
-            parser.dotWriter(ast);
+            var resolution = NameResolution.performNameResolution(ast);
             return false;
         });
     }

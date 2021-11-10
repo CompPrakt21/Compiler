@@ -43,8 +43,4 @@ public final class Program extends AstNode {
         }
         return StreamUtils.zip(this.classes.stream(), other.classes.stream(), AstNode::syntacticEq).allMatch(x -> x);
     }
-
-    public List<Class> getClasses() {
-        return classes;
-    }
 }

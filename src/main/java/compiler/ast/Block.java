@@ -42,8 +42,4 @@ public final class Block extends Statement {
         }
         return StreamUtils.zip(this.statements.stream(), other.statements.stream(), AstNode::syntacticEq).allMatch(x -> x);
     }
-
-    public List<Statement> getStatements() {
-        return statements;
-    }
 }

@@ -39,8 +39,4 @@ public final class ExpressionStatement extends Statement {
         }
         return this.expression.syntacticEq(other.expression);
     }
-
-    public Expression getExpression() {
-        return expression;
-    }
 }

@@ -47,14 +47,6 @@ public final class UnaryExpression extends Expression {
                 && this.operator.equals(other.operator);
     }
 
-    public Expression getExpression() {
-        return expression;
-    }
-
-    public UnaryOp getOperator() {
-        return operator;
-    }
-
     public String getOperatorRepr() {
         return operatorRepr;
     }
