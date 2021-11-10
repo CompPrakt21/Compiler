@@ -152,7 +152,7 @@ public class MainCommand implements Callable<Integer> {
             error = true;
         }
 
-        return error ? -1 : 0;
+        return error ? 1 : 0;
     }
 
     @Override
