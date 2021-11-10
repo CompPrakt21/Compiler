@@ -8,8 +8,14 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class AstPrinter {
+
+    // Important ERROR related invariants ensured by the parser:
+    // - Optionals will never be null
+    // - Lists will never
+    private static String e = "<ERROR>";
 
     private static String lines(String... ls) {
         return String.join("\n", ls);
@@ -26,186 +32,222 @@ public class AstPrinter {
     }
 
     private static <T, U extends Comparable<? super U>> List<T> sortedBy(List<? extends T> xs, Function<? super T, ? extends U> f) {
-        return xs.stream().sorted(Comparator.comparing(f)).collect(Collectors.toList());
+        var nulls = xs.stream().filter(x -> x == null);
+        var sorted = xs.stream().filter(x -> x != null).sorted(Comparator.comparing(f));
+        return Stream.concat(nulls, sorted).collect(Collectors.toList());
     }
 
-    private static <T> List<String> prettyPrintAll(List<? extends T> xs, Function<? super T, String> prettyPrint) {
-        return xs.stream().map(prettyPrint).collect(Collectors.toList());
+    private static List<String> all(List<? extends AstNode> xs) {
+        return xs.stream().map(AstPrinter::print).collect(Collectors.toList());
     }
 
-    public static String prettyPrint(Type t) {
+    private static String fmt(String format, Object... args) {
+        List<Object> fmtArgs = Arrays.stream(args).map(arg -> {
+            if (arg == null) {
+                return e;
+            }
+            if (arg instanceof AstNode a) {
+                return print(a);
+            }
+            return arg;
+        }).collect(Collectors.toList());
+        return String.format(format, fmtArgs.toArray());
+    }
+
+    public static String type(Type t) {
         StringBuilder arraySuffix = new StringBuilder();
         while (t instanceof ArrayType a) {
             arraySuffix.append("[]");
             t = a.getChildType();
         }
         return switch (t) {
+            case null -> e;
             case VoidType v -> "void";
             case BoolType b -> "boolean";
             case IntType i -> "int";
-            case ClassType c -> c.getIdentifier();
+            case ClassType c -> print(c.getIdentifier());
             case ArrayType a -> throw new AssertionError();
         } + arraySuffix;
     }
 
-    private static String prettyPrint(Parameter p) {
-        return String.format("%s %s", prettyPrint(p.getType()), p.getIdentifier());
+    private static String parameter(Parameter p) {
+        return fmt("%s %s", p.getType(), p.getIdentifier());
     }
 
-    private static String prettyPrint(AssignmentExpression a) {
-        return String.format("%s = %s", prettyPrint(a.getLvalue()), prettyPrint(a.getRvalue()));
+    private static String assignmentExpression(AssignmentExpression a) {
+        return fmt("%s = %s", a.getLvalue(), a.getRvalue());
     }
 
-    private static String prettyPrint(BinaryOpExpression b) {
-        return String.format("%s %s %s", prettyPrint(b.getLhs()), b.getOperatorRepr(), prettyPrint(b.getRhs()));
+    private static String binaryOpExpression(BinaryOpExpression b) {
+        return fmt("%s %s %s", b.getLhs(), b.getOperatorRepr(), b.getRhs());
     }
 
-    private static String prettyPrint(UnaryExpression u) {
-        return String.format("%s%s", u.getOperatorRepr(), prettyPrint(u.getExpression()));
+    private static String unaryExpression(UnaryExpression u) {
+        return fmt("%s%s", u.getOperatorRepr(), u.getExpression());
     }
 
-    private static String prettyPrint(MethodCallExpression m) {
-        String targetPrefix = m.getTarget().map(e -> prettyPrint(e) + ".").orElse("");
-        String arguments = String.join(", ", prettyPrintAll(m.getArguments(), AstPrinter::prettyPrintTopLevel));
-        return String.format("%s%s(%s)", targetPrefix, m.getIdentifier(), arguments);
+    private static String methodCallExpression(MethodCallExpression m) {
+        String targetPrefix = m.getTarget().map(e -> fmt("%s.", e)).orElse("");
+        String args = m.getArguments().stream()
+                .map(AstPrinter::expressionTopLevel)
+                .collect(Collectors.joining(", "));
+        return fmt("%s%s(%s)", targetPrefix, m.getIdentifier(), args);
     }
 
-    private static String prettyPrint(FieldAccessExpression e) {
-        return String.format("%s.%s", prettyPrint(e.getTarget()), e.getIdentifier());
+    private static String fieldAccessExpression(FieldAccessExpression e) {
+        return fmt("%s.%s", e.getTarget(), e.getIdentifier());
     }
 
-    private static String prettyPrint(ArrayAccessExpression a) {
-        return String.format("%s[%s]", prettyPrint(a.getTarget()), prettyPrintTopLevel(a.getIndexExpression()));
+    private static String arrayAccessExpression(ArrayAccessExpression a) {
+        return fmt("%s[%s]", a.getTarget(), expressionTopLevel(a.getIndexExpression()));
     }
 
-    private static String prettyPrint(NewObjectExpression n) {
-        return String.format("new %s()", n.getTypeIdentifier());
+    private static String newObjectExpression(NewObjectExpression n) {
+        return fmt("new %s()", n.getTypeIdentifier());
     }
 
-    private static String prettyPrint(NewArrayExpression n) {
-        String type = prettyPrint(n.getType());
-        String firstDimensionSize = prettyPrintTopLevel(n.getFirstDimensionSize());
+    private static String newArrayExpression(NewArrayExpression n) {
         String dimensionBrackets = "[]".repeat(n.getDimensions() - 1);
-        return String.format("new %s[%s]%s", type, firstDimensionSize, dimensionBrackets);
+        return fmt("new %s[%s]%s", n.getType(), expressionTopLevel(n.getFirstDimensionSize()), dimensionBrackets);
     }
 
-    public static String prettyPrintTopLevel(Expression e) {
+    public static String expressionTopLevel(Expression e) {
+        if (e == null) return AstPrinter.e;
         return switch (e) {
-            case AssignmentExpression a -> prettyPrint(a);
-            case BinaryOpExpression b -> prettyPrint(b);
-            case UnaryExpression u -> prettyPrint(u);
-            case MethodCallExpression m -> prettyPrint(m);
-            case FieldAccessExpression f -> prettyPrint(f);
-            case ArrayAccessExpression a -> prettyPrint(a);
+            case AssignmentExpression a -> assignmentExpression(a);
+            case BinaryOpExpression b -> binaryOpExpression(b);
+            case UnaryExpression u -> unaryExpression(u);
+            case MethodCallExpression m -> methodCallExpression(m);
+            case FieldAccessExpression f -> fieldAccessExpression(f);
+            case ArrayAccessExpression a -> arrayAccessExpression(a);
             case BoolLiteral b -> String.valueOf(b.getValue());
-            case IntLiteral i -> i.getValue();
+            case IntLiteral i -> print(i.getValue());
             case ThisExpression t -> "this";
-            case NewObjectExpression n -> prettyPrint(n);
-            case NewArrayExpression n -> prettyPrint(n);
-            case Reference r -> r.getIdentifier();
+            case NewObjectExpression n -> newObjectExpression(n);
+            case NewArrayExpression n -> newArrayExpression(n);
+            case Reference r -> print(r.getIdentifier());
             case NullExpression n -> "null";
         };
     }
 
-    public static String prettyPrint(Expression e) {
-        String p = prettyPrintTopLevel(e);
+    public static String expression(Expression e) {
+        String p = expressionTopLevel(e);
         if (e instanceof IntLiteral || e instanceof BoolLiteral || e instanceof NullExpression
                 || e instanceof ThisExpression || e instanceof Reference) {
             return p;
         }
-        return String.format("(%s)", p);
+        return fmt("(%s)", p);
     }
 
     private static String subStatement(Statement s) {
-        String printed = prettyPrint(s);
+        String printed = print(s);
         if (s instanceof Block) {
             return " " + printed;
         }
         return "\n" + indent(printed);
     }
 
-    private static String prettyPrint(IfStatement i) {
+    private static String ifStatement(IfStatement i) {
         String thenBody = subStatement(i.getThenBody());
         String elseBody = i.getElseBody().map(b -> {
             String prefix = i.getThenBody() instanceof Block ? " " : "\n";
-            String printed = prettyPrint(b);
+            String printed = print(b);
             printed = b instanceof Block || b instanceof IfStatement
                     ? " " + printed
                     : "\n" + indent(printed);
             return prefix + "else" + printed;
         }).orElse("");
-        return String.format("if (%s)%s%s", prettyPrintTopLevel(i.getCondition()), thenBody, elseBody);
+        return fmt("if (%s)%s%s", expressionTopLevel(i.getCondition()), thenBody, elseBody);
     }
 
-    private static String prettyPrint(WhileStatement w) {
-        return String.format("while (%s)%s", prettyPrintTopLevel(w.getCondition()), subStatement(w.getBody()));
+    private static String whileStatement(WhileStatement w) {
+        return fmt("while (%s)%s", expressionTopLevel(w.getCondition()), subStatement(w.getBody()));
     }
 
-    private static String prettyPrint(ReturnStatement r) {
-        return String.format("return %s;", r.getExpression().map(AstPrinter::prettyPrintTopLevel).orElse(""));
+    private static String returnStatement(ReturnStatement r) {
+        return fmt("return %s;", r.getExpression().map(AstPrinter::expressionTopLevel).orElse(""));
     }
 
-    private static String prettyPrint(LocalVariableDeclarationStatement l) {
-        String initializer = l.getInitializer().map(e -> " = " + prettyPrintTopLevel(e)).orElse("");
-        return String.format("%s %s%s;", prettyPrint(l.getType()), l.getIdentifier(), initializer);
+    private static String localVariableDeclarationStatement(LocalVariableDeclarationStatement l) {
+        String initializer = l.getInitializer().map(e -> " = " + expressionTopLevel(e)).orElse("");
+        return fmt("%s %s%s;", l.getType(), l.getIdentifier(), initializer);
     }
 
-    public static String prettyPrint(Statement s) {
+    public static String statement(Statement s) {
+        if (s == null) return e;
         return switch (s) {
-            case Block b -> prettyPrint(b);
+            case Block b -> block(b);
             case EmptyStatement e -> ";";
-            case IfStatement i -> prettyPrint(i);
-            case ExpressionStatement e -> prettyPrintTopLevel(e.getExpression()) + ";";
-            case WhileStatement w -> prettyPrint(w);
-            case ReturnStatement r -> prettyPrint(r);
-            case LocalVariableDeclarationStatement l -> prettyPrint(l);
+            case IfStatement i -> ifStatement(i);
+            case ExpressionStatement e -> expressionTopLevel(e.getExpression()) + ";";
+            case WhileStatement w -> whileStatement(w);
+            case ReturnStatement r -> returnStatement(r);
+            case LocalVariableDeclarationStatement l -> localVariableDeclarationStatement(l);
         };
     }
 
-    private static String prettyPrint(Block b) {
+    private static String block(Block b) {
         List<Statement> statements = b.getStatements().stream()
                 .filter(s -> !(s instanceof EmptyStatement))
                 .collect(Collectors.toList());
         if (statements.isEmpty()) {
             return "{ }";
         }
-        String formattedStatements = indent(lines(prettyPrintAll(statements, AstPrinter::prettyPrint)));
-        return String.format(lines(
+        String formattedStatements = indent(lines(all(statements)));
+        return fmt(lines(
                 "{",
                 "%s",
                 "}"
         ), formattedStatements);
     }
 
-    public static String prettyPrint(Method m) {
+    public static String method(Method m) {
         String staticKeyword = m.isStatic() ? " static" : "";
-        String type = prettyPrint(m.getReturnType());
-        String parameters = String.join(", ", prettyPrintAll(m.getParameters(), AstPrinter::prettyPrint));
-        String body = prettyPrint(m.getBody());
-        return String.format("public%s %s %s(%s) %s", staticKeyword, type, m.getIdentifier(), parameters, body);
+        String parameters = String.join(", ", all(m.getParameters()));
+        return fmt("public%s %s %s(%s) %s",
+                staticKeyword, m.getReturnType(), m.getIdentifier(), parameters, m.getBody());
     }
 
-    public static String prettyPrint(Field f) {
-        return String.format("public %s %s;", prettyPrint(f.getType()), f.getIdentifier());
+    public static String field(Field f) {
+        return fmt("public %s %s;", f.getType(), f.getIdentifier());
     }
 
-    public static String prettyPrint(Class c) {
+    public static String _class(Class c) {
         // Methods and fields are sorted alphabetically
         List<Method> methods = sortedBy(c.getMethods(), Method::getIdentifier);
         List<Field> fields = sortedBy(c.getFields(), Field::getIdentifier);
-        String printedMethods = indent(lines(prettyPrintAll(methods, AstPrinter::prettyPrint)));
-        String printedFields = indent(lines(prettyPrintAll(fields, AstPrinter::prettyPrint)));
-        return String.format(lines(
+        String printedMethods = indent(lines(all(methods)));
+        String printedFields = indent(lines(all(fields)));
+        return fmt(lines(
                 "class %s {",
                 "%s",
                 "%s",
                 "}"), c.getIdentifier(), printedMethods, printedFields);
     }
 
-    public static String prettyPrint(Program p) {
+    public static String program(Program p) {
         // Classes are sorted alphabetically
         List<Class> classes = sortedBy(p.getClasses(), Class::getIdentifier);
-        return lines(prettyPrintAll(classes, AstPrinter::prettyPrint));
+        return lines(all(classes));
+    }
+
+    public static String print(AstNode a) {
+        if (a == null) return e;
+        return switch (a) {
+            case Expression e -> expression(e);
+            case Statement s -> statement(s);
+            case Type t -> type(t);
+            case Program p -> program(p);
+            case Class c -> _class(c);
+            case Method m -> method(m);
+            case Field f -> field(f);
+            case Parameter p -> parameter(p);
+        };
+    }
+
+    public static String print(String s) {
+        if (s == null) return e;
+        return s;
     }
 
 }

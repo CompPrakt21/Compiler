@@ -142,7 +142,7 @@ public class MainCommand implements Callable<Integer> {
 
             reporter.finish();
 
-            var pretty = AstPrinter.prettyPrint(ast);
+            var pretty = AstPrinter.program(ast);
             System.out.println(pretty);
         } catch (FileNotFoundException | NoSuchFileException e) {
             System.err.format("error: Can not find file: '%s'\n", file.getName());

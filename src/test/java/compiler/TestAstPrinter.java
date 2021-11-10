@@ -53,7 +53,7 @@ public class TestAstPrinter {
         Parser parser = new Parser(new Lexer(in));
         Program p = parser.parse();
         assertTrue(parser.successfulParse);
-        String pretty = AstPrinter.prettyPrint(p);
+        String pretty = AstPrinter.program(p);
         assertEquals(expected, pretty);
     }
 

@@ -7,7 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @SuppressWarnings("ConstantConditions")
-public class Field extends AstNode {
+public final class Field extends AstNode {
     private String identifier;
 
     private Type type;

@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-public class Method extends AstNode {
+public final class Method extends AstNode {
 
     private boolean isStatic;
 
