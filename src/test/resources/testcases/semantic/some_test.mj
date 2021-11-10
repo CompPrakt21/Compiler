@@ -1,0 +1,22 @@
+class Stuff {
+	public int i;
+
+	public Stuff init() {
+		this.i = 9;
+	}
+
+	public void foo() {
+	    this.i = 123;
+	}
+}
+
+class Main {
+	public static void main(String[] args) {
+	    MoreStuff x = null;
+	}
+
+	public int foo;
+
+	public void foo() {}
+
+}

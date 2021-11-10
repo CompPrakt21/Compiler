@@ -17,4 +17,9 @@ public final class ClassTy extends Ty {
     public boolean equals(Object obj) {
         return obj instanceof ClassTy other && other.definition == this.definition;
     }
+
+    @Override
+    public String toString() {
+        return this.definition.getIdentifier();
+    }
 }

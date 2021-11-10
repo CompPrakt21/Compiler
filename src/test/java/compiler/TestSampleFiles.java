@@ -4,9 +4,7 @@ import compiler.diagnostics.CompilerMessageReporter;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.TestFactory;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.PrintWriter;
+import java.io.*;
 import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.List;
@@ -22,8 +20,7 @@ public class TestSampleFiles {
     private static final File SEMANTIC_TEST_DIR = new File("src/test/resources/testcases/semantic");
     private static final String PASSING_TEST_PREFIX = "/* OK";
 
-    // TODO: This represents the frontend input, replace it once that is available.
-    public boolean doesThisCompile(String content) {
+    public boolean doesThisParse(String content) {
         var reporter = new CompilerMessageReporter(new PrintWriter(System.err), content);
         var parser = new Parser(new Lexer(content), reporter);
 
@@ -45,7 +42,7 @@ public class TestSampleFiles {
                         boolean expected = content.startsWith(PASSING_TEST_PREFIX);
 
                         return DynamicTest.dynamicTest(file.getName(), () -> {
-                            boolean compiles = doesThisCompile(content);
+                            boolean compiles = doesThisParse(content);
                             assertEquals(expected, compiles);
                         });
                     } catch (IOException e) {
@@ -112,7 +109,7 @@ public class TestSampleFiles {
                         boolean expected = true;
 
                         return DynamicTest.dynamicTest(file.getName(), () -> {
-                            boolean compiles = doesThisCompile(content);
+                            boolean compiles = doesThisParse(content);
                             assertEquals(expected, compiles);
                         });
                     } catch (IOException e) {
@@ -122,4 +119,43 @@ public class TestSampleFiles {
                 }));
     }
 
+    public boolean doesThisCheck(String content) {
+        var reporter = new CompilerMessageReporter(new PrintWriter(System.err), content);
+        var parser = new Parser(new Lexer(content), reporter);
+
+        var ast = parser.parse();
+
+        var names = NameResolution.performNameResolution(ast, reporter);
+
+        try {
+            DumpAst.dump(new PrintWriter(new BufferedOutputStream(new FileOutputStream("astDump.dot"))), ast, names.definitions());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return parser.successfulParse;
+    }
+
+    /*@TestFactory
+    public Stream<DynamicTest> generateSemanticTestForSemantic() {
+        var syntaxTestFiles = SEMANTIC_TEST_DIR.listFiles();
+        assertNotNull(syntaxTestFiles, "No test files found");
+
+        return Arrays.stream(syntaxTestFiles)
+                .map((file -> {
+                    try {
+                        String content = Files.readString(file.toPath());
+
+                        boolean expected = true;
+
+                        return DynamicTest.dynamicTest(file.getName(), () -> {
+                            boolean compiles = doesThisCheck(content);
+                            //assertEquals(expected, compiles);
+                        });
+                    } catch (IOException e) {
+                        fail(e);
+                        return null;
+                    }
+                }));
+    }*/
 }

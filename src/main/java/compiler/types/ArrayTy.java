@@ -24,4 +24,9 @@ public final class ArrayTy extends Ty {
         ArrayTy arrayTy = (ArrayTy) o;
         return Objects.equals(childTy, arrayTy.childTy);
     }
+
+    @Override
+    public String toString() {
+        return this.childTy + "[]";
+    }
 }

@@ -2,6 +2,9 @@ package compiler;
 
 import compiler.ast.*;
 import compiler.ast.Class;
+import compiler.diagnostics.CompilerMessage;
+import compiler.diagnostics.CompilerMessageReporter;
+import compiler.errors.*;
 import compiler.types.ArrayTy;
 import compiler.types.ClassTy;
 import compiler.types.Ty;
@@ -52,12 +55,29 @@ public class NameResolution {
     // Identifier -> Class
     private Map<String, Class> classes;
 
+    private Optional<CompilerMessageReporter> reporter;
+
     public NameResolution() {
+        this(Optional.empty());
+    }
+
+    public NameResolution(CompilerMessageReporter reporter) {
+        this(Optional.of(reporter));
+    }
+
+    private NameResolution(Optional<CompilerMessageReporter> reporter) {
         this.symbols = null;
         this.definitions = new AstData<>();
         this.types = new AstData<>();
         this.classEnvironments = null;
         this.currentClass = null;
+        this.reporter = reporter;
+    }
+
+    private void reportError(CompilerMessage msg) {
+        if (this.reporter.isPresent()) {
+            this.reporter.get().reportMessage(msg);
+        }
     }
 
     public record NameResolutionResult(AstData<AstNode> definitions,
@@ -94,8 +114,8 @@ public class NameResolution {
         return map;
     }
 
-    public static NameResolutionResult performNameResolution(Program program) {
-        var resolution = new NameResolution();
+    public static NameResolutionResult performNameResolution(Program program, CompilerMessageReporter reporter) {
+        var resolution = new NameResolution(reporter);
 
         resolution.classEnvironments = collectClassEnvironments(program);
         resolution.classes = collectClasses(program);
@@ -126,6 +146,12 @@ public class NameResolution {
         this.symbols = new SymbolTable<>();
 
         resolveType(method.getReturnType());
+
+        for (Field f : this.currentClass.getFields()) {
+            symbols.insert(f.getIdentifier(), f);
+        }
+
+        symbols.enterScope();
 
         for (var param : method.getParameters()) {
             symbols.insert(param.getIdentifier(), param);
@@ -174,6 +200,29 @@ public class NameResolution {
         }
     }
 
+    private void resolveMethodCallWithTarget(MethodCallExpression methodCall, Ty targetType) {
+        if (targetType instanceof ClassTy classTy) {
+
+            var classEnv = this.classEnvironments.get(classTy.getDefinition()).get();
+
+            var methodDef = classEnv.methods.get(methodCall.getIdentifier());
+            if (methodDef != null) {
+                this.definitions.set(methodCall, methodDef);
+
+                var returnType = methodDef.getReturnType();
+
+                if (!(returnType instanceof VoidType)) {
+                    this.types.set(methodCall, Ty.fromAstType(returnType, this.definitions));
+                }
+            } else {
+                reportError(new UnresolveableMemberAccess(classTy.getDefinition(), methodCall));
+            }
+        } else {
+            reportError(new MemberAccessOnNonClassType(methodCall, targetType));
+        }
+    }
+
+
     private void resolveExpression(Expression expression) {
         switch (expression) {
             case AssignmentExpression assign -> {
@@ -197,26 +246,15 @@ public class NameResolution {
                     resolveExpression(target.get());
 
                     var targetType = this.types.get(target.get());
-                    if (targetType.isPresent() && targetType.get() instanceof ClassTy classTy) {
 
-                        var classEnv = this.classEnvironments.get(classTy.getDefinition()).get();
-
-                        var methodDef = classEnv.methods.get(methodCall.getIdentifier());
-                        if (methodDef == null) {
-                            // TODO: emit error
-                        }
-
-                        this.definitions.set(methodCall, methodDef);
-
-                        var returnType = methodDef.getReturnType();
-
-                        if (!(returnType instanceof VoidType)) {
-                            this.types.set(methodCall, Ty.fromAstType(returnType, this.definitions));
-                        }
-
-                    } else {
-                        // TODO: emit error
+                    // If the target expression doesn't have a type an error was reported during resolve of this expression.
+                    if (targetType.isPresent()) {
+                        resolveMethodCallWithTarget(methodCall, targetType.get());
                     }
+                } else {
+                    // Method call without target. => Target is this.
+                    var targetType = new ClassTy(this.currentClass);
+                    resolveMethodCallWithTarget(methodCall, targetType);
                 }
 
                 for (var arg : methodCall.getArguments()) {
@@ -228,25 +266,29 @@ public class NameResolution {
                 resolveExpression(target);
 
                 var targetType = this.types.get(target);
-                if (targetType.isPresent() && targetType.get() instanceof ClassTy classTy) {
 
-                    var classEnv = this.classEnvironments.get(classTy.getDefinition()).get();
+                // If the target expression doesn't have a type an error was reported during resolve of this expression.
+                if (targetType.isPresent()) {
+                    if (targetType.get() instanceof ClassTy classTy) {
 
-                    var fieldDef = classEnv.fields.get(fieldAccess.getIdentifier());
-                    if (fieldDef == null) {
-                        // TODO: emit error
+                        var classEnv = this.classEnvironments.get(classTy.getDefinition()).get();
+
+                        var fieldDef = classEnv.fields.get(fieldAccess.getIdentifier());
+                        if (fieldDef == null) {
+                            reportError(new UnresolveableMemberAccess(classTy.getDefinition(), fieldAccess));
+                        }
+
+                        this.definitions.set(fieldAccess, fieldDef);
+
+                        var type = fieldDef.getType();
+
+                        if (!(type instanceof VoidType)) {
+                            this.types.set(fieldAccess, Ty.fromAstType(type, this.definitions));
+                        }
+
+                    } else {
+                        reportError(new MemberAccessOnNonClassType(fieldAccess, targetType.get()));
                     }
-
-                    this.definitions.set(fieldAccess, fieldDef);
-
-                    var type = fieldDef.getType();
-
-                    if (!(type instanceof VoidType)) {
-                        this.types.set(fieldAccess, Ty.fromAstType(type, this.definitions));
-                    }
-
-                } else {
-                    // TODO: emit error
                 }
             }
             case ArrayAccessExpression arrayAccess -> {
@@ -258,10 +300,10 @@ public class NameResolution {
                     if (targetType.get() instanceof ArrayTy arrayTy) {
                         this.types.set(arrayAccess, arrayTy.getChildTy());
                     } else {
-                        // TODO: emit error
+                        reportError(new ArrayAccessOnNonArrayType(arrayAccess, targetType.get()));
                     }
                 } else {
-                    // TODO: emit error
+                    reportError(new ArrayAccessOnNonArrayType(arrayAccess));
                 }
 
                 resolveExpression(arrayAccess.getIndexExpression());
@@ -285,7 +327,7 @@ public class NameResolution {
 
                     this.types.set(ref, ty);
                 } else {
-                    // TODO: report error;
+                    reportError(new UnresolveableReference(ref));
                 }
             }
             case NullExpression nullExpr -> {
@@ -302,13 +344,11 @@ public class NameResolution {
                 var ident = newObject.getTypeIdentifier();
                 resolveTypeIdent(ident, newObject);
 
-                var klass = this.classes.get(ident);
+                var classTy = identToClassTy(ident);
 
-                if (klass == null) {
-                    // TODO: emit error
-                }
+                // If not present, resolveTypeIdent will report an error
+                classTy.ifPresent(ty -> this.types.set(newObject, ty));
 
-                this.types.set(newObject, new ClassTy(klass));
             }
         }
     }
@@ -338,7 +378,13 @@ public class NameResolution {
         if (klass.isPresent()) {
             this.definitions.set(ast, klass.get());
         } else {
-            // TODO: report resolution error
+            reportError(new ClassDoesNotExist(ident, ast.getSpan()));
         }
+    }
+
+    private Optional<ClassTy> identToClassTy(String ident) {
+        var klass = Optional.ofNullable(this.classes.get(ident));
+
+        return klass.map(ClassTy::new);
     }
 }
