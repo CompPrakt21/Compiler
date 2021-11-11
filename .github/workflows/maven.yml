@@ -26,10 +26,12 @@ jobs:
       run: mvn -B verify --file pom.xml
     - name: Zip the target folder
       uses: montudor/action-zip@v1
+      if: always()
       with:
         args: zip -qq -r target.zip target
     - name: Upload the target zip
       uses: actions/upload-artifact@v2.2.4
+      if: always()
       with:
         path: target.zip
     - name: Clone testing framework
