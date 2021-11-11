@@ -3,9 +3,7 @@ package compiler;
 import compiler.ast.*;
 import compiler.ast.Class;
 
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -17,15 +15,17 @@ public class AstPrinter {
     // - Lists will never be null
     private static String error = "<ERROR>";
 
-    private static String lines(String... ls) {
+    private static String lines(List<String> ls) {
+        ls = ls.stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
         return String.join("\n", ls);
     }
 
-    private static String lines(List<String> ls) {
-        return String.join("\n", ls);
+    private static String lines(String... ls) {
+        return lines(Arrays.stream(ls).toList());
     }
 
     private static String indent(String s) {
+        if (s.equals("")) return "";
         return Arrays.stream(s.split("\n"))
                 .map(line -> "\t" + line)
                 .collect(Collectors.joining("\n"));
@@ -77,12 +77,9 @@ public class AstPrinter {
     public static String expressionTopLevel(Expression e) {
         if (e == null) return error;
         return switch (e) {
-            case AssignmentExpression a ->
-                    fmt("%s = %s", a.getLvalue(), a.getRvalue());
-            case BinaryOpExpression b ->
-                    fmt("%s %s %s", b.getLhs(), b.getOperatorRepr(), b.getRhs());
-            case UnaryExpression u ->
-                    fmt("%s%s", u.getOperatorRepr(), u.getExpression());
+            case AssignmentExpression a -> fmt("%s = %s", a.getLvalue(), a.getRvalue());
+            case BinaryOpExpression b -> fmt("%s %s %s", b.getLhs(), b.getOperatorRepr(), b.getRhs());
+            case UnaryExpression u -> fmt("%s%s", u.getOperatorRepr(), u.getExpression());
             case MethodCallExpression m -> {
                 String targetPrefix = m.getTarget().map(t -> fmt("%s.", t)).orElse("");
                 String args = m.getArguments().stream()
@@ -90,26 +87,18 @@ public class AstPrinter {
                         .collect(Collectors.joining(", "));
                 yield fmt("%s%s(%s)", targetPrefix, m.getIdentifier(), args);
             }
-            case FieldAccessExpression f ->
-                    fmt("%s.%s", f.getTarget(), f.getIdentifier());
-            case ArrayAccessExpression a ->
-                    fmt("%s[%s]", a.getTarget(), expressionTopLevel(a.getIndexExpression()));
-            case BoolLiteral b ->
-                    String.valueOf(b.getValue());
-            case IntLiteral i ->
-                    print(i.getValue());
-            case ThisExpression t ->
-                    "this";
-            case NewObjectExpression n ->
-                    fmt("new %s()", n.getTypeIdentifier());
+            case FieldAccessExpression f -> fmt("%s.%s", f.getTarget(), f.getIdentifier());
+            case ArrayAccessExpression a -> fmt("%s[%s]", a.getTarget(), expressionTopLevel(a.getIndexExpression()));
+            case BoolLiteral b -> String.valueOf(b.getValue());
+            case IntLiteral i -> print(i.getValue());
+            case ThisExpression t -> "this";
+            case NewObjectExpression n -> fmt("new %s()", n.getTypeIdentifier());
             case NewArrayExpression n -> {
                 String dimensionBrackets = "[]".repeat(n.getDimensions() - 1);
                 yield fmt("new %s[%s]%s", n.getType(), expressionTopLevel(n.getFirstDimensionSize()), dimensionBrackets);
             }
-            case Reference r ->
-                    print(r.getIdentifier());
-            case NullExpression n ->
-                    "null";
+            case Reference r -> print(r.getIdentifier());
+            case NullExpression n -> "null";
         };
     }
 
@@ -151,28 +140,21 @@ public class AstPrinter {
             return "{ }";
         }
         String formattedStatements = indent(lines(all(statements)));
-        return fmt(lines(
+        return lines(
                 "{",
-                "%s",
-                "}"
-        ), formattedStatements);
+                formattedStatements,
+                "}");
     }
 
     public static String statement(Statement s) {
         if (s == null) return error;
         return switch (s) {
-            case Block b ->
-                    block(b);
-            case EmptyStatement e ->
-                    ";";
-            case IfStatement i ->
-                    ifStatement(i);
-            case ExpressionStatement e ->
-                    expressionTopLevel(e.getExpression()) + ";";
-            case WhileStatement w ->
-                    fmt("while (%s)%s", expressionTopLevel(w.getCondition()), subStatement(w.getBody()));
-            case ReturnStatement r ->
-                    fmt("return %s;", r.getExpression().map(AstPrinter::expressionTopLevel).orElse(""));
+            case Block b -> block(b);
+            case EmptyStatement e -> ";";
+            case IfStatement i -> ifStatement(i);
+            case ExpressionStatement e -> expressionTopLevel(e.getExpression()) + ";";
+            case WhileStatement w -> fmt("while (%s)%s", expressionTopLevel(w.getCondition()), subStatement(w.getBody()));
+            case ReturnStatement r -> fmt("return%s;", r.getExpression().map(e -> " " + expressionTopLevel(e)).orElse(""));
             case LocalVariableDeclarationStatement l -> {
                 String initializer = l.getInitializer().map(e -> " = " + expressionTopLevel(e)).orElse("");
                 yield fmt("%s %s%s;", l.getType(), l.getIdentifier(), initializer);
@@ -197,11 +179,11 @@ public class AstPrinter {
         List<Field> fields = sortedBy(c.getFields(), Field::getIdentifier);
         String printedMethods = indent(lines(all(methods)));
         String printedFields = indent(lines(all(fields)));
-        return fmt(lines(
-                "class %s {",
-                "%s",
-                "%s",
-                "}"), c.getIdentifier(), printedMethods, printedFields);
+        return lines(
+                fmt("class %s {", c.getIdentifier()),
+                printedMethods,
+                printedFields,
+                "}");
     }
 
     public static String program(Program p) {

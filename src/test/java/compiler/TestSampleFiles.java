@@ -62,25 +62,26 @@ public class TestSampleFiles {
         assertNotNull(syntaxTestFiles, "No test files found");
         assertNotNull(semanticTestFiles, "No test files found");
 
-        record TestCase(String name, String content) { }
+        record TestCase(String name, String content) {
+        }
         var syntaxTestContents = Arrays.stream(syntaxTestFiles)
-            .map(file -> {
-                try {
-                    return new TestCase(file.getName(), Files.readString(file.toPath()));
-                } catch (IOException e) {
-                    fail(e);
-                    return null;
-                }
-            }).filter(testCase -> testCase.content.startsWith(PASSING_TEST_PREFIX));
+                .map(file -> {
+                    try {
+                        return new TestCase(file.getName(), Files.readString(file.toPath()));
+                    } catch (IOException e) {
+                        fail(e);
+                        return null;
+                    }
+                }).filter(testCase -> testCase.content.startsWith(PASSING_TEST_PREFIX));
         var semanticTestContents = Arrays.stream(semanticTestFiles)
-            .map(file -> {
-                try {
-                    return new TestCase(file.getName(), Files.readString(file.toPath()));
-                } catch (IOException e) {
-                    fail(e);
-                    return null;
-                }
-            });
+                .map(file -> {
+                    try {
+                        return new TestCase(file.getName(), Files.readString(file.toPath()));
+                    } catch (IOException e) {
+                        fail(e);
+                        return null;
+                    }
+                });
         var testContents = Stream.concat(syntaxTestContents, semanticTestContents).collect(Collectors.toList());
 
         return testContents.stream()
