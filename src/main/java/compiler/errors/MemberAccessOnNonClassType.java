@@ -6,17 +6,20 @@ import compiler.ast.MethodCallExpression;
 import compiler.diagnostics.CompilerError;
 import compiler.diagnostics.Source;
 import compiler.types.Ty;
+import compiler.types.TyResult;
+import compiler.types.UnresolveableTy;
+import compiler.types.VoidTy;
 
 public class MemberAccessOnNonClassType extends CompilerError {
     private AstNode member;
-    private Ty targetType;
+    private TyResult targetType;
 
-    public MemberAccessOnNonClassType(MethodCallExpression member, Ty targetType) {
+    public MemberAccessOnNonClassType(MethodCallExpression member, TyResult targetType) {
         this.member = member;
         this.targetType = targetType;
     }
 
-    public MemberAccessOnNonClassType(FieldAccessExpression member, Ty targetType) {
+    public MemberAccessOnNonClassType(FieldAccessExpression member, TyResult targetType) {
         this.member = member;
         this.targetType = targetType;
     }
@@ -36,7 +39,13 @@ public class MemberAccessOnNonClassType extends CompilerError {
             throw new AssertionError("Unreacheable because of constructor");
         }
 
-        this.setMessage(String.format("Can not access %s '%s' of type '%s'", member, ident, this.targetType));
+        var typeString = switch (this.targetType) {
+            case Ty ty -> String.format("of type '%s'", ty);
+            case UnresolveableTy ty -> "";
+            case VoidTy ty -> "of type 'void'";
+        };
+
+        this.setMessage(String.format("Can not access %s '%s' ", member, ident, typeString));
 
         this.addPrimaryAnnotation(this.member.getSpan());
     }
