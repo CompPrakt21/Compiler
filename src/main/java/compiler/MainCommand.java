@@ -1,5 +1,6 @@
 package compiler;
 
+import compiler.ast.Program;
 import compiler.diagnostics.CompilerMessageReporter;
 import picocli.CommandLine;
 
@@ -13,6 +14,7 @@ import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.util.concurrent.Callable;
+import java.util.function.Function;
 
 @Command(name = "compiler", mixinStandardHelpOptions = true, version = "compiler 0.1.0",
         description = "MiniJava to x86 compiler")
@@ -21,12 +23,11 @@ public class MainCommand implements Callable<Integer> {
     @Spec
     CommandSpec spec;
 
-    @Command(name = "--echo", description = "Echos back the input file.")
-    public Integer callEcho(@Parameters(paramLabel = "FILE", description = "The file to echo.") File file) {
+    private static int callWithFileContent(File file, Function<String, Boolean> f) {
         try {
             String content = Files.readString(file.toPath());
-            System.out.print(content);
-            return 0;
+            boolean error = f.apply(content);
+            return error ? 1 : 0;
         } catch (FileNotFoundException | NoSuchFileException e) {
             System.err.format("error: Can not find file: '%s'\n", file.getName());
             return 1;
@@ -36,12 +37,19 @@ public class MainCommand implements Callable<Integer> {
         }
     }
 
+    @Command(name = "--echo", description = "Echos back the input file.")
+    public Integer callEcho(@Parameters(paramLabel = "FILE", description = "The file to echo.") File file) {
+        return callWithFileContent(file, content -> {
+            System.out.print(content);
+            return false;
+        });
+    }
+
     @Command(name = "--lextest", description = "Outputs lexed tokens for the input file")
     public Integer callLextest(@Parameters(paramLabel = "FILE", description = "The file to lxe.") File file) {
-        boolean error = false;
-        try {
-            String content = Files.readString(file.toPath());
+        return callWithFileContent(file, content -> {
             Lexer l = new Lexer(content);
+            boolean error = false;
             loop:
             while (true) {
                 Token t = l.nextToken();
@@ -59,100 +67,49 @@ public class MainCommand implements Callable<Integer> {
                     default -> System.out.println(t.type.repr);
                 }
             }
-        } catch (FileNotFoundException | NoSuchFileException e) {
-            System.err.format("error: Can not find file: '%s'\n", file.getName());
-            error = true;
-        } catch (IOException e) {
-            System.err.format("error: Can not read file: '%s'\n", file.getName());
-            error = true;
-        }
-        return error ? 1 : 0;
+            return error;
+        });
+    }
+
+    @FunctionalInterface
+    private interface PostParseOperation {
+        boolean run(CompilerMessageReporter r, Parser p, Program prog);
+    }
+
+    private static Integer callWithParsed(File file, PostParseOperation op) {
+        return callWithFileContent(file, content -> {
+            var reporter = new CompilerMessageReporter(new PrintWriter(System.err), content);
+            var parser = new Parser(new Lexer(content), reporter);
+            var ast = parser.parse();
+            if (!parser.successfulParse) {
+                reporter.finish();
+                return true;
+            }
+            boolean error = op.run(reporter, parser, ast);
+            reporter.finish();
+            return error;
+        });
     }
 
     @Command(name = "--parsetest", description = "Checks whether the input file parses.")
     public Integer callParseTest(@Parameters(paramLabel = "FILE", description = "The file to parse.") File file) {
-        boolean error = false;
-
-        try {
-            String content = Files.readString(file.toPath());
-            var reporter = new CompilerMessageReporter(new PrintWriter(System.err), content);
-
-            var parser = new Parser(new Lexer(content), reporter);
-
-            var ast = parser.parse();
-
-            if (!parser.successfulParse) {
-                error = true;
-            }
-
-            reporter.finish();
-
-        } catch (FileNotFoundException | NoSuchFileException e) {
-            System.err.format("error: Can not find file: '%s'\n", file.getName());
-            error = true;
-        } catch (IOException e) {
-            System.err.format("error: Can not read file: '%s'\n", file.getName());
-            error = true;
-        }
-
-        return error ? 1 : 0;
+        return callWithParsed(file, (reporter, parser, ast) -> false);
     }
 
     @Command(name = "--dump-dot-ast", description = "Generates a dot file with the ast.")
     public Integer callDumpAst(@Parameters(paramLabel = "FILE", description = "The file to parse.") File file) {
-        boolean error = false;
-
-        try {
-            String content = Files.readString(file.toPath());
-            var reporter = new CompilerMessageReporter(new PrintWriter(System.err), content);
-
-            var parser = new Parser(new Lexer(content), reporter);
-
-            var ast = parser.parse();
-
-            if (!parser.successfulParse) {
-                error = true;
-            }
-
-            reporter.finish();
-
+        return callWithParsed(file, (reporter, parser, ast) -> {
             parser.dotWriter(ast);
-        } catch (FileNotFoundException | NoSuchFileException e) {
-            System.err.format("error: Can not find file: '%s'\n", file.getName());
-            error = true;
-        } catch (IOException e) {
-            System.err.format("error: Can not read file: '%s'\n", file.getName());
-            error = true;
-        }
-
-        return error ? 1 : 0;
+            return false;
+        });
     }
 
     @Command(name = "--print-ast", description = "Prett-prints the parsed AST.")
     public Integer printAst(@Parameters(paramLabel = "FILE", description = "The file to parse.") File file) {
-        boolean error = false;
-
-        try {
-            String content = Files.readString(file.toPath());
-            var reporter = new CompilerMessageReporter(new PrintWriter(System.err), content);
-
-            var parser = new Parser(new Lexer(content), reporter);
-
-            var ast = parser.parse();
-
-            reporter.finish();
-
-            var pretty = AstPrinter.program(ast);
-            System.out.println(pretty);
-        } catch (FileNotFoundException | NoSuchFileException e) {
-            System.err.format("error: Can not find file: '%s'\n", file.getName());
-            error = true;
-        } catch (IOException e) {
-            System.err.format("error: Can not read file: '%s'\n", file.getName());
-            error = true;
-        }
-
-        return error ? 1 : 0;
+        return callWithParsed(file, (reporter, parser, ast) -> {
+            System.out.println(AstPrinter.program(ast));
+            return false;
+        });
     }
 
     @Override
