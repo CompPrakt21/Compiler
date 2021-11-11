@@ -113,18 +113,19 @@ public class AstPrinter {
 
     private static String subStatement(Statement s) {
         String printed = print(s);
-        if (s instanceof Block) {
+        if (s instanceof Block || s instanceof EmptyStatement) {
             return " " + printed;
         }
         return "\n" + indent(printed);
     }
 
     private static String ifStatement(IfStatement i) {
-        String thenBody = subStatement(i.getThenBody());
+        Statement t = i.getThenBody();
+        String thenBody = subStatement(t);
         String elseBody = i.getElseBody().map(b -> {
-            String prefix = i.getThenBody() instanceof Block ? " " : "\n";
+            String prefix = t instanceof Block || t instanceof EmptyStatement ? " " : "\n";
             String printed = print(b);
-            printed = b instanceof Block || b instanceof IfStatement
+            printed = b instanceof Block || b instanceof EmptyStatement || b instanceof IfStatement
                     ? " " + printed
                     : "\n" + indent(printed);
             return prefix + "else" + printed;
@@ -150,7 +151,7 @@ public class AstPrinter {
         if (s == null) return error;
         return switch (s) {
             case Block b -> block(b);
-            case EmptyStatement e -> ";";
+            case EmptyStatement e -> "{ }";
             case IfStatement i -> ifStatement(i);
             case ExpressionStatement e -> expressionTopLevel(e.getExpression()) + ";";
             case WhileStatement w -> fmt("while (%s)%s", expressionTopLevel(w.getCondition()), subStatement(w.getBody()));
