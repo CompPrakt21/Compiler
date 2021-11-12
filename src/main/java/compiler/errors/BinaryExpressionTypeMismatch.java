@@ -27,8 +27,8 @@ public abstract class BinaryExpressionTypeMismatch {
         public void generate(Source source) {
             this.setMessage(String.format("Can not compare types '%s' and '%s'.", this.actualLhsOperandTy, this.actualRhsOperandTy));
 
-            this.addPrimaryAnnotation(this.expr.getLhs().getSpan(), String.format("this has type '%s'", this.actualLhsOperandTy));
-            this.addPrimaryAnnotation(this.expr.getRhs().getSpan(), String.format("this has type '%s'", this.actualRhsOperandTy));
+            this.addPrimaryAnnotation(this.expr.getLhs().getSpan(), String.format("this expression has has type '%s'", this.actualLhsOperandTy));
+            this.addPrimaryAnnotation(this.expr.getRhs().getSpan(), String.format("this expression has has type '%s'", this.actualRhsOperandTy));
         }
     }
 

@@ -350,7 +350,7 @@ public class NameResolution {
                 }
                 case Equal, NotEqual -> {
                     if (!lhsTy.comparable(rhsTy)) {
-                        this.expressionTypes.set(binaryOp, new BoolTy());
+                        reportError(new BinaryExpressionTypeMismatch.IncomparableTypes(binaryOp, lhsTy, rhsTy));
                     }
                     this.expressionTypes.set(binaryOp, new BoolTy());
                 }
