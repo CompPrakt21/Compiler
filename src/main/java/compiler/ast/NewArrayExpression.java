@@ -14,7 +14,7 @@ public final class NewArrayExpression extends Expression {
 
     public NewArrayExpression(Token newToken, Type type, Expression firstDimensionSize, int dimensions, Token lastBracket) {
         super();
-        this.isError |= type == null || firstDimensionSize == null || lastBracket == null || newToken != null;
+        this.isError |= type == null || firstDimensionSize == null || lastBracket == null || newToken == null;
 
         setSpan(newToken, type, firstDimensionSize, lastBracket);
 

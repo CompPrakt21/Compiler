@@ -100,6 +100,7 @@ public class MainCommand implements Callable<Integer> {
     public Integer callDumpAst(@Parameters(paramLabel = "FILE", description = "The file to parse.") File file) {
         return callWithParsed(file, (reporter, parser, ast) -> {
             var resolution = NameResolution.performNameResolution(ast, reporter);
+            DumpAst.dump(new PrintWriter(System.out), ast, resolution.definitions(), resolution.types());
             return false;
         });
     }

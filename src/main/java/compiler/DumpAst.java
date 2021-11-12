@@ -23,14 +23,14 @@ class DotWriter {
 
         String color = ast.isError() ? "red" : "black";
 
-        String dotLabel = String.format("\"%s\"", label);
+        String dotLabel = String.format("%s", label);
 
         var type = this.types.get(ast);
         if (type.isPresent()) {
             dotLabel += String.format("\n%s", type.get());
         }
 
-        this.out.format("%s [label=\"%s\", color=%s, ordering=\"out\"]\n", ast.getID(), dotLabel, color);
+        this.out.format("%s [label=\"%s\", color=%s, ordering=\"out\"];\n", ast.getID(), dotLabel, color);
     }
 
     void addEdge(AstNode start, AstNode end) {
@@ -38,7 +38,7 @@ class DotWriter {
     }
 
     void addDataEdge(AstNode start, AstNode end) {
-        this.out.format("%s -> %s [color=blue, constraint=false, style=dotted]\n", start.getID(), end.getID());
+        this.out.format("%s -> %s [color=blue, constraint=false, style=dotted];\n", start.getID(), end.getID());
     }
 
     void addEdge(AstNode start, AstNode end, String label) {
@@ -46,7 +46,7 @@ class DotWriter {
             return;
         }
 
-        this.out.format("%s -> %s [label=\"%s\"]\n", start.getID(), end.getID(), label);
+        this.out.format("%s -> %s [label=\"%s\"];\n", start.getID(), end.getID(), label);
     }
 
     void finish() {
