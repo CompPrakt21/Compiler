@@ -15,6 +15,8 @@ public abstract sealed class AstNode implements HasSpan
 
     private static int next_id = 1;
 
+    public String id;
+
     public abstract List<AstNode> getChildren();
 
     public abstract String getName();
@@ -38,6 +40,13 @@ public abstract sealed class AstNode implements HasSpan
     public <T> T makeError(boolean isError) {
         this.isError |= isError;
         return (T) this;
+    }
+
+    public String getId() {
+        return id;
+    }
+    public void setId(String id) {
+        this.id = id;
     }
 
     @Override

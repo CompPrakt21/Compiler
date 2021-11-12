@@ -40,7 +40,7 @@ public class Semantic {
             switch (child) {
                 //Checks if the main Method is called.
                 case MethodCallExpression methodCallExpression:
-                    if (methodCallExpression.getVariable().equals("main")) {
+                    if (methodCallExpression.getIdentifier().equals("main")) {
                         correct = false;
                         fail("Main method was called", methodCallExpression);
                     }
@@ -49,29 +49,29 @@ public class Semantic {
                     break;
                 //Checks if a has already variable been instanciated or if its type is void
                 case Field field:
-                    if (instanciatedVars.contains(field.getVariable()) || children.get(0) instanceof VoidType) {
+                    if (instanciatedVars.contains(field.getIdentifier()) || children.get(0) instanceof VoidType) {
                         correct = false;
                         fail("Field was instanciated int this program already", field);
                     }
-                    instanciatedVars.add(field.getVariable());
+                    instanciatedVars.add(field.getIdentifier());
                     recursiveCheckPerBlock(children);
                     break;
                 //Checks if a variable has already been instanciated in this block or if its type is of void
                 case LocalVariableDeclarationStatement localVariableDeclarationStatement:
-                    if (instanciatedVars.contains(localVariableDeclarationStatement.getVariable()) || children.get(0) instanceof  VoidType) {
+                    if (instanciatedVars.contains(localVariableDeclarationStatement.getIdentifier()) || children.get(0) instanceof  VoidType) {
                         correct = false;
                         fail("Var was instanciated in this block already or the var has type void", localVariableDeclarationStatement);
                     }
-                    instanciatedVars.add(localVariableDeclarationStatement.getVariable());
+                    instanciatedVars.add(localVariableDeclarationStatement.getIdentifier());
                     recursiveCheckPerBlock(children);
                     break;
                 //checks that only one static method exists and that that one is a correctly formed "main".
                 //Checks what return type is expected
                 case Method method:
-                    if (method.getIsStatic() && method.getVariable().equals("main") && !foundMainMethod && checkMainMethod(method)) {
+                    if (method.isStatic() && method.getIdentifier().equals("main") && !foundMainMethod && checkMainMethod(method)) {
                         foundMainMethod = true;
                         isStatic = true;
-                    }else if (method.getVariable().equals("main") || method.getIsStatic()) {
+                    }else if (method.getIdentifier().equals("main") || method.isStatic()) {
                         fail("Two main methods or two static methods were detected", method);
                         break;
                     }
@@ -129,11 +129,11 @@ public class Semantic {
         List<AstNode> children = node.getChildren();
         boolean test = true;
         test &= children.get(0) instanceof VoidType
-                && node.getIsStatic()
+                && node.isStatic()
                 && children.get(1) instanceof Parameter
                 && children.get(1).getChildren().get(0) instanceof ArrayType
                 && children.get(1).getChildren().get(0).getChildren().get(0) instanceof ClassType
-                && children.get(1).getChildren().get(0).getChildren().get(0).getVariable() == "String"
+                && ((ClassType) children.get(1).getChildren().get(0).getChildren().get(0)).getIdentifier() == "String"
                 && children.get(2) instanceof Block;
 
         return test;

@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class UnaryExpression extends Expression {
+
     public enum UnaryOp {
         LogicalNot,
         Negate,

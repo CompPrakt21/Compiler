@@ -2,6 +2,7 @@ package compiler;
 
 import compiler.ast.Program;
 import compiler.diagnostics.CompilerMessageReporter;
+import compiler.utils.DumpUtils;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Model.CommandSpec;

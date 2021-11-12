@@ -97,16 +97,6 @@ public final class Method extends AstNode {
     }
 
     @Override
-    public boolean startsNewBlock() {
-        return true;
-    }
-
-    @Override
-    public String getVariable() {
-        return identifier;
-    }
-
-    @Override
     public boolean syntacticEq(AstNode otherAst) {
         if (!(otherAst instanceof Method other)) {
             return false;

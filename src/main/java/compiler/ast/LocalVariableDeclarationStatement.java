@@ -17,16 +17,6 @@ public final class LocalVariableDeclarationStatement extends Statement implement
 
     private final Optional<Expression> initializer;
 
-    @Override
-    public boolean startsNewBlock() {
-        return false;
-    }
-
-    @Override
-    public String getVariable() {
-        return identifier;
-    }
-
     public LocalVariableDeclarationStatement(Type type, Token identifier, Optional<Token> assign, Optional<Expression> initializer) {
         super();
         //noinspection ConstantConditions
