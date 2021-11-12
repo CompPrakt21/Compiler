@@ -7,7 +7,7 @@ import java.util.List;
 
 public final class Parameter extends AstNode implements VariableDefinition {
     private Type type;
-    private String identifier;
+    private Identifier identifier;
 
     public Parameter(Type type, Token identifier) {
         super();
@@ -16,7 +16,7 @@ public final class Parameter extends AstNode implements VariableDefinition {
         setSpan(type, identifier);
 
         this.type = type;
-        this.identifier = identifier != null ? identifier.getIdentContent() : null;
+        this.identifier = new Identifier(identifier);
     }
 
     @Override
@@ -24,7 +24,7 @@ public final class Parameter extends AstNode implements VariableDefinition {
         return type;
     }
 
-    public String getIdentifier() {
+    public Identifier getIdentifier() {
         return identifier;
     }
 
@@ -37,7 +37,7 @@ public final class Parameter extends AstNode implements VariableDefinition {
 
     @Override
     public String getName() {
-        return identifier;
+        return identifier.getContent();
     }
 
     @Override

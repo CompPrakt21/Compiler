@@ -24,7 +24,7 @@ public class MethodParameterErrors {
             this.setMessage("Method definition and method call differ in length.");
 
             var argLength = this.methodCall.getArguments().size();
-            this.addPrimaryAnnotation(methodCall.getSpan(), String.format("has %s argument%s", argLength, argLength == 1 ? "" : "s"));
+            this.addPrimaryAnnotation(methodCall.getSpanWithoutTarget(), String.format("has %s argument%s", argLength, argLength == 1 ? "" : "s"));
             var paramLength = this.method.getParameters().size();
             this.addSecondaryAnnotation(method.getParametersSpan(), String.format("has %s parameter%s", paramLength, paramLength == 1 ? "" : "s"));
         }

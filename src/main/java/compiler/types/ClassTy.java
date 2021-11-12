@@ -20,6 +20,6 @@ public final class ClassTy extends Ty {
 
     @Override
     public String toString() {
-        return this.definition.getIdentifier();
+        return this.definition.getIdentifier().getContent();
     }
 }

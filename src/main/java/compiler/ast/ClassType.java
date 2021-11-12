@@ -5,17 +5,17 @@ import compiler.Token;
 import java.util.List;
 
 public final class ClassType extends Type {
-    private String identifier;
+    private Identifier identifier;
 
     public ClassType(Token identifier) {
         super();
         this.isError |= identifier == null;
         setSpan(identifier);
 
-        this.identifier = identifier != null ? identifier.getIdentContent() : null;
+        this.identifier = new Identifier(identifier);
     }
 
-    public String getIdentifier() {
+    public Identifier getIdentifier() {
         return identifier;
     }
 
@@ -26,7 +26,7 @@ public final class ClassType extends Type {
 
     @Override
     public String getName() {
-        return identifier;
+        return identifier.getContent();
     }
 
     @Override

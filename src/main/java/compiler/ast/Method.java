@@ -16,7 +16,7 @@ public final class Method extends AstNode {
 
     private boolean isStatic;
 
-    private String identifier;
+    private Identifier identifier;
 
     private Type returnType;
 
@@ -32,14 +32,20 @@ public final class Method extends AstNode {
         setSpan(publicToken, new HasSpan.OptionalWrapper(isStatic), identifier, returnType, new HasSpan.ListWrapper(parameters), body);
 
         this.isStatic = isStatic.isPresent();
-        this.identifier = identifier != null ? identifier.getIdentContent() : null;
+        this.identifier = new Identifier(identifier);
         this.returnType = returnType;
         this.parameters = parameters;
 
         var nonNullParams = this.parameters.stream().filter(Objects::nonNull).collect(Collectors.toList());
         if (nonNullParams.size() == 0) {
-            var start = new Span(openParamToken.getSpan().start() + 1, 1);
-            var end = new Span(closeParamToken.getSpan().start() - 1, 1);
+            assert openParamToken != null || closeParamToken != null;
+
+            var openParamStart = openParamToken != null ? openParamToken.getSpan().start() : closeParamToken.getSpan().start();
+            var closeParamStart = closeParamToken != null ? closeParamToken.getSpan().start() : openParamToken.getSpan().start();
+
+            var start = new Span(openParamStart + 1, 1);
+            var end = new Span(closeParamStart - 1, 1);
+
             if (start.start() == end.start()) {
                 this.parametersSpan = openParamToken.getSpan().merge(closeParamToken.getSpan());
             } else {
@@ -56,7 +62,7 @@ public final class Method extends AstNode {
         return isStatic;
     }
 
-    public String getIdentifier() {
+    public Identifier getIdentifier() {
         return identifier;
     }
 
@@ -87,7 +93,7 @@ public final class Method extends AstNode {
 
     @Override
     public String getName() {
-        return identifier;
+        return identifier.getContent();
     }
 
     @Override

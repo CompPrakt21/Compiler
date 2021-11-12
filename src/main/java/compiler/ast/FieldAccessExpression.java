@@ -6,7 +6,7 @@ import java.util.List;
 
 public final class FieldAccessExpression extends Expression {
     private Expression target;
-    private String identifier;
+    private Identifier identifier;
 
     public FieldAccessExpression(Expression target, Token dot, Token identifier) {
         super();
@@ -15,14 +15,14 @@ public final class FieldAccessExpression extends Expression {
         setSpan(target, dot, identifier);
 
         this.target = target;
-        this.identifier = identifier != null ? identifier.getIdentContent() : null;
+        this.identifier = new Identifier(identifier);
     }
 
     public Expression getTarget() {
         return target;
     }
 
-    public String getIdentifier() {
+    public Identifier getIdentifier() {
         return identifier;
     }
 
@@ -33,7 +33,7 @@ public final class FieldAccessExpression extends Expression {
 
     @Override
     public String getName() {
-        return identifier;
+        return identifier.getContent();
     }
 
     @Override

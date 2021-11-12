@@ -2,6 +2,7 @@ package compiler.errors;
 
 import compiler.ast.AstNode;
 import compiler.ast.FieldAccessExpression;
+import compiler.ast.Identifier;
 import compiler.ast.MethodCallExpression;
 import compiler.diagnostics.CompilerError;
 import compiler.diagnostics.Source;
@@ -28,7 +29,7 @@ public class MemberAccessOnNonClassType extends CompilerError {
     @Override
     public void generate(Source source) {
         String member;
-        String ident;
+        Identifier ident;
         if (this.member instanceof MethodCallExpression methodCall) {
             member = "method";
             ident = methodCall.getIdentifier();
@@ -47,6 +48,6 @@ public class MemberAccessOnNonClassType extends CompilerError {
 
         this.setMessage(String.format("Can not access %s '%s' ", member, ident, typeString));
 
-        this.addPrimaryAnnotation(this.member.getSpan());
+        this.addPrimaryAnnotation(ident.getSpan());
     }
 }

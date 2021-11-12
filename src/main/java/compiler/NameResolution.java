@@ -22,12 +22,12 @@ class ClassEnvironment {
     }
 
     public void addMethod(Method m) {
-        var ident = m.getIdentifier();
+        var ident = m.getIdentifier().getContent();
         this.methods.put(ident, m);
     }
 
     public void addField(Field f) {
-        var ident = f.getIdentifier();
+        var ident = f.getIdentifier().getContent();
         this.fields.put(ident, f);
     }
 
@@ -98,7 +98,7 @@ public class NameResolution {
         this.classInfo = new HashMap<>();
 
         for (Class klass : program.getClasses()) {
-            this.classInfo.put(klass.getIdentifier(), new ClassInfo(klass, new ClassTy(klass)));
+            this.classInfo.put(klass.getIdentifier().getContent(), new ClassInfo(klass, new ClassTy(klass)));
         }
     }
 
@@ -183,13 +183,13 @@ public class NameResolution {
         resolveType(method.getReturnType());
 
         for (Field f : this.currentClass.getFields()) {
-            symbols.insert(f.getIdentifier(), f);
+            symbols.insert(f.getIdentifier().getContent(), f);
         }
 
         symbols.enterScope();
 
         for (var param : method.getParameters()) {
-            symbols.insert(param.getIdentifier(), param);
+            symbols.insert(param.getIdentifier().getContent(), param);
         }
 
         this.currentMethod = method;
@@ -262,7 +262,7 @@ public class NameResolution {
             case LocalVariableDeclarationStatement declStmt -> {
                 resolveType(declStmt.getType());
 
-                symbols.insert(declStmt.getIdentifier(), declStmt);
+                symbols.insert(declStmt.getIdentifier().getContent(), declStmt);
 
                 declStmt.getInitializer().ifPresent(this::resolveExpression);
 
@@ -297,7 +297,7 @@ public class NameResolution {
 
             var classEnv = this.classEnvironments.get(classTy.getDefinition()).get();
 
-            var methodDef = classEnv.searchMethod(methodCall.getIdentifier());
+            var methodDef = classEnv.searchMethod(methodCall.getIdentifier().getContent());
             if (methodDef.isPresent()) {
                 this.definitions.set(methodCall, methodDef.get());
 
@@ -471,7 +471,7 @@ public class NameResolution {
 
                     var classEnv = this.classEnvironments.get(classTy.getDefinition()).get();
 
-                    var fieldDef = classEnv.searchField(fieldAccess.getIdentifier());
+                    var fieldDef = classEnv.searchField(fieldAccess.getIdentifier().getContent());
                     if (fieldDef.isPresent()) {
 
                         this.definitions.set(fieldAccess, fieldDef.get());
@@ -526,7 +526,7 @@ public class NameResolution {
                 }
             }
             case Reference ref -> {
-                var def = this.symbols.lookupDefinition(ref.getIdentifier());
+                var def = this.symbols.lookupDefinition(ref.getIdentifier().getContent());
                 if (def.isPresent()) {
                     this.definitions.set(ref, (AstNode) def.get());
 
@@ -548,13 +548,16 @@ public class NameResolution {
                 this.expressionTypes.set(thisExpr, this.getCurrentClassTy());
             }
             case NewObjectExpression newObject -> {
-                var ident = newObject.getTypeIdentifier();
-                resolveTypeIdent(ident, newObject);
+                var classType = newObject.getType();
 
-                var classTy = identToClassTy(ident);
+                resolveClassType(classType);
 
-                // If not present, resolveTypeIdent will report an error
-                classTy.ifPresent(ty -> this.expressionTypes.set(newObject, ty));
+                var classTyRes = this.fromAstType(classType);
+
+                // If its not Ty, then resolveClassType reported an error.
+                if (classTyRes instanceof Ty classTy) {
+                    this.expressionTypes.set(newObject, classTy);
+                }
             }
         }
 
@@ -571,21 +574,21 @@ public class NameResolution {
             }
             case VoidType voidTy -> {
             }
-            case ClassType classTy -> {
-                var ident = classTy.getIdentifier();
+            case ClassType classType -> {
+                var ident = classType.getIdentifier();
 
-                resolveTypeIdent(ident, classTy);
+                resolveClassType(classType);
             }
         }
     }
 
-    private void resolveTypeIdent(String ident, AstNode ast) {
-        var klass = Optional.ofNullable(this.classInfo.get(ident));
+    private void resolveClassType(ClassType type) {
+        var klass = Optional.ofNullable(this.classInfo.get(type.getIdentifier().getContent()));
 
         if (klass.isPresent()) {
-            this.definitions.set(ast, klass.get().klass);
+            this.definitions.set(type, klass.get().klass);
         } else {
-            reportError(new ClassDoesNotExist(ident, ast.getSpan()));
+            reportError(new ClassDoesNotExist(type));
         }
     }
 
@@ -594,7 +597,7 @@ public class NameResolution {
     }
 
     private ClassTy getCurrentClassTy() {
-        return identToClassTy(this.currentClass.getIdentifier()).get();
+        return identToClassTy(this.currentClass.getIdentifier().getContent()).get();
     }
 
     private TyResult fromAstType(Type astType) {
@@ -606,7 +609,7 @@ public class NameResolution {
                 return new BoolTy();
             }
             case ClassType c -> {
-                var klass = Optional.ofNullable(this.classInfo.get(c.getIdentifier()));
+                var klass = Optional.ofNullable(this.classInfo.get(c.getIdentifier().getContent()));
 
                 if (klass.isPresent()) {
                     return klass.get().type;

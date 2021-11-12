@@ -3,6 +3,7 @@ package compiler.ast;
 import java.util.ArrayList;
 
 import compiler.HasSpan;
+import compiler.Span;
 import compiler.Token;
 import compiler.utils.OptionalUtils;
 import compiler.utils.StreamUtils;
@@ -14,9 +15,11 @@ import java.util.Optional;
 public final class MethodCallExpression extends Expression {
     private Optional<Expression> target;
 
-    private String identifier;
+    private Identifier identifier;
 
     private List<Expression> arguments;
+
+    private Span spanWithoutTarget;
 
     public MethodCallExpression(Optional<Expression> target, Optional<Token> dot, Token identifier, Token openParen, List<Expression> arguments, Token closedParen) {
         super();
@@ -26,20 +29,25 @@ public final class MethodCallExpression extends Expression {
         setSpan(new HasSpan.OptionalWrapper(target), new HasSpan.OptionalWrapper(dot), identifier, openParen, new HasSpan.ListWrapper(arguments), closedParen);
 
         this.target = target;
-        this.identifier = identifier != null ? identifier.getIdentContent() : null;
+        this.identifier = new Identifier(identifier);
         this.arguments = arguments;
+        this.spanWithoutTarget = this.identifier.getSpan().merge(closedParen.getSpan());
     }
 
     public Optional<Expression> getTarget() {
         return target;
     }
 
-    public String getIdentifier() {
+    public Identifier getIdentifier() {
         return identifier;
     }
 
     public List<Expression> getArguments() {
         return arguments;
+    }
+
+    public Span getSpanWithoutTarget() {
+        return spanWithoutTarget;
     }
 
     @Override
@@ -52,7 +60,7 @@ public final class MethodCallExpression extends Expression {
 
     @Override
     public String getName() {
-        return identifier;
+        return identifier.getContent();
     }
 
     @Override

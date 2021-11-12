@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Objects;
 
 public final class Class extends AstNode {
-    private String identifier;
+    private Identifier identifier;
 
     private List<Field> fields;
     private List<Method> methods;
@@ -21,12 +21,12 @@ public final class Class extends AstNode {
 
         setSpan(classToken, identifier, openCurly, new ListWrapper(fields), new ListWrapper(methods), closeCurly);
 
-        this.identifier = identifier != null ? identifier.getIdentContent() : null;
+        this.identifier = new Identifier(identifier);
         this.fields = fields;
         this.methods = methods;
     }
 
-    public String getIdentifier() {
+    public Identifier getIdentifier() {
         return identifier;
     }
 
@@ -41,6 +41,7 @@ public final class Class extends AstNode {
     @Override
     public List<AstNode> getChildren() {
         ArrayList<AstNode> temp = new ArrayList<>();
+        temp.add(identifier);
         temp.addAll(fields);
         temp.addAll(methods);
         return temp;
@@ -48,7 +49,7 @@ public final class Class extends AstNode {
 
     @Override
     public String getName() {
-        return identifier;
+        return identifier.getContent();
     }
 
     @Override

@@ -8,7 +8,7 @@ import java.util.List;
 
 @SuppressWarnings("ConstantConditions")
 public final class Field extends AstNode implements VariableDefinition {
-    private String identifier;
+    private Identifier identifier;
 
     private Type type;
 
@@ -18,11 +18,11 @@ public final class Field extends AstNode implements VariableDefinition {
         this.isError |= identifier == null || type == null || semicolon == null;
         setSpan(publicToken, type, identifier, semicolon);
 
-        this.identifier = identifier != null ? identifier.getIdentContent() : null;
+        this.identifier = new Identifier(identifier);
         this.type = type;
     }
 
-    public String getIdentifier() {
+    public Identifier getIdentifier() {
         return identifier;
     }
 
@@ -40,7 +40,7 @@ public final class Field extends AstNode implements VariableDefinition {
 
     @Override
     public String getName() {
-        return identifier;
+        return identifier.getContent();
     }
 
     @Override

@@ -5,7 +5,7 @@ import compiler.Token;
 import java.util.List;
 
 public final class NewObjectExpression extends Expression {
-    private String typeIdentifier;
+    private ClassType typeIdentifier;
 
     public NewObjectExpression(Token newToken, Token typeIdentifier, Token openParen, Token closeParen) {
         super();
@@ -13,10 +13,10 @@ public final class NewObjectExpression extends Expression {
 
         setSpan(newToken, typeIdentifier, openParen, closeParen);
 
-        this.typeIdentifier = typeIdentifier != null ? typeIdentifier.getIdentContent() : null;
+        this.typeIdentifier = new ClassType(typeIdentifier);
     }
 
-    public String getTypeIdentifier() {
+    public ClassType getType() {
         return typeIdentifier;
     }
 
@@ -27,7 +27,7 @@ public final class NewObjectExpression extends Expression {
 
     @Override
     public String getName() {
-        return typeIdentifier;
+        return typeIdentifier.getIdentifier().getContent();
     }
 
     @Override

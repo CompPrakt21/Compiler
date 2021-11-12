@@ -141,6 +141,7 @@ public class DumpAst {
             case Expression expr -> {
                 this.dumpExpr(expr);
             }
+            case Identifier i -> out.addNode(i, String.format("ident '%s'", i.getContent()));
         }
     }
 
@@ -296,7 +297,10 @@ public class DumpAst {
                 this.out.addNode(thisExpr, "This");
             }
             case NewObjectExpression newObject -> {
-                this.out.addNode(newObject, String.format("New Object '%s'", newObject.getTypeIdentifier()));
+                this.out.addNode(newObject, "New Object");
+
+                this.out.addEdge(newObject, newObject.getType(), "type");
+                this.dumpAst(newObject.getType());
             }
         }
     }

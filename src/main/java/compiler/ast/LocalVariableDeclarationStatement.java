@@ -12,7 +12,7 @@ import java.util.Optional;
 public final class LocalVariableDeclarationStatement extends Statement implements VariableDefinition {
 
     private Type type;
-    private String identifier;
+    private Identifier identifier;
 
     private Optional<Expression> initializer;
 
@@ -24,7 +24,7 @@ public final class LocalVariableDeclarationStatement extends Statement implement
         setSpan(type, identifier, new OptionalWrapper(assign), new OptionalWrapper(initializer));
 
         this.type = type;
-        this.identifier = identifier != null ? identifier.getIdentContent() : null;
+        this.identifier = new Identifier(identifier);
         this.initializer = initializer;
     }
 
@@ -33,7 +33,7 @@ public final class LocalVariableDeclarationStatement extends Statement implement
         return type;
     }
 
-    public String getIdentifier() {
+    public Identifier getIdentifier() {
         return identifier;
     }
 
@@ -61,6 +61,6 @@ public final class LocalVariableDeclarationStatement extends Statement implement
 
     @Override
     public String getName() {
-        return identifier;
+        return identifier.getContent();
     }
 }

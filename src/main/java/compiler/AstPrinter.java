@@ -92,7 +92,7 @@ public class AstPrinter {
             case BoolLiteral b -> String.valueOf(b.getValue());
             case IntLiteral i -> print(i.getValue());
             case ThisExpression t -> "this";
-            case NewObjectExpression n -> fmt("new %s()", n.getTypeIdentifier());
+            case NewObjectExpression n -> fmt("new %s()", n.getType().getIdentifier());
             case NewArrayExpression n -> {
                 String dimensionBrackets = "[]".repeat(n.getDimensions() - 1);
                 yield fmt("new %s[%s]%s", n.getType(), expressionTopLevel(n.getFirstDimensionSize()), dimensionBrackets);
@@ -176,8 +176,8 @@ public class AstPrinter {
 
     public static String _class(Class c) {
         // Methods and fields are sorted alphabetically
-        List<Method> methods = sortedBy(c.getMethods(), Method::getIdentifier);
-        List<Field> fields = sortedBy(c.getFields(), Field::getIdentifier);
+        List<Method> methods = sortedBy(c.getMethods(), method -> method.getIdentifier().getContent());
+        List<Field> fields = sortedBy(c.getFields(), field -> field.getIdentifier().getContent());
         String printedMethods = indent(lines(all(methods)));
         String printedFields = indent(lines(all(fields)));
         return lines(
@@ -189,7 +189,7 @@ public class AstPrinter {
 
     public static String program(Program p) {
         // Classes are sorted alphabetically
-        List<Class> classes = sortedBy(p.getClasses(), Class::getIdentifier);
+        List<Class> classes = sortedBy(p.getClasses(), klass -> klass.getIdentifier().getContent());
         return lines(all(classes));
     }
 
@@ -204,6 +204,7 @@ public class AstPrinter {
             case Method m -> method(m);
             case Field f -> field(f);
             case Parameter p -> parameter(p);
+            case Identifier i -> print(i.getContent());
         };
     }
 
