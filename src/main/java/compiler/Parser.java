@@ -978,7 +978,7 @@ public class Parser {
                     expectResult = expectNoConsume(anchors, LeftSquareBracket);
                     error |= expectResult.isError;
 
-                    var expressionResult = parseNewArrayExpression(anchors, type);
+                    var expressionResult = parseNewArrayExpression(anchors, type, newToken);
                     var parentError = expressionResult.parentError;
 
                     Expression expression = expressionResult.expression;
@@ -996,13 +996,13 @@ public class Parser {
 
         } else if (BasicType.firstContains(token.type)) {
             var type = parseBasicType(anchors);
-            return parseNewArrayExpression(anchors, type);
+            return parseNewArrayExpression(anchors, type, newToken);
         } else {
             return new ParseExpressionResult(null, true);
         }
     }
 
-    private ParseExpressionResult parseNewArrayExpression(TokenSet anchors, Type type) {
+    private ParseExpressionResult parseNewArrayExpression(TokenSet anchors, Type type, Token newToken) {
         // Only needs to parse [Expression]([])*.
         // new and the basic type have been parsed by the caller.
 
@@ -1048,7 +1048,7 @@ public class Parser {
             parentError = expectResult.isError;
         }
 
-        Expression expr = new NewArrayExpression(type, expression, dimensions, lastCloseBracket).makeError(error);
+        Expression expr = new NewArrayExpression(newToken, type, expression, dimensions, lastCloseBracket).makeError(error);
         return new ParseExpressionResult(expr, parentError);
     }
 

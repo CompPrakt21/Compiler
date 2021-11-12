@@ -12,11 +12,11 @@ public final class NewArrayExpression extends Expression {
     private Expression firstDimensionSize;
     private int dimensions;
 
-    public NewArrayExpression(Type type, Expression firstDimensionSize, int dimensions, Token lastBracket) {
+    public NewArrayExpression(Token newToken, Type type, Expression firstDimensionSize, int dimensions, Token lastBracket) {
         super();
-        this.isError |= type == null || firstDimensionSize == null || lastBracket == null;
+        this.isError |= type == null || firstDimensionSize == null || lastBracket == null || newToken != null;
 
-        setSpan(type, firstDimensionSize, lastBracket);
+        setSpan(newToken, type, firstDimensionSize, lastBracket);
 
         this.type = type;
         this.dimensions = dimensions;

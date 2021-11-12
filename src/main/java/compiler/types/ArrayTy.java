@@ -6,7 +6,8 @@ public final class ArrayTy extends Ty {
     private Ty childTy;
 
     public ArrayTy(Ty childTy, int dimensions) {
-        if (dimensions == 0) {
+        assert dimensions > 0;
+        if (dimensions == 1) {
             this.childTy = childTy;
         } else {
             this.childTy = new ArrayTy(childTy, dimensions - 1);

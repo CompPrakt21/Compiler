@@ -19,7 +19,7 @@ public class AssignmentArgumentTypeMismatch extends CompilerError {
     @Override
     public void generate(Source source) {
         this.setMessage("Incompatible types in assignment expression.");
-        this.addPrimaryAnnotation(this.expr.getLvalue().getSpan(), String.format("this expression has type '%s'", this.lhsTy));
+        this.addPrimaryAnnotation(this.expr.getLvalue().getSpan(), String.format("the location stores values of type '%s'", this.lhsTy));
         this.addPrimaryAnnotation(this.expr.getRvalue().getSpan(), String.format("this expression has type '%s'", this.rhsTy));
     }
 }

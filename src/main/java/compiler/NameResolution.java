@@ -44,6 +44,7 @@ public class NameResolution {
 
     private SymbolTable<VariableDefinition> symbols;
     private Class currentClass;
+    private Method currentMethod;
 
     private final AstData<AstNode> definitions; // Maps every ast node with an identifier to the ast node that defines it.
     private final AstData<TyResult> expressionTypes; // Types of all expressions
@@ -57,7 +58,7 @@ public class NameResolution {
     // Identifier -> (Class, ClassTy)
     private Map<String, ClassInfo> classInfo;
 
-    private AstData<TyResult> bindingTypes; // Field type, Method return type or Parameter types
+    private AstData<TyResult> bindingTypes; // Field type, Method return type, Parameter types or Local var declarations
 
     private Optional<CompilerMessageReporter> reporter;
 
@@ -72,6 +73,7 @@ public class NameResolution {
     private NameResolution(Optional<CompilerMessageReporter> reporter) {
         this.symbols = null;
         this.currentClass = null;
+        this.currentMethod = null;
 
         this.definitions = new AstData<>();
         this.expressionTypes = new AstData<>();
@@ -190,6 +192,7 @@ public class NameResolution {
             symbols.insert(param.getIdentifier(), param);
         }
 
+        this.currentMethod = method;
         resolveStatement(method.getBody());
     }
 
@@ -212,6 +215,11 @@ public class NameResolution {
 
                 var elseBody = ifStmt.getElseBody();
                 elseBody.ifPresent(this::resolveStatement);
+
+                var conditionTy = this.expressionTypes.get(ifStmt.getCondition()).get();
+                if (!(conditionTy instanceof BoolTy || conditionTy instanceof UnresolveableTy)) {
+                    reportError(new IfConditionTypeMismatch(ifStmt, conditionTy));
+                }
             }
             case ExpressionStatement exprStmt -> {
                 resolveExpression(exprStmt.getExpression());
@@ -219,9 +227,37 @@ public class NameResolution {
             case WhileStatement whileStmt -> {
                 resolveExpression(whileStmt.getCondition());
                 resolveStatement(whileStmt.getBody());
+
+                var conditionTy = this.expressionTypes.get(whileStmt.getCondition()).get();
+                if (!(conditionTy instanceof BoolTy || conditionTy instanceof UnresolveableTy)) {
+                    reportError(new WhileConditionTypeMismatch(whileStmt, conditionTy));
+                }
             }
             case ReturnStatement retStmt -> {
                 retStmt.getExpression().ifPresent(this::resolveExpression);
+
+                var returnType = this.bindingTypes.get(this.currentMethod).get();
+
+                if (returnType instanceof Ty expectedReturnTy) {
+                    if (retStmt.getExpression().isPresent()) {
+                        var retExpr = retStmt.getExpression().get();
+                        var retExprTyRes = this.expressionTypes.get(retExpr).get();
+
+                        if (retExprTyRes instanceof Ty retExprTy) {
+                            if (!(retExprTy.comparable(expectedReturnTy))) {
+                                reportError(new ReturnStatementErrors.TypeMismatch(currentMethod, expectedReturnTy, retStmt, retExprTy));
+                            }
+                        }
+                    } else {
+                        reportError(new ReturnStatementErrors.MissingReturnExpr(this.currentMethod, retStmt, expectedReturnTy));
+                    }
+                } else {
+                    assert returnType instanceof VoidTy;
+
+                    if (retStmt.getExpression().isPresent()) {
+                        reportError(new ReturnStatementErrors.UnexpectedReturnExpr(this.currentMethod, retStmt));
+                    }
+                }
             }
             case LocalVariableDeclarationStatement declStmt -> {
                 resolveType(declStmt.getType());
@@ -229,6 +265,29 @@ public class NameResolution {
                 symbols.insert(declStmt.getIdentifier(), declStmt);
 
                 declStmt.getInitializer().ifPresent(this::resolveExpression);
+
+                var bindingTy = this.fromAstType(declStmt.getType());
+                this.bindingTypes.set(declStmt, bindingTy);
+
+                switch (bindingTy) {
+                    case Ty ty -> {
+                        if (declStmt.getInitializer().isPresent()) {
+                            var initTyRes = this.expressionTypes.get(declStmt.getInitializer().get()).get();
+
+                            if (initTyRes instanceof VoidTy) {
+                                reportError(new LocalDeclarationErrors.TypeMismatch(declStmt, ty, initTyRes));
+                            } else if (initTyRes instanceof Ty initTy && !initTy.comparable(ty)) {
+                                reportError(new LocalDeclarationErrors.TypeMismatch(declStmt, ty, initTy));
+                            }
+                        }
+                    }
+                    case VoidTy ignored -> {
+                        reportError(new LocalDeclarationErrors.VoidType(declStmt));
+                    }
+                    case UnresolveableTy ignored -> {
+                        reportError(new LocalDeclarationErrors.UnresolveableType(declStmt));
+                    }
+                }
             }
         }
     }
@@ -261,10 +320,8 @@ public class NameResolution {
 
         if (lhs.isPresent() || rhs.isPresent()) {
             reportError(new BinaryExpressionTypeMismatch.InvalidTypesForOperator(binaryOp, expectedOperandTy, lhs, rhs));
-            this.expressionTypes.set(binaryOp, new UnresolveableTy());
-        } else {
-            this.expressionTypes.set(binaryOp, operationTy);
         }
+        this.expressionTypes.set(binaryOp, operationTy);
     }
 
     private void typecheckBinaryExpression(BinaryOpExpression binaryOp) {
@@ -292,12 +349,10 @@ public class NameResolution {
                     typeCheckSimpleBinaryExpression(binaryOp, new IntTy(), new BoolTy(), lhsTy, rhsTy);
                 }
                 case Equal, NotEqual -> {
-                    if (lhsTy.comparable(rhsTy)) {
+                    if (!lhsTy.comparable(rhsTy)) {
                         this.expressionTypes.set(binaryOp, new BoolTy());
-                    } else {
-                        reportError(new BinaryExpressionTypeMismatch.IncomparableTypes(binaryOp, lhsTy, rhsTy));
-                        this.expressionTypes.set(binaryOp, new UnresolveableTy());
                     }
+                    this.expressionTypes.set(binaryOp, new BoolTy());
                 }
                 case And, Or -> {
                     typeCheckSimpleBinaryExpression(binaryOp, new BoolTy(), new BoolTy(), lhsTy, rhsTy);
@@ -352,14 +407,13 @@ public class NameResolution {
 
                 var actualTy = this.expressionTypes.get(unaryOp.getExpression()).get();
 
-                if (expectedTy.equals(actualTy)) {
-                    this.expressionTypes.set(unaryOp, expectedTy);
-                } else {
+                if (!expectedTy.equals(actualTy)) {
                     if (!(actualTy instanceof UnresolveableTy)) {
                         reportError(new UnaryExpressionTypeMismatch(unaryOp, expectedTy, actualTy));
                     }
-                    this.expressionTypes.set(unaryOp, new UnresolveableTy());
                 }
+
+                this.expressionTypes.set(unaryOp, expectedTy);
             }
             case MethodCallExpression methodCall -> {
                 var target = methodCall.getTarget();
@@ -447,6 +501,11 @@ public class NameResolution {
                 }
 
                 resolveExpression(arrayAccess.getIndexExpression());
+
+                var indexTyRes = this.expressionTypes.get(arrayAccess.getIndexExpression()).get();
+                if (!(indexTyRes instanceof IntTy || indexTyRes instanceof UnresolveableTy)) {
+                    reportError(new GenericTypeMismatch(arrayAccess.getIndexExpression(), new IntTy(), indexTyRes));
+                }
             }
             case NewArrayExpression newArray -> {
                 resolveType(newArray.getType());
@@ -460,6 +519,11 @@ public class NameResolution {
                 }
 
                 resolveExpression(newArray.getFirstDimensionSize());
+
+                var dimensionTyRes = this.expressionTypes.get(newArray.getFirstDimensionSize()).get();
+                if (!(dimensionTyRes instanceof IntTy || dimensionTyRes instanceof UnresolveableTy)) {
+                    reportError(new GenericTypeMismatch(newArray.getFirstDimensionSize(), new IntTy(), dimensionTyRes));
+                }
             }
             case Reference ref -> {
                 var def = this.symbols.lookupDefinition(ref.getIdentifier());
@@ -490,7 +554,7 @@ public class NameResolution {
                 var classTy = identToClassTy(ident);
 
                 // If not present, resolveTypeIdent will report an error
-                //classTy.ifPresent(ty -> this.types.set(newObject, ty));
+                classTy.ifPresent(ty -> this.expressionTypes.set(newObject, ty));
             }
         }
 
@@ -536,7 +600,6 @@ public class NameResolution {
     private TyResult fromAstType(Type astType) {
         switch (astType) {
             case IntType i -> {
-                // TODO: do I really want to create a new object everytime...
                 return new IntTy();
             }
             case BoolType b -> {
@@ -555,7 +618,7 @@ public class NameResolution {
                 var childType = this.fromAstType(a.getChildType());
 
                 if (childType instanceof Ty childTy) {
-                    return new ArrayTy(childTy, 0);
+                    return new ArrayTy(childTy, 1);
                 } else {
                     return childType;
                 }
