@@ -291,7 +291,7 @@ public abstract sealed class CompilerMessage
             var endingMultilineAnnotations = this.annotations.stream()
                     .filter((Annotation a) -> !lineSpan.contains(a.location.start()) && lineSpan.contains(a.location.end()))
                     .map((Annotation a) -> {
-                        int col = source.getSourceLocation(a.location.end()).column();
+                        int col = source.getSourceLocation(a.location.end() - 1).column(); // we subtract minus one, because the end of a span is exclusive and we want the last inclusive column.
                         return new ActiveMultilineAnnotation(col, a.message, DisplayList.MultiLineAnnotation.MultiLineType.End, a);
                     })
                     .collect(Collectors.toList());

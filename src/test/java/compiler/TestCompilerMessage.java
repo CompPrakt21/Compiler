@@ -40,12 +40,12 @@ public class TestCompilerMessage {
             @Override
             public void generate(Source source) {
                 this.setMessage("Something went badly");
-                this.addPrimaryAnnotation(new Span(106, 330));
+                this.addPrimaryAnnotation(new Span(106, 331));
                 this.addSecondaryAnnotation(new Span(5, 14), "C");
                 this.addSecondaryAnnotation(new Span(0, 8), "B");
-                this.addPrimaryAnnotation(Span.fromStartEnd(0, 417), "Expected B");
+                this.addPrimaryAnnotation(Span.fromStartEnd(0, 418), "Expected B");
                 this.addSecondaryAnnotation(Span.fromStartEnd(421, 427), "Blocking a label");
-                this.addSecondaryAnnotation(new Span(46, 600), "hey");
+                this.addSecondaryAnnotation(new Span(46, 601), "hey");
 
                 this.addPrimaryAnnotation(new Span(221, 5), "Whats defined right here...");
                 this.addPrimaryAnnotation(new Span(243, 5), "... is used right here!");
@@ -114,7 +114,7 @@ public class TestCompilerMessage {
                 this.setMessage("`if` and `else` have incompatible types");
                 this.addPrimaryAnnotation(Span.fromStartEnd(68, 79), "expected `i32`, found `u32`");
                 this.addSecondaryAnnotation(Span.fromStartEnd(42, 46), "expected because of this");
-                this.addSecondaryAnnotation(Span.fromStartEnd(24, 84), "`if` and `else`·have incompatible types");
+                this.addSecondaryAnnotation(Span.fromStartEnd(24, 85), "`if` and `else`·have incompatible types");
                 this.addNote("For more information about this error,\ntry `rustc --explain E0308`.");
             }
         };
@@ -171,7 +171,7 @@ public class TestCompilerMessage {
                 this.setMessage("Return of unexpected type.");
                 this.addPrimaryAnnotation(Span.fromStartEnd(94, 99), "returning value of type `int`");
                 this.addSecondaryAnnotation(Span.fromStartEnd(48, 53), "expected type `Point`");
-                this.addSecondaryAnnotation(Span.fromStartEnd(41, 105), "error in this method");
+                this.addSecondaryAnnotation(Span.fromStartEnd(41, 106), "error in this method");
             }
         };
 

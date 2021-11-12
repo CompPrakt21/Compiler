@@ -255,6 +255,7 @@ class DisplayList {
                                 int transformedMlaCol = columnAfterTransformedWhitespace(lastCodeLine, mla.column);
                                 int whitespaceRemovedColumn = transformedMlaCol - leadingWhitespace;
                                 char lastChar = mla.isUnderline ? this.style.getUnderLine(mla.annotationType) : '|';
+
                                 out.printRepeat("_", whitespaceRemovedColumn, mla.annotationType);
                                 out.print(lastChar, mla.annotationType);
                                 currentCursorPos += whitespaceRemovedColumn + 1;
