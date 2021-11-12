@@ -57,6 +57,7 @@ public class Grammar {
             return FIRST.get(this).contains(type);
         }
 
+        @SuppressWarnings("unused")
         public boolean followContains(TokenType type) {
             return FOLLOW.get(this).contains(type);
         }

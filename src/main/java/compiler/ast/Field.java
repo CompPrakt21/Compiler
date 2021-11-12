@@ -6,11 +6,10 @@ import compiler.TokenType;
 import java.util.ArrayList;
 import java.util.List;
 
-@SuppressWarnings("ConstantConditions")
 public final class Field extends AstNode implements VariableDefinition {
-    private Identifier identifier;
+    private final Identifier identifier;
 
-    private Type type;
+    private final Type type;
 
     public Field(Token publicToken, Type type, Token identifier, Token semicolon) {
         super();

@@ -8,6 +8,7 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public abstract sealed class CompilerMessage
         permits CompilerError, CompilerWarning, CompilerDebug {
 
@@ -52,6 +53,7 @@ public abstract sealed class CompilerMessage
         this.annotations.add(new Annotation(location, Optional.of(String.format(fmt, o)), AnnotationType.PRIMARY));
     }
 
+    @SuppressWarnings("unused")
     public void addSecondaryAnnotation(Span location) {
         this.annotations.add(new Annotation(location, Optional.empty(), AnnotationType.SECONDARY));
     }
@@ -420,9 +422,7 @@ public abstract sealed class CompilerMessage
                                 var message = ama.message.filter((String s) -> ama.multiLineType == DisplayList.MultiLineAnnotation.MultiLineType.End);
 
                                 displayAnnotations.add(new DisplayList.MultiLineAnnotation(ama.column, false, ama.multiLineType, sideConnectorColumn, ama.origin.annotationType));
-                                if (message.isPresent()) {
-                                    displayAnnotations.add(new DisplayList.LabelAnnotation(ama.column + 2, message.get(), ama.origin.annotationType));
-                                }
+                                message.ifPresent(s -> displayAnnotations.add(new DisplayList.LabelAnnotation(ama.column + 2, s, ama.origin.annotationType)));
                             } else {
 
                                 boolean canNotBeFullyPlaced = annotationsInNextAnnotationLine.stream()
@@ -441,9 +441,7 @@ public abstract sealed class CompilerMessage
                                     var message = ama.message.filter((String s) -> ama.multiLineType == DisplayList.MultiLineAnnotation.MultiLineType.End);
 
                                     displayAnnotations.add(new DisplayList.MultiLineAnnotation(ama.column, true, ama.multiLineType, sideConnectorColumn, ama.origin.annotationType));
-                                    if (message.isPresent()) {
-                                        displayAnnotations.add(new DisplayList.LabelAnnotation(ama.column + 2, message.get(), ama.origin.annotationType));
-                                    }
+                                    message.ifPresent(s -> displayAnnotations.add(new DisplayList.LabelAnnotation(ama.column + 2, s, ama.origin.annotationType)));
                                 }
                             }
                         }

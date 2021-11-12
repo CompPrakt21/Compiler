@@ -3,17 +3,14 @@ package compiler.errors;
 import compiler.HasSpan;
 import compiler.ast.Expression;
 import compiler.diagnostics.CompilerError;
-import compiler.diagnostics.CompilerMessage;
 import compiler.diagnostics.Source;
 
 import java.util.List;
 
 public class NewObjectWithArgumentsError extends CompilerError {
-    private final Expression expression;
     private final List<Expression> arguments;
 
-    public NewObjectWithArgumentsError(Expression expression, List<Expression> arguments) {
-        this.expression = expression;
+    public NewObjectWithArgumentsError(List<Expression> arguments) {
         this.arguments = arguments;
     }
 

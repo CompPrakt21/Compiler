@@ -9,7 +9,7 @@ import java.util.Objects;
 
 public final class Program extends AstNode {
 
-    private List<Class> classes;
+    private final List<Class> classes;
 
     public Program(List<Class> classes) {
         super();
@@ -26,9 +26,7 @@ public final class Program extends AstNode {
 
     @Override
     public List<AstNode> getChildren() {
-        ArrayList<AstNode> temp = new ArrayList<>();
-        temp.addAll(classes);
-        return temp;
+        return new ArrayList<>(classes);
     }
 
     @Override

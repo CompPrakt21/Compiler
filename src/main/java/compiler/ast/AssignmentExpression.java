@@ -6,8 +6,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class AssignmentExpression extends Expression {
-    private Expression lvalue;
-    private Expression rvalue;
+    private final Expression lvalue;
+    private final Expression rvalue;
 
     public AssignmentExpression(Expression lvalue, Token assign, Expression rvalue) {
         super();

@@ -5,7 +5,7 @@ import compiler.Token;
 import java.util.List;
 
 public final class ClassType extends Type {
-    private Identifier identifier;
+    private final Identifier identifier;
 
     public ClassType(Token identifier) {
         super();

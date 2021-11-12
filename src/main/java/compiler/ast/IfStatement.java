@@ -1,23 +1,21 @@
 package compiler.ast;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import compiler.Token;
 import compiler.utils.OptionalUtils;
 
-import java.util.Objects;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
+@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public final class IfStatement extends Statement {
-    private Expression condition;
-    private Statement thenBody;
-    private Optional<Statement> elseBody;
+    private final Expression condition;
+    private final Statement thenBody;
+    private final Optional<Statement> elseBody;
 
     public IfStatement(Token ifToken, Token openParen, Expression condition, Token closeParen, Statement thenBody, Optional<Statement> elseBody) {
         super();
-        this.isError |= ifToken == null || openParen == null || condition == null || closeParen == null || thenBody == null
-                || elseBody.map(Objects::isNull).orElse(false);
+        this.isError |= ifToken == null || openParen == null || condition == null || closeParen == null || thenBody == null;
 
         setSpan(ifToken, openParen, condition, closeParen, thenBody, new OptionalWrapper(elseBody));
 

@@ -16,10 +16,4 @@ public abstract sealed class TyResult permits Ty, VoidTy, UnresolveableTy {
             return this;
         }
     }
-
-    public void ifPresent(Consumer<Ty> c) {
-        if (this instanceof Ty ty) {
-            c.accept(ty);
-        }
-    }
 }

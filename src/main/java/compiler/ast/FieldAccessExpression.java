@@ -5,8 +5,8 @@ import compiler.Token;
 import java.util.List;
 
 public final class FieldAccessExpression extends Expression {
-    private Expression target;
-    private Identifier identifier;
+    private final Expression target;
+    private final Identifier identifier;
 
     public FieldAccessExpression(Expression target, Token dot, Token identifier) {
         super();

@@ -1,29 +1,29 @@
 package compiler.ast;
 
-import java.util.ArrayList;
-
 import compiler.HasSpan;
 import compiler.Span;
 import compiler.Token;
 import compiler.utils.StreamUtils;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public final class Method extends AstNode {
 
-    private boolean isStatic;
+    private final boolean isStatic;
 
-    private Identifier identifier;
+    private final Identifier identifier;
 
-    private Type returnType;
+    private final Type returnType;
 
-    private List<Parameter> parameters;
-    private Span parametersSpan;
+    private final List<Parameter> parameters;
+    private final Span parametersSpan;
 
-    private Block body;
+    private final Block body;
 
     public Method(Token publicToken, Optional<Token> isStatic, Token identifier, Type returnType, Token openParamToken, List<Parameter> parameters, Token closeParamToken, Block body) {
         super();
@@ -46,8 +46,8 @@ public final class Method extends AstNode {
             var start = new Span(openParamStart + 1, 1);
             var end = new Span(closeParamStart - 1, 1);
 
-            if (start.start() == end.start()) {
-                this.parametersSpan = openParamToken.getSpan().merge(closeParamToken.getSpan());
+            if (start.start() >= end.start()) {
+                this.parametersSpan = Span.fromStartEnd(openParamStart, closeParamStart + 1);
             } else {
                 this.parametersSpan = start.merge(end);
             }

@@ -5,14 +5,14 @@ import compiler.Token;
 import java.util.List;
 
 public final class BoolLiteral extends Expression {
-    private boolean value;
+    private final boolean value;
 
     public BoolLiteral(Token value) {
         super();
         this.isError |= value == null;
         setSpan(value);
 
-        this.value = switch (value.type) {
+        this.value = value != null && switch (value.type) {
             case True -> true;
             case False, null -> false;
             default -> throw new AssertionError("Invalid bool token.");

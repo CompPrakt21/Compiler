@@ -6,9 +6,9 @@ import compiler.diagnostics.Source;
 import compiler.types.TyResult;
 
 public class AssignmentArgumentTypeMismatch extends CompilerError {
-    private AssignmentExpression expr;
-    private TyResult lhsTy;
-    private TyResult rhsTy;
+    private final AssignmentExpression expr;
+    private final TyResult lhsTy;
+    private final TyResult rhsTy;
 
     public AssignmentArgumentTypeMismatch(AssignmentExpression expr, TyResult lhsTy, TyResult rhsTy) {
         this.expr = expr;

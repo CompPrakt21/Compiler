@@ -23,6 +23,8 @@ public class ReturnStatementErrors {
 
         @Override
         public void generate(Source source) {
+            assert this.returnStmt.getExpression().isPresent();
+
             this.setMessage("Invalid types, '%s' expects type '%s', but got '%s'", this.method.getIdentifier(), this.expectedTy, this.actualTy);
             this.addPrimaryAnnotation(this.returnStmt.getExpression().get().getSpan(), "this has type '%s'", actualTy);
             this.addSecondaryAnnotation(this.method.getReturnType().getSpan(), "expects type '%s'", expectedTy);
@@ -40,9 +42,10 @@ public class ReturnStatementErrors {
 
         @Override
         public void generate(Source source) {
+            assert this.returnStmt.getExpression().isPresent();
+
             this.setMessage("Unexpected expression in return statement.");
             this.addPrimaryAnnotation(this.returnStmt.getExpression().get().getSpan());
-
             this.addSecondaryAnnotation(this.method.getReturnType().getSpan(), "method doesn't expect a returned value.");
         }
     }

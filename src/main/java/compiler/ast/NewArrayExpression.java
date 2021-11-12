@@ -8,9 +8,9 @@ import java.util.List;
 public final class NewArrayExpression extends Expression {
     // Structure: new type[firstDimensionSize]([])^(dimensions - 1)
     /* Can not be ArrayType. */
-    private Type type;
-    private Expression firstDimensionSize;
-    private int dimensions;
+    private final Type type;
+    private final Expression firstDimensionSize;
+    private final int dimensions;
 
     public NewArrayExpression(Token newToken, Type type, Expression firstDimensionSize, int dimensions, Token lastBracket) {
         super();

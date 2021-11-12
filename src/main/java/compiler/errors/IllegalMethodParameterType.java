@@ -1,6 +1,5 @@
 package compiler.errors;
 
-import compiler.ast.Method;
 import compiler.ast.Parameter;
 import compiler.diagnostics.CompilerError;
 import compiler.diagnostics.Source;
@@ -11,8 +10,8 @@ public class IllegalMethodParameterType extends CompilerError {
         VOID,
     }
 
-    private Parameter param;
-    private Reason reason;
+    private final Parameter param;
+    private final Reason reason;
 
     public IllegalMethodParameterType(Parameter param, Reason reason) {
         this.param = param;
@@ -26,9 +25,7 @@ public class IllegalMethodParameterType extends CompilerError {
                 var tyStr = source.getSpanString(this.param.getType().getSpan());
                 this.setMessage("Can not resolve type '%s'", tyStr);
             }
-            case VOID -> {
-                this.setMessage("Parameter can not have type void");
-            }
+            case VOID -> this.setMessage("Parameter can not have type void");
         }
 
         this.addPrimaryAnnotation(this.param.getSpan());

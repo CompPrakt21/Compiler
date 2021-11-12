@@ -1,13 +1,12 @@
 package compiler.ast;
 
-import compiler.HasSpan;
 import compiler.Token;
 import compiler.TokenType;
 
 import java.util.List;
 
 public final class Identifier extends AstNode {
-    private String content;
+    private final String content;
 
     public Identifier(Token identifier) {
         super();
@@ -16,6 +15,8 @@ public final class Identifier extends AstNode {
             setSpan(identifier);
             assert identifier.type == TokenType.Identifier;
             this.content = identifier.getIdentContent();
+        } else {
+            this.content = null;
         }
     }
 

@@ -6,8 +6,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class Parameter extends AstNode implements VariableDefinition {
-    private Type type;
-    private Identifier identifier;
+    private final Type type;
+    private final Identifier identifier;
 
     public Parameter(Type type, Token identifier) {
         super();

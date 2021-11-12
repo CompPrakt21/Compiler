@@ -6,8 +6,8 @@ import compiler.diagnostics.CompilerError;
 import compiler.diagnostics.Source;
 
 public class StaticMethodReturnError extends CompilerError {
-    private Token staticToken;
-    private Type foundType;
+    private final Token staticToken;
+    private final Type foundType;
 
     public StaticMethodReturnError(Type foundType, Token staticToken) {
         this.staticToken = staticToken;

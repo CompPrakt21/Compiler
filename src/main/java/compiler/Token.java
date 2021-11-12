@@ -3,7 +3,7 @@ package compiler;
 public class Token implements HasSpan {
 
     public TokenType type;
-    private Content content;
+    private final Content content;
     public Span span;
 
     private Token(TokenType type, Content content, Span span) {
@@ -13,6 +13,7 @@ public class Token implements HasSpan {
     }
 
     public static Token identifier(String name, Span span) {
+        //noinspection ResultOfMethodCallIgnored
         name.intern();
         return new Token(TokenType.Identifier, new IdentifierContent(name), span);
     }
@@ -52,7 +53,7 @@ public class Token implements HasSpan {
     }
 
     private static final class IdentifierContent extends Content {
-        private String content;
+        private final String content;
 
         private IdentifierContent(String content) {
             this.content = content;
@@ -60,7 +61,7 @@ public class Token implements HasSpan {
     }
 
     private static final class IntLiteralContent extends Content {
-        private String content;
+        private final String content;
 
         private IntLiteralContent(String content) {
             this.content = content;
@@ -68,7 +69,7 @@ public class Token implements HasSpan {
     }
 
     private static final class ErrorContent extends Content {
-        private String errorMessage;
+        private final String errorMessage;
 
         private ErrorContent(String errorMessage) {
             this.errorMessage = errorMessage;

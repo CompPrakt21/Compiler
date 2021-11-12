@@ -1,7 +1,6 @@
 package compiler.errors;
 
 import compiler.ast.IfStatement;
-import compiler.ast.WhileStatement;
 import compiler.diagnostics.CompilerError;
 import compiler.diagnostics.Source;
 import compiler.types.TyResult;

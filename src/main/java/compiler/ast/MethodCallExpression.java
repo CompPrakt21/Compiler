@@ -12,14 +12,15 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public final class MethodCallExpression extends Expression {
-    private Optional<Expression> target;
+    private final Optional<Expression> target;
 
-    private Identifier identifier;
+    private final Identifier identifier;
 
-    private List<Expression> arguments;
+    private final List<Expression> arguments;
 
-    private Span spanWithoutTarget;
+    private final Span spanWithoutTarget;
 
     public MethodCallExpression(Optional<Expression> target, Optional<Token> dot, Token identifier, Token openParen, List<Expression> arguments, Token closedParen) {
         super();

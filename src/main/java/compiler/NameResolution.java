@@ -1,7 +1,7 @@
 package compiler;
 
-import compiler.ast.*;
 import compiler.ast.Class;
+import compiler.ast.*;
 import compiler.diagnostics.CompilerMessage;
 import compiler.diagnostics.CompilerMessageReporter;
 import compiler.errors.*;
@@ -13,8 +13,8 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 class ClassEnvironment {
-    public Map<String, Method> methods;
-    public Map<String, Field> fields;
+    public final Map<String, Method> methods;
+    public final Map<String, Field> fields;
 
     public ClassEnvironment() {
         this.methods = new HashMap<>();
@@ -40,6 +40,7 @@ class ClassEnvironment {
     }
 }
 
+@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class NameResolution {
 
     private SymbolTable<VariableDefinition> symbols;
@@ -50,18 +51,19 @@ public class NameResolution {
     private final AstData<TyResult> expressionTypes; // Types of all expressions
 
     // Class -> Fields and Methods
-    private AstData<ClassEnvironment> classEnvironments;
+    private final AstData<ClassEnvironment> classEnvironments;
 
     private record ClassInfo(Class klass, ClassTy type) {
     }
 
     // Identifier -> (Class, ClassTy)
-    private Map<String, ClassInfo> classInfo;
+    private final Map<String, ClassInfo> classInfo;
 
-    private AstData<TyResult> bindingTypes; // Field type, Method return type, Parameter types or Local var declarations
+    private final AstData<TyResult> bindingTypes; // Field type, Method return type, Parameter types or Local var declarations
 
-    private Optional<CompilerMessageReporter> reporter;
+    private final Optional<CompilerMessageReporter> reporter;
 
+    @SuppressWarnings("unused")
     public NameResolution() {
         this(Optional.empty());
     }
@@ -77,11 +79,10 @@ public class NameResolution {
 
         this.definitions = new AstData<>();
         this.expressionTypes = new AstData<>();
-
-        this.classEnvironments = null;
-
-        this.classInfo = null;
         this.bindingTypes = new AstData<>();
+
+        this.classInfo = new HashMap<>();
+        this.classEnvironments = new AstData<>();
 
         this.reporter = reporter;
     }
@@ -95,17 +96,12 @@ public class NameResolution {
     }
 
     private void collectClasses(Program program) {
-        this.classInfo = new HashMap<>();
-
         for (Class klass : program.getClasses()) {
             this.classInfo.put(klass.getIdentifier().getContent(), new ClassInfo(klass, new ClassTy(klass)));
         }
     }
 
     private void collectClassEnvironments(Program program) {
-        this.classEnvironments = new AstData<>();
-        this.bindingTypes = new AstData<>();
-
         for (Class klass : program.getClasses()) {
             var env = new ClassEnvironment();
 
@@ -126,13 +122,9 @@ public class NameResolution {
                     var paramType = this.fromAstType(param.getType());
 
                     switch (paramType) {
-                        case VoidTy ty -> {
-                            reportError(new IllegalMethodParameterType(param, IllegalMethodParameterType.Reason.VOID));
-                        }
-                        case UnresolveableTy ty -> {
-                            reportError(new IllegalMethodParameterType(param, IllegalMethodParameterType.Reason.UNRESOLVEABLE));
-                        }
-                        case Ty ty -> {
+                        case VoidTy ignored -> reportError(new IllegalMethodParameterType(param, IllegalMethodParameterType.Reason.VOID));
+                        case UnresolveableTy ignored -> reportError(new IllegalMethodParameterType(param, IllegalMethodParameterType.Reason.UNRESOLVEABLE));
+                        case Ty ignored -> {
                         }
                     }
 
@@ -221,9 +213,7 @@ public class NameResolution {
                     reportError(new IfConditionTypeMismatch(ifStmt, conditionTy));
                 }
             }
-            case ExpressionStatement exprStmt -> {
-                resolveExpression(exprStmt.getExpression());
-            }
+            case ExpressionStatement exprStmt -> resolveExpression(exprStmt.getExpression());
             case WhileStatement whileStmt -> {
                 resolveExpression(whileStmt.getCondition());
                 resolveStatement(whileStmt.getBody());
@@ -281,12 +271,8 @@ public class NameResolution {
                             }
                         }
                     }
-                    case VoidTy ignored -> {
-                        reportError(new LocalDeclarationErrors.VoidType(declStmt));
-                    }
-                    case UnresolveableTy ignored -> {
-                        reportError(new LocalDeclarationErrors.UnresolveableType(declStmt));
-                    }
+                    case VoidTy ignored -> reportError(new LocalDeclarationErrors.VoidType(declStmt));
+                    case UnresolveableTy ignored -> reportError(new LocalDeclarationErrors.UnresolveableType(declStmt));
                 }
             }
         }
@@ -342,21 +328,15 @@ public class NameResolution {
         } else if (lhsTyRes instanceof Ty lhsTy && rhsTyRes instanceof Ty rhsTy) {
 
             switch (binaryOp.getOperator()) {
-                case Addition, Subtraction, Multiplication, Division, Modulo -> {
-                    typeCheckSimpleBinaryExpression(binaryOp, new IntTy(), new IntTy(), lhsTy, rhsTy);
-                }
-                case Greater, GreaterEqual, Less, LessEqual -> {
-                    typeCheckSimpleBinaryExpression(binaryOp, new IntTy(), new BoolTy(), lhsTy, rhsTy);
-                }
+                case Addition, Subtraction, Multiplication, Division, Modulo -> typeCheckSimpleBinaryExpression(binaryOp, new IntTy(), new IntTy(), lhsTy, rhsTy);
+                case Greater, GreaterEqual, Less, LessEqual -> typeCheckSimpleBinaryExpression(binaryOp, new IntTy(), new BoolTy(), lhsTy, rhsTy);
                 case Equal, NotEqual -> {
                     if (!lhsTy.comparable(rhsTy)) {
                         reportError(new BinaryExpressionTypeMismatch.IncomparableTypes(binaryOp, lhsTy, rhsTy));
                     }
                     this.expressionTypes.set(binaryOp, new BoolTy());
                 }
-                case And, Or -> {
-                    typeCheckSimpleBinaryExpression(binaryOp, new BoolTy(), new BoolTy(), lhsTy, rhsTy);
-                }
+                case And, Or -> typeCheckSimpleBinaryExpression(binaryOp, new BoolTy(), new BoolTy(), lhsTy, rhsTy);
             }
 
         } else {
@@ -602,10 +582,10 @@ public class NameResolution {
 
     private TyResult fromAstType(Type astType) {
         switch (astType) {
-            case IntType i -> {
+            case IntType ignored -> {
                 return new IntTy();
             }
-            case BoolType b -> {
+            case BoolType ignored -> {
                 return new BoolTy();
             }
             case ClassType c -> {
@@ -626,7 +606,7 @@ public class NameResolution {
                     return childType;
                 }
             }
-            case VoidType v -> {
+            case VoidType ignored -> {
                 return new VoidTy();
             }
         }

@@ -1,14 +1,14 @@
 package compiler;
 
-import compiler.ast.*;
 import compiler.ast.Class;
+import compiler.ast.*;
 import compiler.types.TyResult;
 
 import java.io.PrintWriter;
 
 class DotWriter {
-    private PrintWriter out;
-    private AstData<TyResult> types;
+    private final PrintWriter out;
+    private final AstData<TyResult> types;
 
     DotWriter(PrintWriter out, AstData<TyResult> types) {
         this.out = out;
@@ -57,14 +57,12 @@ class DotWriter {
 
 public class DumpAst {
 
-    private DotWriter out;
-    private AstData<AstNode> definitions;
-    private AstData<TyResult> types;
+    private final DotWriter out;
+    private final AstData<AstNode> definitions;
 
     private DumpAst(PrintWriter out, AstData<AstNode> definitions, AstData<TyResult> types) {
         this.out = new DotWriter(out, types);
         this.definitions = definitions;
-        this.types = types;
     }
 
     public static void dump(PrintWriter out, AstNode ast, AstData<AstNode> definitions, AstData<TyResult> types) {
@@ -132,15 +130,9 @@ public class DumpAst {
                 this.out.addEdge(param, param.getType(), "type");
                 this.dumpAst(param.getType());
             }
-            case Type ty -> {
-                this.dumpType(ty);
-            }
-            case Statement stmt -> {
-                this.dumpStatement(stmt);
-            }
-            case Expression expr -> {
-                this.dumpExpr(expr);
-            }
+            case Type ty -> this.dumpType(ty);
+            case Statement stmt -> this.dumpStatement(stmt);
+            case Expression expr -> this.dumpExpr(expr);
             case Identifier i -> out.addNode(i, String.format("ident '%s'", i.getContent()));
         }
     }
@@ -159,9 +151,7 @@ public class DumpAst {
                     childIdx += 1;
                 }
             }
-            case EmptyStatement empty -> {
-                this.out.addNode(empty, "Empty");
-            }
+            case EmptyStatement empty -> this.out.addNode(empty, "Empty");
             case IfStatement ifStmt -> {
                 this.out.addNode(ifStmt, "If-Else");
 
@@ -281,21 +271,11 @@ public class DumpAst {
                 this.out.addEdge(newArray, newArray.getFirstDimensionSize(), "dim");
                 this.dumpAst(newArray.getFirstDimensionSize());
             }
-            case Reference ref -> {
-                this.out.addNode(ref, String.format("Ref '%s'", ref.getIdentifier()));
-            }
-            case NullExpression nullExpr -> {
-                this.out.addNode(nullExpr, "Null");
-            }
-            case BoolLiteral boolLit -> {
-                this.out.addNode(boolLit, String.format("Bool '%s'", boolLit.getValue()));
-            }
-            case IntLiteral intLit -> {
-                this.out.addNode(intLit, String.format("Int '%s'", intLit.getValue()));
-            }
-            case ThisExpression thisExpr -> {
-                this.out.addNode(thisExpr, "This");
-            }
+            case Reference ref -> this.out.addNode(ref, String.format("Ref '%s'", ref.getIdentifier()));
+            case NullExpression nullExpr -> this.out.addNode(nullExpr, "Null");
+            case BoolLiteral boolLit -> this.out.addNode(boolLit, String.format("Bool '%s'", boolLit.getValue()));
+            case IntLiteral intLit -> this.out.addNode(intLit, String.format("Int '%s'", intLit.getValue()));
+            case ThisExpression thisExpr -> this.out.addNode(thisExpr, "This");
             case NewObjectExpression newObject -> {
                 this.out.addNode(newObject, "New Object");
 

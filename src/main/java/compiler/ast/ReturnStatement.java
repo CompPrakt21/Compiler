@@ -9,8 +9,9 @@ import compiler.utils.OptionalUtils;
 import java.util.Objects;
 import java.util.Optional;
 
+@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public final class ReturnStatement extends Statement {
-    private Optional<Expression> expression;
+    private final Optional<Expression> expression;
 
     @SuppressWarnings("ConstantConditions")
     public ReturnStatement(Token returnToken, Optional<Expression> expression) {

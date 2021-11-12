@@ -6,7 +6,7 @@ import java.util.ArrayList;
 import java.util.Optional;
 
 public class AstData<T> {
-    private ArrayList<T> data;
+    private final ArrayList<T> data;
 
     public AstData() {
         this.data = new ArrayList<>();

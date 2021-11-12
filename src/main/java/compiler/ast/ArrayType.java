@@ -6,7 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class ArrayType extends Type {
-    private Type childType;
+    private final Type childType;
 
     public ArrayType(Type childType, Token openBracket, Token closeBracked) {
         super();

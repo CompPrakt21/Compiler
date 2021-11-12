@@ -5,7 +5,7 @@ import compiler.Token;
 import java.util.List;
 
 public final class IntLiteral extends Expression {
-    private String value;
+    private final String value;
 
     public IntLiteral(Token value) {
         super();

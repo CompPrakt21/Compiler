@@ -6,8 +6,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class WhileStatement extends Statement {
-    private Expression condition;
-    private Statement body;
+    private final Expression condition;
+    private final Statement body;
 
     public WhileStatement(Token whileToken, Token openParen, Expression condition, Token closeParen, Statement body) {
         super();

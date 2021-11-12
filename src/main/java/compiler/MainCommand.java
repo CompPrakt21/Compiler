@@ -3,14 +3,16 @@ package compiler;
 import compiler.ast.Program;
 import compiler.diagnostics.CompilerMessageReporter;
 import picocli.CommandLine;
-
 import picocli.CommandLine.Command;
+import picocli.CommandLine.Model.CommandSpec;
+import picocli.CommandLine.ParameterException;
 import picocli.CommandLine.Parameters;
 import picocli.CommandLine.Spec;
-import picocli.CommandLine.ParameterException;
-import picocli.CommandLine.Model.CommandSpec;
 
-import java.io.*;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.util.concurrent.Callable;
@@ -37,6 +39,7 @@ public class MainCommand implements Callable<Integer> {
         }
     }
 
+    @SuppressWarnings("unused")
     @Command(name = "--echo", description = "Echos back the input file.")
     public Integer callEcho(@Parameters(paramLabel = "FILE", description = "The file to echo.") File file) {
         return callWithFileContent(file, content -> {
@@ -45,6 +48,7 @@ public class MainCommand implements Callable<Integer> {
         });
     }
 
+    @SuppressWarnings("unused")
     @Command(name = "--lextest", description = "Outputs lexed tokens for the input file")
     public Integer callLextest(@Parameters(paramLabel = "FILE", description = "The file to lxe.") File file) {
         return callWithFileContent(file, content -> {
@@ -91,11 +95,13 @@ public class MainCommand implements Callable<Integer> {
         });
     }
 
+    @SuppressWarnings("unused")
     @Command(name = "--parsetest", description = "Checks whether the input file parses.")
     public Integer callParseTest(@Parameters(paramLabel = "FILE", description = "The file to parse.") File file) {
         return callWithParsed(file, (reporter, parser, ast) -> false);
     }
 
+    @SuppressWarnings("unused")
     @Command(name = "--dump-dot-ast", description = "Generates a dot file with the ast.")
     public Integer callDumpAst(@Parameters(paramLabel = "FILE", description = "The file to parse.") File file) {
         return callWithParsed(file, (reporter, parser, ast) -> {
@@ -105,6 +111,7 @@ public class MainCommand implements Callable<Integer> {
         });
     }
 
+    @SuppressWarnings("unused")
     @Command(name = "--print-ast", description = "Prett-prints the parsed AST.")
     public Integer printAst(@Parameters(paramLabel = "FILE", description = "The file to parse.") File file) {
         return callWithParsed(file, (reporter, parser, ast) -> {

@@ -5,7 +5,7 @@ import compiler.diagnostics.CompilerError;
 import compiler.diagnostics.Source;
 
 public class UnresolveableMemberType extends CompilerError {
-    private AstNode member;
+    private final AstNode member;
 
     public UnresolveableMemberType(Method member) {
         this.member = member;

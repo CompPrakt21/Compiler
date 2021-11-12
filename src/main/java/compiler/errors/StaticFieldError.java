@@ -5,7 +5,7 @@ import compiler.diagnostics.CompilerError;
 import compiler.diagnostics.Source;
 
 public class StaticFieldError extends CompilerError {
-    private Token staticToken;
+    private final Token staticToken;
 
     public StaticFieldError(Token staticToken) {
         this.staticToken = staticToken;

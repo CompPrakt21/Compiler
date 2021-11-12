@@ -52,6 +52,7 @@ public class LocalDeclarationErrors {
 
         @Override
         public void generate(Source source) {
+            assert this.stmt.getInitializer().isPresent();
             this.setMessage("Can not assign value of type '%s' to local variable '%s' with type '%s'", this.actualTy, this.stmt.getIdentifier(), this.expectedTy);
             this.addPrimaryAnnotation(this.stmt.getInitializer().get().getSpan(), "this has type '%s'", this.actualTy);
             this.addSecondaryAnnotation(this.stmt.getType().getSpan(), "this is type '%s'", this.expectedTy);

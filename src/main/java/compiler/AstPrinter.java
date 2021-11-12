@@ -13,7 +13,7 @@ public class AstPrinter {
     // Important ERROR related invariants ensured by the parser:
     // - Optionals will never be null
     // - Lists will never be null
-    private static String error = "<ERROR>";
+    private final static String error = "<ERROR>";
 
     private static String lines(List<String> ls) {
         ls = ls.stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
@@ -32,8 +32,8 @@ public class AstPrinter {
     }
 
     private static <T, U extends Comparable<? super U>> List<T> sortedBy(List<? extends T> xs, Function<? super T, ? extends U> f) {
-        Stream<? extends T> nulls = xs.stream().filter(x -> x == null);
-        Stream<? extends T> sorted = xs.stream().filter(x -> x != null).sorted(Comparator.comparing(f));
+        Stream<? extends T> nulls = xs.stream().filter(Objects::isNull);
+        Stream<? extends T> sorted = xs.stream().filter(Objects::nonNull).sorted(Comparator.comparing(f));
         return Stream.concat(nulls, sorted).collect(Collectors.toList());
     }
 
@@ -42,7 +42,7 @@ public class AstPrinter {
     }
 
     private static String fmt(String format, Object... args) {
-        List<Object> fmtArgs = Arrays.stream(args).map(arg -> {
+        return String.format(format, Arrays.stream(args).map(arg -> {
             if (arg == null) {
                 return error;
             }
@@ -50,8 +50,7 @@ public class AstPrinter {
                 return print(a);
             }
             return arg;
-        }).collect(Collectors.toList());
-        return String.format(format, fmtArgs.toArray());
+        }).toArray());
     }
 
     public static String type(Type t) {
@@ -62,11 +61,11 @@ public class AstPrinter {
         }
         return switch (t) {
             case null -> error;
-            case VoidType v -> "void";
-            case BoolType b -> "boolean";
-            case IntType i -> "int";
+            case VoidType ignored -> "void";
+            case BoolType ignored -> "boolean";
+            case IntType ignored -> "int";
             case ClassType c -> print(c.getIdentifier());
-            case ArrayType a -> throw new AssertionError();
+            case ArrayType ignored -> throw new AssertionError();
         } + arraySuffix;
     }
 
@@ -91,14 +90,14 @@ public class AstPrinter {
             case ArrayAccessExpression a -> fmt("%s[%s]", a.getTarget(), expressionTopLevel(a.getIndexExpression()));
             case BoolLiteral b -> String.valueOf(b.getValue());
             case IntLiteral i -> print(i.getValue());
-            case ThisExpression t -> "this";
+            case ThisExpression ignored -> "this";
             case NewObjectExpression n -> fmt("new %s()", n.getType().getIdentifier());
             case NewArrayExpression n -> {
                 String dimensionBrackets = "[]".repeat(n.getDimensions() - 1);
                 yield fmt("new %s[%s]%s", n.getType(), expressionTopLevel(n.getFirstDimensionSize()), dimensionBrackets);
             }
             case Reference r -> print(r.getIdentifier());
-            case NullExpression n -> "null";
+            case NullExpression ignored -> "null";
         };
     }
 
@@ -151,7 +150,7 @@ public class AstPrinter {
         if (s == null) return error;
         return switch (s) {
             case Block b -> block(b);
-            case EmptyStatement e -> "{ }";
+            case EmptyStatement ignored -> "{ }";
             case IfStatement i -> ifStatement(i);
             case ExpressionStatement e -> expressionTopLevel(e.getExpression()) + ";";
             case WhileStatement w -> fmt("while (%s)%s", expressionTopLevel(w.getCondition()), subStatement(w.getBody()));

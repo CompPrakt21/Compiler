@@ -11,7 +11,7 @@ public abstract sealed class AstNode implements HasSpan
         permits Expression, Statement, Type, Program, Class, Method, Field, Parameter, Identifier {
     protected Span span;
     protected boolean isError;
-    private int id;
+    private final int id;
 
     private static int next_id = 1;
 
@@ -34,6 +34,7 @@ public abstract sealed class AstNode implements HasSpan
         return this.isError;
     }
 
+    @SuppressWarnings("unchecked")
     public <T> T makeError(boolean isError) {
         this.isError |= isError;
         return (T) this;

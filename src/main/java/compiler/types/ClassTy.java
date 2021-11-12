@@ -3,7 +3,7 @@ package compiler.types;
 import compiler.ast.Class;
 
 public final class ClassTy extends Ty {
-    private Class definition;
+    private final Class definition;
 
     public ClassTy(Class definition) {
         this.definition = definition;

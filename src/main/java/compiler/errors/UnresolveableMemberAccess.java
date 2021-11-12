@@ -6,8 +6,8 @@ import compiler.diagnostics.CompilerError;
 import compiler.diagnostics.Source;
 
 public class UnresolveableMemberAccess extends CompilerError {
-    private Class expectedClass;
-    private AstNode member;
+    private final Class expectedClass;
+    private final AstNode member;
 
     public UnresolveableMemberAccess(Class expectedClass, MethodCallExpression methodCall) {
         this.expectedClass = expectedClass;

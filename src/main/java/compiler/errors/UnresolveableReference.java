@@ -5,7 +5,7 @@ import compiler.diagnostics.CompilerError;
 import compiler.diagnostics.Source;
 
 public class UnresolveableReference extends CompilerError {
-    private Reference ref;
+    private final Reference ref;
 
     public UnresolveableReference(Reference ref) {
         this.ref = ref;

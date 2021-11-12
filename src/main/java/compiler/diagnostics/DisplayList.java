@@ -5,6 +5,7 @@ import compiler.Span;
 import java.util.*;
 import java.util.stream.Collectors;
 
+@SuppressWarnings("ClassCanBeRecord")
 class DisplayList {
 
     private static final int TAB_SIZE = 4;
@@ -320,6 +321,7 @@ class DisplayList {
         }
     }
 
+    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     private void printLineNumberAndSeparator(MessagePrinter out, Optional<Integer> lineNumber, int leftPaddingForLineNumbers) {
         var lineNumberString = lineNumber.map(DisplayList::lineNumberToString).orElse("");
         out.printWhitespace(leftPaddingForLineNumbers - lineNumberString.length());

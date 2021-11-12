@@ -3,7 +3,7 @@ package compiler.types;
 import java.util.Objects;
 
 public final class ArrayTy extends Ty {
-    private Ty childTy;
+    private final Ty childTy;
 
     public ArrayTy(Ty childTy, int dimensions) {
         assert dimensions > 0;

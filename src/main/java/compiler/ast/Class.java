@@ -9,10 +9,10 @@ import java.util.List;
 import java.util.Objects;
 
 public final class Class extends AstNode {
-    private Identifier identifier;
+    private final Identifier identifier;
 
-    private List<Field> fields;
-    private List<Method> methods;
+    private final List<Field> fields;
+    private final List<Method> methods;
 
     public Class(Token classToken, Token identifier, Token openCurly, List<Field> fields, List<Method> methods, Token closeCurly) {
         super();

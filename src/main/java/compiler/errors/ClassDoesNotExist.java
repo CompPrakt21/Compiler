@@ -6,7 +6,7 @@ import compiler.diagnostics.Source;
 
 public class ClassDoesNotExist extends CompilerError {
 
-    private ClassType type;
+    private final ClassType type;
 
     public ClassDoesNotExist(ClassType type) {
         this.type = type;

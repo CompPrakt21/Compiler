@@ -6,11 +6,9 @@ import compiler.diagnostics.Source;
 import compiler.types.Ty;
 import compiler.types.TyResult;
 
-import java.util.Optional;
-
 public class ArrayAccessOnNonArrayType extends CompilerError {
-    private ArrayAccessExpression expr;
-    private TyResult targetTy;
+    private final ArrayAccessExpression expr;
+    private final TyResult targetTy;
 
     public ArrayAccessOnNonArrayType(ArrayAccessExpression expr, TyResult targetTy) {
         this.expr = expr;

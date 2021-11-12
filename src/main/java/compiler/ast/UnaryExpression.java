@@ -11,9 +11,9 @@ public final class UnaryExpression extends Expression {
         Negate,
     }
 
-    private Expression expression;
-    private UnaryOp operator;
-    private String operatorRepr;
+    private final Expression expression;
+    private final UnaryOp operator;
+    private final String operatorRepr;
 
     public UnaryExpression(Expression expression, Token operator) {
         super();
@@ -22,12 +22,12 @@ public final class UnaryExpression extends Expression {
         setSpan(expression, operator);
 
         this.expression = expression;
-        this.operator = switch (operator != null ? operator.type : null) {
+        this.operator = operator != null ? switch (operator.type) {
             case Not -> UnaryOp.LogicalNot;
             case Subtract -> UnaryOp.Negate;
-            case null, default -> null;
-        };
-        this.operatorRepr = operator.type.repr;
+            default -> throw new AssertionError("Unreacheable, because parser doesn't call with different token");
+        } : null;
+        this.operatorRepr = operator != null ? operator.type.repr : null;
     }
 
     public Expression getExpression() {

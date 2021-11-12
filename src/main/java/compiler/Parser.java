@@ -964,7 +964,7 @@ public class Parser {
                     Expression expression = new NewObjectExpression(newToken, identToken, openParen, closeParen);
 
                     if (argumentResult.result.size() > 0) {
-                        reportError(new NewObjectWithArgumentsError(expression, argumentResult.result));
+                        reportError(new NewObjectWithArgumentsError(argumentResult.result));
                         error = true;
                     }
 

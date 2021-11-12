@@ -1,7 +1,6 @@
 package compiler.ast;
 
 import compiler.Token;
-import compiler.TokenType;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,10 +23,10 @@ public final class BinaryOpExpression extends Expression {
         Modulo,
     }
 
-    private Expression lhs;
-    private BinaryOp operator;
-    private String operatorRepr;
-    private Expression rhs;
+    private final Expression lhs;
+    private final BinaryOp operator;
+    private final String operatorRepr;
+    private final Expression rhs;
 
     public BinaryOpExpression(Expression lhs, Token operator, Expression rhs) {
         super();

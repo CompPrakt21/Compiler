@@ -56,10 +56,8 @@ public class CompilerMessageReporter {
 
     /**
      * Signal that compilation has finished and no more errors will be reported.
-     *
-     * @return correct exit code, depending on whether errors occurred.
      */
-    public int finish() {
+    public void finish() {
         if (this.errorsReported + this.warningsReported > 0) {
             var out = new MessagePrinter(this.output, CompilerError.style, this.colors);
             out.printWithStyle(String.format("%d error%s", this.errorsReported, this.errorsReported != 1 ? "s" : ""), CompilerError.style.primaryStyle);
@@ -68,12 +66,6 @@ public class CompilerMessageReporter {
             out.printWithStyle(" occurred while compiling.", TextStyle.BOLD);
             out.println();
             this.output.flush();
-        }
-
-        if (this.errorsReported == 0) {
-            return 0;
-        } else {
-            return 1;
         }
     }
 }

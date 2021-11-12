@@ -32,6 +32,7 @@ public abstract class BinaryExpressionTypeMismatch {
         }
     }
 
+    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     public static class InvalidTypesForOperator extends CompilerError {
         private final BinaryOpExpression expr;
         private final Ty expectedOperandTy;
@@ -55,6 +56,7 @@ public abstract class BinaryExpressionTypeMismatch {
         }
     }
 
+    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     public static class VoidOperand extends CompilerError {
         private final BinaryOpExpression expr;
 

@@ -5,7 +5,7 @@ import compiler.Token;
 import java.util.List;
 
 public final class NewObjectExpression extends Expression {
-    private ClassType typeIdentifier;
+    private final ClassType typeIdentifier;
 
     public NewObjectExpression(Token newToken, Token typeIdentifier, Token openParen, Token closeParen) {
         super();

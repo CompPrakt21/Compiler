@@ -17,6 +17,7 @@ class MessagePrinter {
         this.colors = colors;
     }
 
+    @SuppressWarnings("SameParameterValue")
     void printRepeat(String s, int repetitions, CompilerMessage.AnnotationType type) {
         this.printWithAnnotationTypeStyle(s.repeat(repetitions), type);
     }

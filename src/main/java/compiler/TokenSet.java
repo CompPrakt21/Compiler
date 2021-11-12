@@ -1,12 +1,12 @@
 package compiler;
 
-import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.stream.Stream;
 
+@SuppressWarnings("ClassCanBeRecord")
 public class TokenSet implements TokenSetLike {
 
-    private EnumSet<TokenType> set;
+    private final EnumSet<TokenType> set;
 
     TokenSet(EnumSet<TokenType> set) {
         this.set = set;

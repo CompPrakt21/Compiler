@@ -7,9 +7,9 @@ import compiler.types.Ty;
 import compiler.types.TyResult;
 
 public class UnaryExpressionTypeMismatch extends CompilerError {
-    private UnaryExpression expr;
-    private Ty expectedTy;
-    private TyResult actualType;
+    private final UnaryExpression expr;
+    private final Ty expectedTy;
+    private final TyResult actualType;
 
     public UnaryExpressionTypeMismatch(UnaryExpression expr, Ty expectedTy, TyResult actualType) {
         this.expr = expr;

@@ -9,12 +9,13 @@ import compiler.utils.OptionalUtils;
 import java.util.Objects;
 import java.util.Optional;
 
+@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public final class LocalVariableDeclarationStatement extends Statement implements VariableDefinition {
 
-    private Type type;
-    private Identifier identifier;
+    private final Type type;
+    private final Identifier identifier;
 
-    private Optional<Expression> initializer;
+    private final Optional<Expression> initializer;
 
     public LocalVariableDeclarationStatement(Type type, Token identifier, Optional<Token> assign, Optional<Expression> initializer) {
         super();

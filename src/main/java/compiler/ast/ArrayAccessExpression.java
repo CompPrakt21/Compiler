@@ -6,8 +6,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class ArrayAccessExpression extends Expression {
-    private Expression target;
-    private Expression indexExpression;
+    private final Expression target;
+    private final Expression indexExpression;
 
     public ArrayAccessExpression(Expression target, Token openBracket, Expression indexExpression, Token closedBracket) {
         super();

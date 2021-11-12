@@ -6,7 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class ExpressionStatement extends Statement {
-    private Expression expression;
+    private final Expression expression;
 
     public ExpressionStatement(Expression expression, Token semicolon) {
         super();

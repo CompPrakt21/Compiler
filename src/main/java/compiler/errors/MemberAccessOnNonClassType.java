@@ -12,8 +12,8 @@ import compiler.types.UnresolveableTy;
 import compiler.types.VoidTy;
 
 public class MemberAccessOnNonClassType extends CompilerError {
-    private AstNode member;
-    private TyResult targetType;
+    private final AstNode member;
+    private final TyResult targetType;
 
     public MemberAccessOnNonClassType(MethodCallExpression member, TyResult targetType) {
         this.member = member;
@@ -42,8 +42,8 @@ public class MemberAccessOnNonClassType extends CompilerError {
 
         var typeString = switch (this.targetType) {
             case Ty ty -> String.format("of type '%s'", ty);
-            case UnresolveableTy ty -> "";
-            case VoidTy ty -> "of type 'void'";
+            case UnresolveableTy ignored -> "";
+            case VoidTy ignored -> "of type 'void'";
         };
 
         this.setMessage("Can not access %s '%s' ", member, ident, typeString);

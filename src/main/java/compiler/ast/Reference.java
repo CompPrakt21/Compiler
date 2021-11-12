@@ -5,7 +5,7 @@ import compiler.Token;
 import java.util.List;
 
 public final class Reference extends Expression {
-    private Identifier identifier;
+    private final Identifier identifier;
 
     public Reference(Token identifier) {
         super();

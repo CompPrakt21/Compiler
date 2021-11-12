@@ -10,8 +10,8 @@ import compiler.types.VoidTy;
 
 public class IllegalNewArrayExpression extends CompilerError {
 
-    private TyResult ty;
-    private NewArrayExpression expr;
+    private final TyResult ty;
+    private final NewArrayExpression expr;
 
     public IllegalNewArrayExpression(TyResult ty, NewArrayExpression expr) {
         this.ty = ty;

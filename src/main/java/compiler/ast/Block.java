@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Objects;
 
 public final class Block extends Statement {
-    private List<Statement> statements;
+    private final List<Statement> statements;
 
     public Block(Token openCurly, List<Statement> statements, Token closedCurly) {
         super();
@@ -25,9 +25,7 @@ public final class Block extends Statement {
 
     @Override
     public List<AstNode> getChildren() {
-        ArrayList<AstNode> temp = new ArrayList<>();
-        temp.addAll(statements);
-        return temp;
+        return new ArrayList<>(statements);
     }
 
     @Override

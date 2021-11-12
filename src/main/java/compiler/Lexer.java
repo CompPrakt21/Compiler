@@ -18,7 +18,7 @@ public class Lexer {
         Map<Integer, Map<String, TokenType>> operatorsByLength = TokenType.OPERATORS.stream()
                 .collect(Collectors.groupingBy(o -> o.repr.length(),
                         Collectors.toMap(o -> o.repr, o -> o)));
-        int maxOperatorLength = operatorsByLength.keySet().stream().max(Integer::compareTo).get();
+        int maxOperatorLength = operatorsByLength.keySet().stream().max(Integer::compareTo).orElseThrow(AssertionError::new);
         INDEXED_OPERATORS = new ArrayList<>();
         for (int i = 0; i <= maxOperatorLength; i++) {
             Map<String, TokenType> ops = operatorsByLength.containsKey(i)
@@ -72,12 +72,14 @@ public class Lexer {
         next(1);
     }
 
+    @SuppressWarnings("BooleanMethodIsAlwaysInverted")
     private boolean expected(String expected) {
         String actual = lookahead(expected.length());
         return actual.equals(expected);
     }
 
-    private record ConsumedString(String text, Span span) {}
+    private record ConsumedString(String text, Span span) {
+    }
 
     private ConsumedString consumeWhile(BooleanSupplier predicate) {
         int startPos = currentPos;
@@ -228,6 +230,7 @@ public class Lexer {
         syntheticTokens.add(t);
     }
 
+    @SuppressWarnings("unused")
     public String getRemaining() {
         return this.fileContent.substring(this.currentPos);
     }
