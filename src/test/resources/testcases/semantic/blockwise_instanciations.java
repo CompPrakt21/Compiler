@@ -1,7 +1,7 @@
 /* OK blockwise reinstanciations are allowed */
 
 class Main {
-	int i = -1;
+	public int i;
 	public static void main(String[] args) {
 		int i = 0;
 		{

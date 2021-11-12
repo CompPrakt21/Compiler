@@ -42,7 +42,7 @@ public class DumpUtils {
         }
         line += "]\n";
 
-        if (node instanceof Reference && !node.isError()) {
+        if (node instanceof Reference && !node.isError() && ((Reference) node).getReference() != null) {
             line += ((Reference) node).getReference().getId() + " -> " + node.getId() + " [style=dashed color=blue dir=back]\n";
         }
 

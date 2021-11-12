@@ -8,128 +8,122 @@ import java.util.*;
 
 public class Semantic {
 
-    private record Pair<K, V>(K first, V second) { }
-
-    private HashMap<String, AstNode> stringMap = new HashMap<>();
-
-    private int depth = 0;
-
-    private final String BLOCKDIVIDER = "BLOCKDIVIDER";
-
-    private Stack<Pair<String, AstNode>> semanticMap = new Stack<>();
-
     private boolean foundMainMethod = false;
+    private AstNode expectedReturnStatements;
+    boolean correct = true;
+    int expectReturn = 0;
+    boolean isStatic = false;
 
-    public Semantic() {
-
-    }
-
-    public void semanticAnalysis(AstNode node) {
-
-        List<AstNode> children = node.getChildren();
-        boolean newBlock = node.startsNewBlock();
-        if (newBlock) {
-            semanticMap.push(new Pair<>(BLOCKDIVIDER, null));
-        }
-
-        String variable = node.getVariable();
-        if (node instanceof Reference) {
-            if (stringMap.get(variable) == null) {
-                node.makeError(true);
-            }
-            ((Reference) node).setReference(stringMap.get(variable));
-            return;
-        }
-        if (variable != null) {
-            stringMap.put(variable, node);
-            semanticMap.push(new Pair(variable, node)); //is it possible to initialize a var multiple times?
-        }
-        if (children != null) {
-            for (AstNode child : children) {
-                semanticAnalysis(child);
-            }
-        }
-        if (newBlock) {
-            Pair<String, AstNode> old = semanticMap.pop();
-            List<String> removed = new ArrayList<>();
-            while (!old.first.equals(BLOCKDIVIDER)) {
-                removed.add(old.first);
-                old = semanticMap.pop();
-            }
-            update(removed);
-
-        }
-    }
-
-    private void update (List<String> removed) {
-        ListIterator<Pair<String, AstNode>> iterator = semanticMap.listIterator(semanticMap.size());
-        while (iterator.hasPrevious()) {
-            Pair<String, AstNode> pair = iterator.previous();
-            if (removed.contains(pair.first)) {
-                stringMap.put(pair.first, pair.second);
-                removed.remove(pair.first);
-            }
-        }
-        for (int i = 0; i < removed.size(); i++) {
-            stringMap.remove(removed.get(i));
-        }
-
-    }
-
-    public void checkWellFormdness(AstNode node) {
-        if(node == null) fail();
-        if(node.getName() != "Program") fail();
-        if (node.isError()) fail();
+    public boolean checkWellFormdness(AstNode node) {
+        if(node == null) fail("Nothing?", node);
+        if(node.getName() != "Program") fail("Starting nodes needs to be of type Program", node);
+        if (node.isError()) fail("Error node found", node);
         List<AstNode> children = node.getChildren();
         foundMainMethod = false;
         recursiveCheckPerBlock(children);
+        if (!foundMainMethod) fail("No main method was found", node);
 
-
+        return correct;
+        //TODO: Check if main method was created
     }
 
     private boolean recursiveCheckPerBlock(List<AstNode> nodes) {
-        boolean correct = true;
+        //TODO: Check all children
+        int oldExpectReturn = expectReturn;
+        ArrayList<String> instanciatedVars = new ArrayList<>();
+        ArrayList<String> instanciatedMethods = new ArrayList<>();
+        if (nodes == null) {
+            return true;
+        }
         for (AstNode child: nodes) {
             List<AstNode> children = child.getChildren();
-            ArrayList<String> instanciatedVars = new ArrayList<>();
             switch (child) {
+                //Checks if the main Method is called.
                 case MethodCallExpression methodCallExpression:
-                    if (methodCallExpression.getVariable() == "main") {
+                    if (methodCallExpression.getVariable().equals("main")) {
                         correct = false;
-                        fail();
+                        fail("Main method was called", methodCallExpression);
                     }
-                    break;
-                case Field field:
-                    if (instanciatedVars.contains(field.getVariable())) {
-                        correct = false;
-                        fail();
-                    }
-                    instanciatedVars.add(field.getVariable());
-                    break;
-                case LocalVariableDeclarationStatement localVariableDeclarationStatement:
-                    if (instanciatedVars.contains(localVariableDeclarationStatement.getVariable())) {
-                        correct = false;
-                        fail();
-                    }
-                    instanciatedVars.add(localVariableDeclarationStatement.getVariable());
-                    break;
-                case Block block:
+                    //TODO: check if Parameters are correct? Are references correct?
                     recursiveCheckPerBlock(children);
                     break;
-                case Method method:
-                    if (method.getIsStatic() && !foundMainMethod && checkMainMethod(method))
-                        foundMainMethod = true;
-                    else {
+                //Checks if a has already variable been instanciated or if its type is void
+                case Field field:
+                    if (instanciatedVars.contains(field.getVariable()) || children.get(0) instanceof VoidType) {
                         correct = false;
-                        fail();
+                        fail("Field was instanciated int this program already", field);
                     }
+                    instanciatedVars.add(field.getVariable());
+                    recursiveCheckPerBlock(children);
                     break;
-                case null, default: continue;
+                //Checks if a variable has already been instanciated in this block or if its type is of void
+                case LocalVariableDeclarationStatement localVariableDeclarationStatement:
+                    if (instanciatedVars.contains(localVariableDeclarationStatement.getVariable()) || children.get(0) instanceof  VoidType) {
+                        correct = false;
+                        fail("Var was instanciated in this block already or the var has type void", localVariableDeclarationStatement);
+                    }
+                    instanciatedVars.add(localVariableDeclarationStatement.getVariable());
+                    recursiveCheckPerBlock(children);
+                    break;
+                //checks that only one static method exists and that that one is a correctly formed "main".
+                //Checks what return type is expected
+                case Method method:
+                    if (method.getIsStatic() && method.getVariable().equals("main") && !foundMainMethod && checkMainMethod(method)) {
+                        foundMainMethod = true;
+                        isStatic = true;
+                    }else if (method.getVariable().equals("main") || method.getIsStatic()) {
+                        fail("Two main methods or two static methods were detected", method);
+                        break;
+                    }
+                    if (instanciatedMethods.contains(method.getName())) fail("Method overloading is disallowed", method);
+                    instanciatedMethods.add(method.getName());
+                    expectReturn = (children.get(0) instanceof VoidType) ? 0 : 1;
+                    recursiveCheckPerBlock(children);
+                    if (expectReturn > 0) fail("Not all paths were covered by a return", method); //TODO
+                    isStatic = false;
+                    break;
+                //Checks if the left side of the assignment is formed correctly. Check if type matches?
+                case AssignmentExpression assignmentExpression:
+                    AstNode temp = children.get(0);
+                    if (temp instanceof Reference || temp instanceof ArrayAccessExpression || temp instanceof FieldAccessExpression) {
+                        recursiveCheckPerBlock(children);
+                        break;
+                    }
+                    fail("Wrong left side in assignment", assignmentExpression);
+                    recursiveCheckPerBlock(children);
+                    break;
+                //Check all return paths
+                case IfStatement ifStatement:
+                    expectReturn += expectReturn > 0 ? ifStatement.getChildren().size() - 1 : 0;
+                    recursiveCheckPerBlock(children);
+                    if (expectReturn >= oldExpectReturn) expectReturn = oldExpectReturn;
+                    break;
+                //Check all return paths
+                case WhileStatement whileStatement:
+                    expectReturn += expectReturn > 0 ? 1 : 0;
+                    recursiveCheckPerBlock(children);
+                    if (expectReturn >= oldExpectReturn) expectReturn = oldExpectReturn;
+                    break;
+                //Checks if a return is expected and delivered
+                case ReturnStatement returnStatement:
+                    expectReturn -= expectReturn > 0 ? 1 : 0;
+                    recursiveCheckPerBlock(children);
+                    break;
+
+                case ThisExpression thisExpression:
+                    if (isStatic) fail("This call in static method " , thisExpression);
+                    recursiveCheckPerBlock(children);
+                    break;
+
+                case null, default:
+                    recursiveCheckPerBlock(children);;
 
             }
         }
-        return correct  && foundMainMethod;
+        //Checks if everything worked
+        return correct;
     }
+
 
     private boolean checkMainMethod(Method node){
         List<AstNode> children = node.getChildren();
@@ -146,8 +140,13 @@ public class Semantic {
 
     }
 
-    private void fail() {
-
+    private void fail(String errmsg, AstNode node) {//TODO
+        correct = false;
+        if (node != null) {
+            System.out.println(errmsg + " : " + node.getName() + " : " + node.getSpan());
+        } else {
+            System.out.println(errmsg + " null node");
+        }
     }
 
 
