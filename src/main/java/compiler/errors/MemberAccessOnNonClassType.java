@@ -46,7 +46,7 @@ public class MemberAccessOnNonClassType extends CompilerError {
             case VoidTy ty -> "of type 'void'";
         };
 
-        this.setMessage(String.format("Can not access %s '%s' ", member, ident, typeString));
+        this.setMessage("Can not access %s '%s' ", member, ident, typeString);
 
         this.addPrimaryAnnotation(ident.getSpan());
     }

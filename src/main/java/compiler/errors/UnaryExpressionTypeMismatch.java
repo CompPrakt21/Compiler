@@ -19,7 +19,7 @@ public class UnaryExpressionTypeMismatch extends CompilerError {
 
     @Override
     public void generate(Source source) {
-        this.setMessage(String.format("Invalid type, expected '%s' but got '%s'", this.expectedTy, this.actualType));
-        this.addPrimaryAnnotation(this.expr.getExpression().getSpan(), String.format("this expression has type '%s'", this.actualType));
+        this.setMessage("Invalid type, expected '%s' but got '%s'", this.expectedTy, this.actualType);
+        this.addPrimaryAnnotation(this.expr.getExpression().getSpan(), "this expression has type '%s'", this.actualType);
     }
 }

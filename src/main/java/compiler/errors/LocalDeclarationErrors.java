@@ -17,7 +17,7 @@ public class LocalDeclarationErrors {
         @Override
         public void generate(Source source) {
             var typeStr = source.getSpanString(this.stmt.getType().getSpan());
-            this.setMessage(String.format("Can not resolve type '%s' of local variable declaration.", typeStr));
+            this.setMessage("Can not resolve type '%s' of local variable declaration.", typeStr);
 
             this.addPrimaryAnnotation(this.stmt.getType().getSpan());
         }
@@ -52,9 +52,9 @@ public class LocalDeclarationErrors {
 
         @Override
         public void generate(Source source) {
-            this.setMessage(String.format("Can not assign value of type '%s' to local variable '%s' with type '%s'", this.actualTy, this.stmt.getIdentifier(), this.expectedTy));
-            this.addPrimaryAnnotation(this.stmt.getInitializer().get().getSpan(), String.format("this has type '%s'", this.actualTy));
-            this.addSecondaryAnnotation(this.stmt.getType().getSpan(), String.format("this is type '%s'", this.expectedTy));
+            this.setMessage("Can not assign value of type '%s' to local variable '%s' with type '%s'", this.actualTy, this.stmt.getIdentifier(), this.expectedTy);
+            this.addPrimaryAnnotation(this.stmt.getInitializer().get().getSpan(), "this has type '%s'", this.actualTy);
+            this.addSecondaryAnnotation(this.stmt.getType().getSpan(), "this is type '%s'", this.expectedTy);
         }
     }
 }

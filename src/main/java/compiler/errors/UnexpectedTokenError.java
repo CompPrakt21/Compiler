@@ -21,10 +21,10 @@ public class UnexpectedTokenError extends CompilerError {
     public void generate(Source source) {
         if (unexpectedToken.type == TokenType.Error) {
             var errorString = source.getSpanString(unexpectedToken.getSpan());
-            this.setMessage(String.format("'%s' is not a valid token.", errorString));
+            this.setMessage("'%s' is not a valid token.", errorString);
             this.addNote(unexpectedToken.getErrorContent());
         } else {
-            this.setMessage(String.format("Unexpected token '%s'.", unexpectedToken.type.repr));
+            this.setMessage("Unexpected token '%s'.", unexpectedToken.type.repr);
         }
 
         this.addPrimaryAnnotation(unexpectedToken.getSpan());

@@ -21,8 +21,8 @@ public class ArrayAccessOnNonArrayType extends CompilerError {
     public void generate(Source source) {
 
         if (this.targetTy instanceof Ty ty) {
-            this.setMessage(String.format("Can not index type '%s'.", ty));
-            this.addPrimaryAnnotation(this.expr.getTarget().getSpan(), String.format("this has type '%s'", ty));
+            this.setMessage("Can not index type '%s'.", ty);
+            this.addPrimaryAnnotation(this.expr.getTarget().getSpan(), "this has type '%s'", ty);
         } else {
             this.setMessage("Can not index this expression.");
             this.addPrimaryAnnotation(this.expr.getTarget().getSpan());

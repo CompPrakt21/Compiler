@@ -24,7 +24,7 @@ public class IllegalMethodParameterType extends CompilerError {
         switch (this.reason) {
             case UNRESOLVEABLE -> {
                 var tyStr = source.getSpanString(this.param.getType().getSpan());
-                this.setMessage(String.format("Can not resolve type '%s'", tyStr));
+                this.setMessage("Can not resolve type '%s'", tyStr);
             }
             case VOID -> {
                 this.setMessage("Parameter can not have type void");

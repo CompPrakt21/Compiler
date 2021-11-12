@@ -20,7 +20,7 @@ public class IllegalNewArrayExpression extends CompilerError {
 
     @Override
     public void generate(Source source) {
-        this.setMessage(String.format("Can not create new array object with this type."));
+        this.setMessage("Can not create new array object with this type.");
 
         var msg = switch (this.ty) {
             case UnresolveableTy ignored -> "Type is unresolveable";

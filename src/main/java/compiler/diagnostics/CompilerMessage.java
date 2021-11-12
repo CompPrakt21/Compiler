@@ -36,8 +36,8 @@ public abstract sealed class CompilerMessage
 
     public abstract void generate(Source source);
 
-    public void setMessage(String message) {
-        this.message = message;
+    public void setMessage(String fmt, Object... o) {
+        this.message = String.format(fmt, o);
     }
 
     public void addNote(String note) {
@@ -48,16 +48,16 @@ public abstract sealed class CompilerMessage
         this.annotations.add(new Annotation(location, Optional.empty(), AnnotationType.PRIMARY));
     }
 
-    public void addPrimaryAnnotation(Span location, String message) {
-        this.annotations.add(new Annotation(location, Optional.of(message), AnnotationType.PRIMARY));
+    public void addPrimaryAnnotation(Span location, String fmt, Object... o) {
+        this.annotations.add(new Annotation(location, Optional.of(String.format(fmt, o)), AnnotationType.PRIMARY));
     }
 
     public void addSecondaryAnnotation(Span location) {
         this.annotations.add(new Annotation(location, Optional.empty(), AnnotationType.SECONDARY));
     }
 
-    public void addSecondaryAnnotation(Span location, String message) {
-        this.annotations.add(new Annotation(location, Optional.of(message), AnnotationType.SECONDARY));
+    public void addSecondaryAnnotation(Span location, String fmt, Object... o) {
+        this.annotations.add(new Annotation(location, Optional.of(String.format(fmt, o)), AnnotationType.SECONDARY));
     }
 
     /*

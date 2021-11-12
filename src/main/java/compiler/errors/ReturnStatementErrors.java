@@ -23,9 +23,9 @@ public class ReturnStatementErrors {
 
         @Override
         public void generate(Source source) {
-            this.setMessage(String.format("Invalid types, '%s' expects type '%s', but got '%s'", this.method.getIdentifier(), this.expectedTy, this.actualTy));
-            this.addPrimaryAnnotation(this.returnStmt.getExpression().get().getSpan(), String.format("this has type '%s'", actualTy));
-            this.addSecondaryAnnotation(this.method.getReturnType().getSpan(), String.format("expects type '%s'", expectedTy));
+            this.setMessage("Invalid types, '%s' expects type '%s', but got '%s'", this.method.getIdentifier(), this.expectedTy, this.actualTy);
+            this.addPrimaryAnnotation(this.returnStmt.getExpression().get().getSpan(), "this has type '%s'", actualTy);
+            this.addSecondaryAnnotation(this.method.getReturnType().getSpan(), "expects type '%s'", expectedTy);
         }
     }
 
@@ -63,7 +63,7 @@ public class ReturnStatementErrors {
             this.setMessage("Return statements is missing an expression.");
 
             this.addPrimaryAnnotation(this.returnStmt.getSpan(), "Missing expression after return.");
-            this.addSecondaryAnnotation(this.method.getReturnType().getSpan(), String.format("expecting type '%s'", this.expectedTy));
+            this.addSecondaryAnnotation(this.method.getReturnType().getSpan(), "expecting type '%s'", this.expectedTy);
         }
     }
 }

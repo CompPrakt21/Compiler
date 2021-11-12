@@ -14,7 +14,7 @@ public class ClassDoesNotExist extends CompilerError {
 
     @Override
     public void generate(Source source) {
-        this.setMessage(String.format("Class with name '%s' does not exist.", this.type.getIdentifier()));
+        this.setMessage("Class with name '%s' does not exist.", this.type.getIdentifier());
         this.addPrimaryAnnotation(this.type.getSpan());
     }
 }

@@ -48,8 +48,8 @@ public class MethodParameterErrors {
         public void generate(Source source) {
             this.setMessage(String.format("Argument with type '%s' can not be given to parameter with type '%s'.", this.argumentTy, this.paramTy));
 
-            this.addPrimaryAnnotation(this.argument.getSpan(), String.format("this has type '%s'", this.argumentTy));
-            this.addSecondaryAnnotation(this.param.getSpan(), String.format("this expects type '%s'", this.paramTy));
+            this.addPrimaryAnnotation(this.argument.getSpan(), "this has type '%s'", this.argumentTy);
+            this.addSecondaryAnnotation(this.param.getSpan(), "this expects type '%s'", this.paramTy);
         }
     }
 }

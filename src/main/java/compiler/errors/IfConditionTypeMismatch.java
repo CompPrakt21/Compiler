@@ -18,6 +18,6 @@ public class IfConditionTypeMismatch extends CompilerError {
     @Override
     public void generate(Source source) {
         this.setMessage("Condition of if statement is not a boolean");
-        this.addPrimaryAnnotation(this.stmt.getCondition().getSpan(), String.format("this expression has type '%s'", conditionTy));
+        this.addPrimaryAnnotation(this.stmt.getCondition().getSpan(), "this expression has type '%s'", conditionTy);
     }
 }

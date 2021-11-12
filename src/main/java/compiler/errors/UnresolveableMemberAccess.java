@@ -34,7 +34,7 @@ public class UnresolveableMemberAccess extends CompilerError {
             throw new AssertionError("Unreacheable because of constructor");
         }
 
-        this.setMessage(String.format("Can not resolve %s identifier '%s'", type, ident));
+        this.setMessage("Can not resolve %s identifier '%s'", type, ident);
 
         this.addPrimaryAnnotation(ident.getSpan());
 

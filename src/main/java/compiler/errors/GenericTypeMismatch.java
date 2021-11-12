@@ -19,7 +19,7 @@ public class GenericTypeMismatch extends CompilerError {
 
     @Override
     public void generate(Source source) {
-        this.setMessage(String.format("Invalid types, expected type '%s', but got '%s'", this.expectedTy, this.actualTy));
-        this.addPrimaryAnnotation(this.expr.getSpan(), String.format("this is type '%s'", this.actualTy));
+        this.setMessage("Invalid types, expected type '%s', but got '%s'", this.expectedTy, this.actualTy);
+        this.addPrimaryAnnotation(this.expr.getSpan(), "this is type '%s'", this.actualTy);
     }
 }

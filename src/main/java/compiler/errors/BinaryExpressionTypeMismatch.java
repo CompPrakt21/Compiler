@@ -25,10 +25,10 @@ public abstract class BinaryExpressionTypeMismatch {
 
         @Override
         public void generate(Source source) {
-            this.setMessage(String.format("Can not compare types '%s' and '%s'.", this.actualLhsOperandTy, this.actualRhsOperandTy));
+            this.setMessage("Can not compare types '%s' and '%s'.", this.actualLhsOperandTy, this.actualRhsOperandTy);
 
-            this.addPrimaryAnnotation(this.expr.getLhs().getSpan(), String.format("this expression has has type '%s'", this.actualLhsOperandTy));
-            this.addPrimaryAnnotation(this.expr.getRhs().getSpan(), String.format("this expression has has type '%s'", this.actualRhsOperandTy));
+            this.addPrimaryAnnotation(this.expr.getLhs().getSpan(), "this expression has has type '%s'", this.actualLhsOperandTy);
+            this.addPrimaryAnnotation(this.expr.getRhs().getSpan(), "this expression has has type '%s'", this.actualRhsOperandTy);
         }
     }
 
@@ -48,10 +48,10 @@ public abstract class BinaryExpressionTypeMismatch {
 
         @Override
         public void generate(Source source) {
-            this.setMessage(String.format("Invalid types. %s expects operands of type '%s'.", this.expr.getOperator(), this.expectedOperandTy));
+            this.setMessage("Invalid types. %s expects operands of type '%s'.", this.expr.getOperator(), this.expectedOperandTy);
 
-            this.actualLhsOperandTy.ifPresent(ty -> this.addPrimaryAnnotation(this.expr.getLhs().getSpan(), String.format("this has type '%s'", ty)));
-            this.actualRhsOperandTy.ifPresent(ty -> this.addPrimaryAnnotation(this.expr.getRhs().getSpan(), String.format("this has type '%s'", ty)));
+            this.actualLhsOperandTy.ifPresent(ty -> this.addPrimaryAnnotation(this.expr.getLhs().getSpan(), "this has type '%s'", ty));
+            this.actualRhsOperandTy.ifPresent(ty -> this.addPrimaryAnnotation(this.expr.getRhs().getSpan(), "this has type '%s'", ty));
         }
     }
 
@@ -69,7 +69,7 @@ public abstract class BinaryExpressionTypeMismatch {
 
         @Override
         public void generate(Source source) {
-            this.setMessage(String.format("Operand of %s is void.", this.expr.getOperator()));
+            this.setMessage("Operand of %s is void.", this.expr.getOperator());
 
             if (this.actualLhsOperandTy.isEmpty()) {
                 this.addPrimaryAnnotation(this.expr.getLhs().getSpan(), "this is void");

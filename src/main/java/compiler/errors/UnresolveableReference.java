@@ -13,7 +13,7 @@ public class UnresolveableReference extends CompilerError {
 
     @Override
     public void generate(Source source) {
-        this.setMessage(String.format("Can not resolve identifier '%s'.", this.ref.getIdentifier()));
+        this.setMessage("Can not resolve identifier '%s'.", this.ref.getIdentifier());
 
         this.addPrimaryAnnotation(ref.getSpan());
     }
