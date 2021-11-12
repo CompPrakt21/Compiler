@@ -2,14 +2,17 @@ package compiler;
 
 import compiler.ast.*;
 import compiler.ast.Class;
+import compiler.types.TyResult;
 
 import java.io.PrintWriter;
 
 class DotWriter {
     private PrintWriter out;
+    private AstData<TyResult> types;
 
-    DotWriter(PrintWriter out) {
+    DotWriter(PrintWriter out, AstData<TyResult> types) {
         this.out = out;
+        this.types = types;
         this.out.println("digraph {");
     }
 
@@ -20,7 +23,14 @@ class DotWriter {
 
         String color = ast.isError() ? "red" : "black";
 
-        this.out.format("%s [label=\"%s\", color=%s, ordering=\"out\"]\n", ast.getID(), label, color);
+        String dotLabel = String.format("\"%s\"", label);
+
+        var type = this.types.get(ast);
+        if (type.isPresent()) {
+            dotLabel += String.format("\n%s", type.get());
+        }
+
+        this.out.format("%s [label=\"%s\", color=%s, ordering=\"out\"]\n", ast.getID(), dotLabel, color);
     }
 
     void addEdge(AstNode start, AstNode end) {
@@ -28,7 +38,7 @@ class DotWriter {
     }
 
     void addDataEdge(AstNode start, AstNode end) {
-        this.out.format("%s -> %s [color=blue, constraint=false, style=dotted]", start.getID(), end.getID());
+        this.out.format("%s -> %s [color=blue, constraint=false, style=dotted]\n", start.getID(), end.getID());
     }
 
     void addEdge(AstNode start, AstNode end, String label) {
@@ -36,7 +46,7 @@ class DotWriter {
             return;
         }
 
-        this.out.format("%s -> %s [label=\"%s\"]", start.getID(), end.getID(), label);
+        this.out.format("%s -> %s [label=\"%s\"]\n", start.getID(), end.getID(), label);
     }
 
     void finish() {
@@ -48,29 +58,31 @@ class DotWriter {
 public class DumpAst {
 
     private DotWriter out;
-    private AstData<?>[] data;
+    private AstData<AstNode> definitions;
+    private AstData<TyResult> types;
 
-    private DumpAst(PrintWriter out, AstData<?>[] data) {
-        this.out = new DotWriter(out);
-        this.data = data;
+    private DumpAst(PrintWriter out, AstData<AstNode> definitions, AstData<TyResult> types) {
+        this.out = new DotWriter(out, types);
+        this.definitions = definitions;
+        this.types = types;
     }
 
-    public static void dump(PrintWriter out, AstNode ast, AstData<?>... data) {
-        var dumper = new DumpAst(out, data);
+    public static void dump(PrintWriter out, AstNode ast, AstData<AstNode> definitions, AstData<TyResult> types) {
+        var dumper = new DumpAst(out, definitions, types);
+        dumper.dumpAst(ast);
+        dumper.out.finish();
+    }
+
+    public static void dump(PrintWriter out, AstNode ast, AstData<AstNode> definitions) {
+        var dumper = new DumpAst(out, definitions, new AstData<>());
         dumper.dumpAst(ast);
         dumper.out.finish();
     }
 
     private void dumpAst(AstNode ast) {
-        for (var d : this.data) {
-            var dataEdge = d.get(ast);
+        var dataEdge = definitions.get(ast);
 
-            if (dataEdge.isPresent()) {
-                if (dataEdge.get() instanceof AstNode astNode) {
-                    this.out.addDataEdge(ast, astNode);
-                }
-            }
-        }
+        dataEdge.ifPresent(astNode -> this.out.addDataEdge(ast, astNode));
 
         switch (ast) {
             case Program prog -> {

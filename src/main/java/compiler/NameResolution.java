@@ -10,8 +10,7 @@ import compiler.types.*;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Consumer;
-import java.util.function.Function;
+import java.util.stream.Collectors;
 
 class ClassEnvironment {
     public Map<String, Method> methods;
@@ -47,7 +46,7 @@ public class NameResolution {
     private Class currentClass;
 
     private final AstData<AstNode> definitions; // Maps every ast node with an identifier to the ast node that defines it.
-    private final AstData<TyResult> types; // Types of all expressions
+    private final AstData<TyResult> expressionTypes; // Types of all expressions
 
     // Class -> Fields and Methods
     private AstData<ClassEnvironment> classEnvironments;
@@ -58,7 +57,7 @@ public class NameResolution {
     // Identifier -> (Class, ClassTy)
     private Map<String, ClassInfo> classInfo;
 
-    private AstData<TyResult> memberTypes; // Field type or Method return type.
+    private AstData<TyResult> bindingTypes; // Field type, Method return type or Parameter types
 
     private Optional<CompilerMessageReporter> reporter;
 
@@ -75,12 +74,12 @@ public class NameResolution {
         this.currentClass = null;
 
         this.definitions = new AstData<>();
-        this.types = new AstData<>();
+        this.expressionTypes = new AstData<>();
 
         this.classEnvironments = null;
 
         this.classInfo = null;
-        this.memberTypes = new AstData<>();
+        this.bindingTypes = new AstData<>();
 
         this.reporter = reporter;
     }
@@ -103,7 +102,7 @@ public class NameResolution {
 
     private void collectClassEnvironments(Program program) {
         this.classEnvironments = new AstData<>();
-        this.memberTypes = new AstData<>();
+        this.bindingTypes = new AstData<>();
 
         for (Class klass : program.getClasses()) {
             var env = new ClassEnvironment();
@@ -113,7 +112,7 @@ public class NameResolution {
                 this.resolveType(returnType);
                 var returnTy = this.fromAstType(returnType);
 
-                this.memberTypes.set(m, returnTy);
+                this.bindingTypes.set(m, returnTy);
                 env.addMethod(m);
 
                 if (!(returnTy instanceof Ty) && !(returnTy instanceof VoidTy)) {
@@ -122,6 +121,20 @@ public class NameResolution {
 
                 for (Parameter param : m.getParameters()) {
                     this.resolveType(param.getType());
+                    var paramType = this.fromAstType(param.getType());
+
+                    switch (paramType) {
+                        case VoidTy ty -> {
+                            reportError(new IllegalMethodParameterType(param, IllegalMethodParameterType.Reason.VOID));
+                        }
+                        case UnresolveableTy ty -> {
+                            reportError(new IllegalMethodParameterType(param, IllegalMethodParameterType.Reason.UNRESOLVEABLE));
+                        }
+                        case Ty ty -> {
+                        }
+                    }
+
+                    this.bindingTypes.set(param, paramType);
                 }
             }
 
@@ -130,7 +143,7 @@ public class NameResolution {
                 this.resolveType(type);
                 var ty = this.fromAstType(type);
 
-                this.memberTypes.set(f, ty);
+                this.bindingTypes.set(f, ty);
                 env.addField(f);
 
                 if (!(ty instanceof Ty)) {
@@ -158,7 +171,7 @@ public class NameResolution {
 
         return new NameResolutionResult(
                 resolution.definitions,
-                resolution.types
+                resolution.expressionTypes
         );
     }
 
@@ -229,19 +242,72 @@ public class NameResolution {
             if (methodDef.isPresent()) {
                 this.definitions.set(methodCall, methodDef.get());
 
-                var returnType = this.memberTypes.get(methodDef.get()).get();
+                var returnType = this.bindingTypes.get(methodDef.get()).get();
 
-                this.types.set(methodCall, returnType);
+                this.expressionTypes.set(methodCall, returnType);
             } else {
                 reportError(new UnresolveableMemberAccess(classTy.getDefinition(), methodCall));
-                this.types.set(methodCall, new UnresolveableTy());
+                this.expressionTypes.set(methodCall, new UnresolveableTy());
             }
         } else {
             reportError(new MemberAccessOnNonClassType(methodCall, targetType));
-            this.types.set(methodCall, new UnresolveableTy());
+            this.expressionTypes.set(methodCall, new UnresolveableTy());
         }
     }
 
+    private void typeCheckSimpleBinaryExpression(BinaryOpExpression binaryOp, Ty expectedOperandTy, Ty operationTy, Ty lhsTy, Ty rhsTy) {
+        Optional<Ty> lhs = expectedOperandTy.equals(lhsTy) ? Optional.empty() : Optional.of(lhsTy);
+        Optional<Ty> rhs = expectedOperandTy.equals(rhsTy) ? Optional.empty() : Optional.of(rhsTy);
+
+        if (lhs.isPresent() || rhs.isPresent()) {
+            reportError(new BinaryExpressionTypeMismatch.InvalidTypesForOperator(binaryOp, expectedOperandTy, lhs, rhs));
+            this.expressionTypes.set(binaryOp, new UnresolveableTy());
+        } else {
+            this.expressionTypes.set(binaryOp, operationTy);
+        }
+    }
+
+    private void typecheckBinaryExpression(BinaryOpExpression binaryOp) {
+        var lhsTyRes = this.expressionTypes.get(binaryOp.getLhs()).get();
+        var rhsTyRes = this.expressionTypes.get(binaryOp.getRhs()).get();
+
+        if (lhsTyRes instanceof UnresolveableTy || rhsTyRes instanceof UnresolveableTy) {
+
+            this.expressionTypes.set(binaryOp, new UnresolveableTy());
+
+        } else if (lhsTyRes instanceof VoidTy || rhsTyRes instanceof VoidTy) {
+
+            Optional<TyResult> lhs = lhsTyRes instanceof VoidTy ? Optional.empty() : Optional.of(lhsTyRes);
+            Optional<TyResult> rhs = rhsTyRes instanceof VoidTy ? Optional.empty() : Optional.of(rhsTyRes);
+            reportError(new BinaryExpressionTypeMismatch.VoidOperand(binaryOp, lhs, rhs));
+            this.expressionTypes.set(binaryOp, new UnresolveableTy());
+
+        } else if (lhsTyRes instanceof Ty lhsTy && rhsTyRes instanceof Ty rhsTy) {
+
+            switch (binaryOp.getOperator()) {
+                case Addition, Subtraction, Multiplication, Division, Modulo -> {
+                    typeCheckSimpleBinaryExpression(binaryOp, new IntTy(), new IntTy(), lhsTy, rhsTy);
+                }
+                case Greater, GreaterEqual, Less, LessEqual -> {
+                    typeCheckSimpleBinaryExpression(binaryOp, new IntTy(), new BoolTy(), lhsTy, rhsTy);
+                }
+                case Equal, NotEqual -> {
+                    if (lhsTy.comparable(rhsTy)) {
+                        this.expressionTypes.set(binaryOp, new BoolTy());
+                    } else {
+                        reportError(new BinaryExpressionTypeMismatch.IncomparableTypes(binaryOp, lhsTy, rhsTy));
+                        this.expressionTypes.set(binaryOp, new UnresolveableTy());
+                    }
+                }
+                case And, Or -> {
+                    typeCheckSimpleBinaryExpression(binaryOp, new BoolTy(), new BoolTy(), lhsTy, rhsTy);
+                }
+            }
+
+        } else {
+            throw new AssertionError("Unreacheable");
+        }
+    }
 
     private void resolveExpression(Expression expression) {
         switch (expression) {
@@ -252,18 +318,48 @@ public class NameResolution {
                 resolveExpression(lval);
                 resolveExpression(rval);
 
-                this.types.set(assign, new UnresolveableTy());
+                var lvalTyRes = this.expressionTypes.get(lval).get();
+                var rvalTyRes = this.expressionTypes.get(rval).get();
+
+                if (lvalTyRes instanceof Ty lvalTy && rvalTyRes instanceof Ty rvalTy) {
+                    if (lvalTy.equals(rvalTy)) {
+                        this.expressionTypes.set(assign, lvalTy);
+                    } else {
+                        reportError(new AssignmentArgumentTypeMismatch(assign, lvalTy, rvalTy));
+                        this.expressionTypes.set(assign, new UnresolveableTy());
+                    }
+                } else {
+                    if (lvalTyRes instanceof VoidTy || rvalTyRes instanceof VoidTy) {
+                        reportError(new AssignmentArgumentTypeMismatch(assign, lvalTyRes, rvalTyRes));
+                    }
+                    this.expressionTypes.set(assign, new UnresolveableTy());
+                }
+
             }
             case BinaryOpExpression binaryOp -> {
                 resolveExpression(binaryOp.getLhs());
                 resolveExpression(binaryOp.getRhs());
 
-                this.types.set(binaryOp, new UnresolveableTy());
+                typecheckBinaryExpression(binaryOp);
             }
             case UnaryExpression unaryOp -> {
                 resolveExpression(unaryOp.getExpression());
 
-                this.types.set(unaryOp, new UnresolveableTy());
+                Ty expectedTy = switch (unaryOp.getOperator()) {
+                    case LogicalNot -> new BoolTy();
+                    case Negate -> new IntTy();
+                };
+
+                var actualTy = this.expressionTypes.get(unaryOp.getExpression()).get();
+
+                if (expectedTy.equals(actualTy)) {
+                    this.expressionTypes.set(unaryOp, expectedTy);
+                } else {
+                    if (!(actualTy instanceof UnresolveableTy)) {
+                        reportError(new UnaryExpressionTypeMismatch(unaryOp, expectedTy, actualTy));
+                    }
+                    this.expressionTypes.set(unaryOp, new UnresolveableTy());
+                }
             }
             case MethodCallExpression methodCall -> {
                 var target = methodCall.getTarget();
@@ -271,7 +367,7 @@ public class NameResolution {
                 if (target.isPresent()) {
                     resolveExpression(target.get());
 
-                    var targetType = this.types.get(target.get()).get();
+                    var targetType = this.expressionTypes.get(target.get()).get();
 
                     // If the target expression doesn't have a type an error was reported during resolve of this expression.
                     resolveMethodCallWithTarget(methodCall, targetType);
@@ -284,12 +380,37 @@ public class NameResolution {
                 for (var arg : methodCall.getArguments()) {
                     resolveExpression(arg);
                 }
+
+                // Method arguments type checking
+                var maybeMethod = this.definitions.get(methodCall);
+                if (maybeMethod.isPresent()) {
+                    assert maybeMethod.get() instanceof Method;
+                    var methodDef = (Method) maybeMethod.get();
+
+                    var argumentTypes = methodCall.getArguments().stream().map(arg -> this.expressionTypes.get(arg).get()).collect(Collectors.toList());
+                    var paramTypes = methodDef.getParameters().stream().map(param -> this.bindingTypes.get(param).get()).collect(Collectors.toList());
+
+                    if (argumentTypes.size() != paramTypes.size()) {
+                        reportError(new MethodParameterErrors.DifferentLength(methodDef, methodCall));
+                    }
+
+                    for (int i = 0; i < Math.min(argumentTypes.size(), paramTypes.size()); i += 1) {
+                        var argTyRes = argumentTypes.get(i);
+                        var paramTyRes = paramTypes.get(i);
+
+                        if (paramTyRes instanceof Ty paramTy) {
+                            if (argTyRes instanceof VoidTy || argTyRes instanceof Ty argTy && !argTy.comparable(paramTy)) {
+                                reportError(new MethodParameterErrors.ArgumentTypeMismatch(methodDef.getParameters().get(i), methodCall.getArguments().get(i), paramTy, argTyRes));
+                            }
+                        }
+                    }
+                }
             }
             case FieldAccessExpression fieldAccess -> {
                 var target = fieldAccess.getTarget();
                 resolveExpression(target);
 
-                var targetType = this.types.get(target).get();
+                var targetType = this.expressionTypes.get(target).get();
 
                 // If the target expression doesn't have a type an error was reported during resolve of this expression.
                 if (targetType instanceof ClassTy classTy) {
@@ -301,28 +422,28 @@ public class NameResolution {
 
                         this.definitions.set(fieldAccess, fieldDef.get());
 
-                        var ty = this.memberTypes.get(fieldDef.get());
+                        var ty = this.bindingTypes.get(fieldDef.get());
 
-                        ty.ifPresent(value -> this.types.set(fieldAccess, value));
+                        ty.ifPresent(value -> this.expressionTypes.set(fieldAccess, value));
                     } else {
                         reportError(new UnresolveableMemberAccess(classTy.getDefinition(), fieldAccess));
-                        this.types.set(fieldAccess, new UnresolveableTy());
+                        this.expressionTypes.set(fieldAccess, new UnresolveableTy());
                     }
                 } else {
                     reportError(new MemberAccessOnNonClassType(fieldAccess, targetType));
-                    this.types.set(fieldAccess, new UnresolveableTy());
+                    this.expressionTypes.set(fieldAccess, new UnresolveableTy());
                 }
             }
             case ArrayAccessExpression arrayAccess -> {
                 resolveExpression(arrayAccess.getTarget());
 
-                var targetType = this.types.get(arrayAccess.getTarget()).get();
+                var targetType = this.expressionTypes.get(arrayAccess.getTarget()).get();
 
                 if (targetType instanceof ArrayTy arrayTy) {
-                    this.types.set(arrayAccess, arrayTy.getChildTy());
+                    this.expressionTypes.set(arrayAccess, arrayTy.getChildTy());
                 } else {
                     reportError(new ArrayAccessOnNonArrayType(arrayAccess, targetType));
-                    this.types.set(arrayAccess, new UnresolveableTy());
+                    this.expressionTypes.set(arrayAccess, new UnresolveableTy());
                 }
 
                 resolveExpression(arrayAccess.getIndexExpression());
@@ -331,14 +452,11 @@ public class NameResolution {
                 resolveType(newArray.getType());
 
                 var childType = this.fromAstType(newArray.getType());
-                switch (childType) {
-                    case Ty childTy -> {
-                        this.types.set(newArray, new ArrayTy(childTy, newArray.getDimensions()));
-                    }
-                    default -> {
-                        reportError(new IllegalNewArrayExpression(childType, newArray));
-                        this.types.set(newArray, new UnresolveableTy());
-                    }
+                if (childType instanceof Ty childTy) {
+                    this.expressionTypes.set(newArray, new ArrayTy(childTy, newArray.getDimensions()));
+                } else {
+                    reportError(new IllegalNewArrayExpression(childType, newArray));
+                    this.expressionTypes.set(newArray, new UnresolveableTy());
                 }
 
                 resolveExpression(newArray.getFirstDimensionSize());
@@ -352,24 +470,18 @@ public class NameResolution {
 
                     var ty = this.fromAstType(type);
                     // If the type is not valid, an error was emitted when resolving the definition.
-                    this.types.set(ref, ty);
+                    this.expressionTypes.set(ref, ty);
                 } else {
                     reportError(new UnresolveableReference(ref));
-                    this.types.set(ref, new UnresolveableTy());
+                    this.expressionTypes.set(ref, new UnresolveableTy());
                 }
             }
-            case NullExpression nullExpr -> {
-                this.types.set(nullExpr, new UnresolveableTy());
-            }
-            case BoolLiteral boolLit -> {
-                this.types.set(boolLit, new UnresolveableTy());
-            }
-            case IntLiteral intLit -> {
-                this.types.set(intLit, new UnresolveableTy());
-            }
+            case NullExpression nullExpr -> this.expressionTypes.set(nullExpr, new NullTy());
+            case BoolLiteral boolLit -> this.expressionTypes.set(boolLit, new BoolTy());
+            case IntLiteral intLit -> this.expressionTypes.set(intLit, new IntTy());
             case ThisExpression thisExpr -> {
                 this.definitions.set(thisExpr, this.currentClass);
-                this.types.set(thisExpr, this.getCurrentClassTy());
+                this.expressionTypes.set(thisExpr, this.getCurrentClassTy());
             }
             case NewObjectExpression newObject -> {
                 var ident = newObject.getTypeIdentifier();
@@ -378,7 +490,7 @@ public class NameResolution {
                 var classTy = identToClassTy(ident);
 
                 // If not present, resolveTypeIdent will report an error
-                classTy.ifPresent(ty -> this.types.set(newObject, ty));
+                //classTy.ifPresent(ty -> this.types.set(newObject, ty));
             }
         }
 
@@ -421,7 +533,7 @@ public class NameResolution {
         return identToClassTy(this.currentClass.getIdentifier()).get();
     }
 
-    public TyResult fromAstType(Type astType) {
+    private TyResult fromAstType(Type astType) {
         switch (astType) {
             case IntType i -> {
                 // TODO: do I really want to create a new object everytime...

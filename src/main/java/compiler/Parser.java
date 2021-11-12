@@ -234,12 +234,12 @@ public class Parser {
                 return new Field(publicToken, type, identToken, semicolonToken).makeError(error);
             }
             case LeftParen -> {
-                assertExpect(LeftParen);
+                var openParamToken = assertExpect(LeftParen);
 
                 expectResult = expectNoConsume(anchors, Parameter.first(), RightParen);
                 error |= expectResult.isError();
 
-                var method = parseMethod(anchors, publicToken, type, identToken, staticToken);
+                var method = parseMethod(anchors, publicToken, type, identToken, staticToken, openParamToken);
                 if (method != null) {
                     method.makeError(error);
                 }
@@ -257,7 +257,7 @@ public class Parser {
         }
     }
 
-    private Method parseMethod(TokenSet anchors, Token publicToken, Type returnType, Token nameIdent, Optional<Token> isStatic) {
+    private Method parseMethod(TokenSet anchors, Token publicToken, Type returnType, Token nameIdent, Optional<Token> isStatic, Token openParamToken) {
         var parameters = new ArrayList<Parameter>();
 
         boolean error = false;
@@ -294,6 +294,7 @@ public class Parser {
         }
 
         var expectResult = expect(anchors.add(MethodRest.first(), Block.first()), RightParen);
+        var closeParamToken = expectResult.token;
         error |= expectResult.isError;
 
         expectResult = expectNoConsume(anchors, MethodRest.first(), Block.first());
@@ -310,7 +311,7 @@ public class Parser {
         error |= expectResult.isError;
         var body = parseBlock(anchors);
 
-        return new Method(publicToken, isStatic, nameIdent, returnType, parameters, body).makeError(error);
+        return new Method(publicToken, isStatic, nameIdent, returnType, openParamToken, parameters, closeParamToken, body).makeError(error);
     }
 
     private Parameter parseParameter(TokenSet anchors) {

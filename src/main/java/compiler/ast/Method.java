@@ -3,12 +3,14 @@ package compiler.ast;
 import java.util.ArrayList;
 
 import compiler.HasSpan;
+import compiler.Span;
 import compiler.Token;
 import compiler.utils.StreamUtils;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 public final class Method extends AstNode {
 
@@ -19,18 +21,34 @@ public final class Method extends AstNode {
     private Type returnType;
 
     private List<Parameter> parameters;
+    private Span parametersSpan;
 
     private Block body;
 
-    public Method(Token publicToken, Optional<Token> isStatic, Token identifier, Type returnType, List<Parameter> parameters, Block body) {
+    public Method(Token publicToken, Optional<Token> isStatic, Token identifier, Type returnType, Token openParamToken, List<Parameter> parameters, Token closeParamToken, Block body) {
         super();
-        this.isError |= publicToken == null || identifier == null || returnType == null || parameters.stream().anyMatch(Objects::isNull) || body == null;
+        this.isError |= publicToken == null || identifier == null || returnType == null || parameters.stream().anyMatch(Objects::isNull) || body == null
+                || openParamToken == null || closeParamToken == null;
         setSpan(publicToken, new HasSpan.OptionalWrapper(isStatic), identifier, returnType, new HasSpan.ListWrapper(parameters), body);
 
         this.isStatic = isStatic.isPresent();
         this.identifier = identifier != null ? identifier.getIdentContent() : null;
         this.returnType = returnType;
         this.parameters = parameters;
+
+        var nonNullParams = this.parameters.stream().filter(Objects::nonNull).collect(Collectors.toList());
+        if (nonNullParams.size() == 0) {
+            var start = new Span(openParamToken.getSpan().start() + 1, 1);
+            var end = new Span(closeParamToken.getSpan().start() - 1, 1);
+            if (start.start() == end.start()) {
+                this.parametersSpan = openParamToken.getSpan().merge(closeParamToken.getSpan());
+            } else {
+                this.parametersSpan = start.merge(end);
+            }
+        } else {
+            this.parametersSpan = nonNullParams.stream().map(Parameter::getSpan).reduce(Span::merge).get();
+        }
+
         this.body = body;
     }
 
@@ -48,6 +66,10 @@ public final class Method extends AstNode {
 
     public List<Parameter> getParameters() {
         return parameters;
+    }
+
+    public Span getParametersSpan() {
+        return parametersSpan;
     }
 
     public Block getBody() {
