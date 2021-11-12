@@ -7,6 +7,8 @@ import java.util.stream.Collectors;
 
 class DisplayList {
 
+    private static final int TAB_SIZE = 4;
+
     abstract static sealed class Annotation
             permits UnderlineAnnotation, ConnectorAnnotation, LabelAnnotation, MultiLineAnnotation {
 
@@ -188,6 +190,8 @@ class DisplayList {
                 .max(Integer::compare)
                 .orElse(0) + 1;
 
+        String lastCodeLine = null;
+
         for (DisplayLine displayLine : this.body) {
             switch (displayLine) {
                 case RawLine l -> {
@@ -200,7 +204,10 @@ class DisplayList {
                     this.printLineNumberAndSeparator(out, Optional.of(l.lineNr), leftPaddingForLineNumbers);
                     this.printSideConnectors(out, l, leftPaddingForMultiLineConnectors);
 
-                    out.print(l.content.substring(leadingWhitespace));
+                    var transformedLine = l.content.replaceAll("\t", " ".repeat(TAB_SIZE));
+
+                    out.print(transformedLine.substring(leadingWhitespace));
+                    lastCodeLine = l.content;
                 }
                 case AnnotationLine l -> {
                     this.printLineNumberAndSeparator(out, Optional.empty(), leftPaddingForLineNumbers);
@@ -223,15 +230,18 @@ class DisplayList {
 
                         assert annotationIdx <= 0 || !(annotation instanceof MultiLineAnnotation);
 
-                        int neededWhitespace = Integer.max(annotation.getRange().start() - leadingWhitespace - currentCursorPos, 0);
+                        int transformedStart = columnAfterTransformedWhitespace(lastCodeLine, annotation.getRange().start());
+
+                        int neededWhitespace = Integer.max(transformedStart - leadingWhitespace - currentCursorPos, 0);
 
                         out.printWhitespace(neededWhitespace);
                         currentCursorPos += neededWhitespace;
 
                         switch (annotation) {
                             case UnderlineAnnotation sa -> {
-                                out.printRepeat(this.style.getUnderLine(sa.annotationType), sa.range.length(), sa.annotationType);
-                                currentCursorPos += sa.range.length();
+                                var length = transformedSpan(lastCodeLine, sa.range).length();
+                                out.printRepeat(this.style.getUnderLine(sa.annotationType), length, sa.annotationType);
+                                currentCursorPos += length;
                             }
                             case ConnectorAnnotation ca -> {
                                 out.print("|", ca.annotationType);
@@ -242,7 +252,8 @@ class DisplayList {
                                 currentCursorPos += la.label.length();
                             }
                             case MultiLineAnnotation mla -> {
-                                int whitespaceRemovedColumn = mla.column - leadingWhitespace;
+                                int transformedMlaCol = columnAfterTransformedWhitespace(lastCodeLine, mla.column);
+                                int whitespaceRemovedColumn = transformedMlaCol - leadingWhitespace;
                                 char lastChar = mla.isUnderline ? this.style.getUnderLine(mla.annotationType) : '|';
                                 out.printRepeat("_", whitespaceRemovedColumn, mla.annotationType);
                                 out.print(lastChar, mla.annotationType);
@@ -356,6 +367,38 @@ class DisplayList {
     }
 
     private static int countLeadingWhitespace(String s) {
-        return (int) s.chars().takeWhile(Character::isWhitespace).count();
+        int result = 0;
+        for (char c : s.toCharArray()) {
+            if (c == '\t') result += TAB_SIZE;
+            else if (Character.isWhitespace(c)) result += 1;
+            else break;
+        }
+        return result;
+    }
+
+    private static int columnAfterTransformedWhitespace(String codeline, int columnBefore) {
+        int columnAfter = 0;
+        for (int i = 0; i < codeline.length(); i++) {
+            if (i < columnBefore) {
+                if (codeline.charAt(i) == '\t') {
+                    columnAfter += TAB_SIZE;
+                } else {
+                    columnAfter += 1;
+                }
+            }
+        }
+
+        var diff = columnBefore - codeline.length();
+        if (diff > 0) {
+            columnAfter += diff;
+        }
+
+        return columnAfter;
+    }
+
+    private static Span transformedSpan(String codeline, Span before) {
+        int transformedStart = columnAfterTransformedWhitespace(codeline, before.start());
+        int transformedEnd = columnAfterTransformedWhitespace(codeline, before.end());
+        return Span.fromStartEnd(transformedStart, transformedEnd);
     }
 }
