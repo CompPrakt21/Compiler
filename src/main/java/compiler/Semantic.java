@@ -30,8 +30,8 @@ public class Semantic {
     private boolean recursiveCheckPerBlock(List<AstNode> nodes) {
         //TODO: Check all children
         int oldExpectReturn = expectReturn;
-        ArrayList<String> instanciatedVars = new ArrayList<>();
-        ArrayList<String> instanciatedMethods = new ArrayList<>();
+        ArrayList<Integer> instanciatedVars = new ArrayList<>();
+        ArrayList<Integer> instanciatedMethods = new ArrayList<>();
         if (nodes == null) {
             return true;
         }
@@ -40,7 +40,7 @@ public class Semantic {
             switch (child) {
                 //Checks if the main Method is called.
                 case MethodCallExpression methodCallExpression:
-                    if (methodCallExpression.getIdentifier().equals("main")) {
+                    if (methodCallExpression.getName().equals("main")) {
                         correct = false;
                         fail("Main method was called", methodCallExpression);
                     }
@@ -49,34 +49,34 @@ public class Semantic {
                     break;
                 //Checks if a has already variable been instanciated or if its type is void
                 case Field field:
-                    if (instanciatedVars.contains(field.getIdentifier()) || children.get(0) instanceof VoidType) {
+                    if (instanciatedVars.contains(field.getID()) || children.get(0) instanceof VoidType) {
                         correct = false;
                         fail("Field was instanciated int this program already", field);
                     }
-                    instanciatedVars.add(field.getIdentifier());
+                    instanciatedVars.add(field.getID());
                     recursiveCheckPerBlock(children);
                     break;
                 //Checks if a variable has already been instanciated in this block or if its type is of void
                 case LocalVariableDeclarationStatement localVariableDeclarationStatement:
-                    if (instanciatedVars.contains(localVariableDeclarationStatement.getIdentifier()) || children.get(0) instanceof  VoidType) {
+                    if (instanciatedVars.contains(localVariableDeclarationStatement.getID()) || children.get(0) instanceof  VoidType) {
                         correct = false;
                         fail("Var was instanciated in this block already or the var has type void", localVariableDeclarationStatement);
                     }
-                    instanciatedVars.add(localVariableDeclarationStatement.getIdentifier());
+                    instanciatedVars.add(localVariableDeclarationStatement.getID());
                     recursiveCheckPerBlock(children);
                     break;
                 //checks that only one static method exists and that that one is a correctly formed "main".
                 //Checks what return type is expected
                 case Method method:
-                    if (method.isStatic() && method.getIdentifier().equals("main") && !foundMainMethod && checkMainMethod(method)) {
+                    if (method.isStatic() && method.getName().equals("main") && !foundMainMethod && checkMainMethod(method)) {
                         foundMainMethod = true;
                         isStatic = true;
                     }else if (method.getIdentifier().equals("main") || method.isStatic()) {
                         fail("Two main methods or two static methods were detected", method);
                         break;
                     }
-                    if (instanciatedMethods.contains(method.getName())) fail("Method overloading is disallowed", method);
-                    instanciatedMethods.add(method.getName());
+                    if (instanciatedMethods.contains(method.getID())) fail("Method overloading is disallowed", method);
+                    instanciatedMethods.add(method.getID());
                     expectReturn = (children.get(0) instanceof VoidType) ? 0 : 1;
                     recursiveCheckPerBlock(children);
                     if (expectReturn > 0) fail("Not all paths were covered by a return", method); //TODO
@@ -133,7 +133,7 @@ public class Semantic {
                 && children.get(1) instanceof Parameter
                 && children.get(1).getChildren().get(0) instanceof ArrayType
                 && children.get(1).getChildren().get(0).getChildren().get(0) instanceof ClassType
-                && ((ClassType) children.get(1).getChildren().get(0).getChildren().get(0)).getIdentifier() == "String"
+                && ((ClassType) children.get(1).getChildren().get(0).getChildren().get(0)).getName() == "String"
                 && children.get(2) instanceof Block;
 
         return test;

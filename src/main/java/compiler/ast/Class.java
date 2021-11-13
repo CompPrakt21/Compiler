@@ -53,16 +53,6 @@ public final class Class extends AstNode {
     }
 
     @Override
-    public boolean startsNewBlock() {
-        return true;
-    }
-
-    @Override
-    public String getVariable() {
-        return null;
-    }
-
-    @Override
     public boolean syntacticEq(AstNode other) {
         if (!(other instanceof Class otherClass)) {
             return false;

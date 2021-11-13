@@ -15,8 +15,6 @@ public abstract sealed class AstNode implements HasSpan
 
     private static int next_id = 1;
 
-    public String id;
-
     public abstract List<AstNode> getChildren();
 
     public abstract String getName();

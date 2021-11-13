@@ -48,13 +48,4 @@ public final class AssignmentExpression extends Expression {
         return "AssignmentExpresssion";
     }
 
-    @Override
-    public boolean startsNewBlock() {
-        return false;
-    }
-
-    @Override
-    public String getVariable() {
-        return null;
-    }
 }
