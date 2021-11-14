@@ -244,9 +244,20 @@ public class NameResolution {
                 }
             }
             case LocalVariableDeclarationStatement declStmt -> {
+                var localName = declStmt.getIdentifier().getContent();
+                var maybeAlreadyDefined = this.symbols.lookupDefinition(localName);
+
                 resolveType(declStmt.getType());
 
-                symbols.insert(declStmt.getIdentifier().getContent(), declStmt);
+                if (maybeAlreadyDefined.isPresent()) {
+                    var previousDefinition = maybeAlreadyDefined.get();
+
+                    if (previousDefinition instanceof LocalVariableDeclarationStatement || previousDefinition instanceof Parameter) {
+                        reportError(new IllegalLocalVariableShadowing(previousDefinition, declStmt));
+                    }
+                } else {
+                    symbols.insert(localName, declStmt);
+                }
 
                 declStmt.getInitializer().ifPresent(this::resolveExpression);
 
