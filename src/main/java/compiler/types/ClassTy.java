@@ -1,15 +1,16 @@
 package compiler.types;
 
 import compiler.ast.Class;
+import compiler.resolution.ClassDefinition;
 
 public final class ClassTy extends Ty {
-    private final Class definition;
+    private final ClassDefinition definition;
 
-    public ClassTy(Class definition) {
+    public ClassTy(ClassDefinition definition) {
         this.definition = definition;
     }
 
-    public Class getDefinition() {
+    public ClassDefinition getDefinition() {
         return definition;
     }
 
@@ -20,6 +21,6 @@ public final class ClassTy extends Ty {
 
     @Override
     public String toString() {
-        return this.definition.getIdentifier().getContent();
+        return this.definition.getName();
     }
 }

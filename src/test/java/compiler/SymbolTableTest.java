@@ -1,5 +1,6 @@
 package compiler;
 
+import compiler.resolution.SymbolTable;
 import org.junit.jupiter.api.Test;
 
 public class SymbolTableTest {

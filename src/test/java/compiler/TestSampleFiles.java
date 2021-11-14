@@ -1,13 +1,13 @@
 package compiler;
 
 import compiler.diagnostics.CompilerMessageReporter;
+import compiler.resolution.NameResolution;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.TestFactory;
 
 import java.io.*;
 import java.nio.file.Files;
 import java.util.Arrays;
-import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 

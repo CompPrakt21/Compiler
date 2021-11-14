@@ -2,13 +2,54 @@ package compiler;
 
 import compiler.ast.Class;
 import compiler.ast.*;
+import compiler.resolution.DefinedClass;
+import compiler.resolution.DefinedMethod;
+import compiler.resolution.Definitions;
+import compiler.resolution.IntrinsicMethod;
 import compiler.types.TyResult;
 
+import javax.swing.*;
 import java.io.PrintWriter;
+import java.util.ArrayList;
+import java.util.List;
 
 class DotWriter {
     private final PrintWriter out;
     private final AstData<TyResult> types;
+
+    public static class Node {
+        private final AstNode ast;
+        private final List<String> attributes;
+
+        public Node(AstNode ast, String name) {
+            this.ast = ast;
+            this.attributes = new ArrayList<>();
+            this.attributes.add(name);
+        }
+
+        public void addAttribute(String attr) {
+            this.attributes.add(attr);
+        }
+
+        String toDot(AstData<TyResult> types) {
+            if (this.ast == null) {
+                return "";
+            }
+
+            var ty = types.get(this.ast);
+            ty.ifPresent(tyResult -> this.addAttribute(String.format("ty=%s", tyResult)));
+
+            var color = this.ast.isError() ? "red" : "black";
+
+            return String.format("%s", ast.getID()) +
+                    "[label=\"" +
+                    String.join("\n", this.attributes) +
+                    "\"" +
+                    String.format(", color=\"%s\"", color) +
+                    ", ordering=\"out\"" +
+                    "]\n";
+        }
+    }
 
     DotWriter(PrintWriter out, AstData<TyResult> types) {
         this.out = out;
@@ -17,20 +58,13 @@ class DotWriter {
     }
 
     void addNode(AstNode ast, String label) {
-        if (ast == null) {
-            return;
-        }
+        var n = new DotWriter.Node(ast, label);
 
-        String color = ast.isError() ? "red" : "black";
+        this.out.println(n.toDot(this.types));
+    }
 
-        String dotLabel = String.format("%s", label);
-
-        var type = this.types.get(ast);
-        if (type.isPresent()) {
-            dotLabel += String.format("\n%s", type.get());
-        }
-
-        this.out.format("%s [label=\"%s\", color=%s, ordering=\"out\"];\n", ast.getID(), dotLabel, color);
+    void addNode(Node n) {
+        this.out.println(n.toDot(this.types));
     }
 
     void addEdge(AstNode start, AstNode end) {
@@ -58,30 +92,26 @@ class DotWriter {
 public class DumpAst {
 
     private final DotWriter out;
-    private final AstData<AstNode> definitions;
+    private final Definitions definitions;
 
-    private DumpAst(PrintWriter out, AstData<AstNode> definitions, AstData<TyResult> types) {
+    private DumpAst(PrintWriter out, Definitions definitions, AstData<TyResult> types) {
         this.out = new DotWriter(out, types);
         this.definitions = definitions;
     }
 
-    public static void dump(PrintWriter out, AstNode ast, AstData<AstNode> definitions, AstData<TyResult> types) {
+    public static void dump(PrintWriter out, AstNode ast, Definitions definitions, AstData<TyResult> types) {
         var dumper = new DumpAst(out, definitions, types);
         dumper.dumpAst(ast);
         dumper.out.finish();
     }
 
-    public static void dump(PrintWriter out, AstNode ast, AstData<AstNode> definitions) {
+    public static void dump(PrintWriter out, AstNode ast, Definitions definitions) {
         var dumper = new DumpAst(out, definitions, new AstData<>());
         dumper.dumpAst(ast);
         dumper.out.finish();
     }
 
     private void dumpAst(AstNode ast) {
-        var dataEdge = definitions.get(ast);
-
-        dataEdge.ifPresent(astNode -> this.out.addDataEdge(ast, astNode));
-
         switch (ast) {
             case Program prog -> {
                 this.out.addNode(prog, "Program");
@@ -236,7 +266,19 @@ public class DumpAst {
                 this.dumpAst(unaryOp.getExpression());
             }
             case MethodCallExpression methodCall -> {
-                this.out.addNode(methodCall, String.format("Call '%s'", methodCall.getIdentifier()));
+                var node = new DotWriter.Node(methodCall, String.format("Call '%s'", methodCall.getIdentifier()));
+
+                var maybeMethod = this.definitions.getMethod(methodCall);
+                if (maybeMethod.isPresent()) {
+                    var methodDef = maybeMethod.get();
+
+                    switch (methodDef) {
+                        case DefinedMethod dm -> this.out.addDataEdge(methodCall, dm.getAstMethod());
+                        case IntrinsicMethod ignored -> node.addAttribute("intrinsic");
+                    }
+                }
+
+                this.out.addNode(node);
 
                 var target = methodCall.getTarget();
                 if (target.isPresent()) {
@@ -251,6 +293,9 @@ public class DumpAst {
             }
             case FieldAccessExpression fieldAccess -> {
                 this.out.addNode(fieldAccess, String.format("FieldAccess '%s'", fieldAccess.getIdentifier()));
+
+                var maybeField = this.definitions.getField(fieldAccess);
+                maybeField.ifPresent(field -> this.out.addDataEdge(fieldAccess, field));
 
                 var target = fieldAccess.getTarget();
                 this.out.addEdge(fieldAccess, target, "target");
@@ -268,10 +313,17 @@ public class DumpAst {
             case NewArrayExpression newArray -> {
                 this.out.addNode(newArray, String.format("New Array [%s]", newArray.getDimensions()));
 
+                this.out.addEdge(newArray, newArray.getType(), "type");
+                this.dumpType(newArray.getType());
+
                 this.out.addEdge(newArray, newArray.getFirstDimensionSize(), "dim");
                 this.dumpAst(newArray.getFirstDimensionSize());
             }
-            case Reference ref -> this.out.addNode(ref, String.format("Ref '%s'", ref.getIdentifier()));
+            case Reference ref -> {
+                var def = this.definitions.getReference(ref);
+                def.ifPresent(variableDefinition -> this.out.addDataEdge(ref, (AstNode) variableDefinition));
+                this.out.addNode(ref, String.format("Ref '%s'", ref.getIdentifier()));
+            }
             case NullExpression nullExpr -> this.out.addNode(nullExpr, "Null");
             case BoolLiteral boolLit -> this.out.addNode(boolLit, String.format("Bool '%s'", boolLit.getValue()));
             case IntLiteral intLit -> this.out.addNode(intLit, String.format("Int '%s'", intLit.getValue()));
@@ -295,7 +347,19 @@ public class DumpAst {
             case IntType intTy -> this.out.addNode(intTy, "int");
             case BoolType boolTy -> this.out.addNode(boolTy, "boolean");
             case VoidType voidTy -> this.out.addNode(voidTy, "void");
-            case ClassType classTy -> this.out.addNode(classTy, String.format("class '%s'", classTy.getIdentifier()));
+            case ClassType classTy -> {
+                var maybeClassDef = this.definitions.getClass(classTy);
+                var node = new DotWriter.Node(classTy, String.format("class '%s'", classTy.getIdentifier()));
+                if (maybeClassDef.isPresent()) {
+                    var classDef = maybeClassDef.get();
+                    if (classDef instanceof DefinedClass definedClassDef) {
+                        this.out.addDataEdge(classTy, definedClassDef.getAstClass());
+                    } else {
+                        node.addAttribute("intrinsic");
+                    }
+                }
+                this.out.addNode(node);
+            }
         }
     }
 }

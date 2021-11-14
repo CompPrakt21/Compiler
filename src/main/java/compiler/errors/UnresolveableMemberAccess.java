@@ -4,17 +4,18 @@ import compiler.ast.*;
 import compiler.ast.Class;
 import compiler.diagnostics.CompilerError;
 import compiler.diagnostics.Source;
+import compiler.resolution.ClassDefinition;
 
 public class UnresolveableMemberAccess extends CompilerError {
-    private final Class expectedClass;
+    private final ClassDefinition expectedClass;
     private final AstNode member;
 
-    public UnresolveableMemberAccess(Class expectedClass, MethodCallExpression methodCall) {
+    public UnresolveableMemberAccess(ClassDefinition expectedClass, MethodCallExpression methodCall) {
         this.expectedClass = expectedClass;
         this.member = methodCall;
     }
 
-    public UnresolveableMemberAccess(Class expectedClass, FieldAccessExpression fieldAccess) {
+    public UnresolveableMemberAccess(ClassDefinition expectedClass, FieldAccessExpression fieldAccess) {
         this.expectedClass = expectedClass;
         this.member = fieldAccess;
     }
@@ -38,6 +39,7 @@ public class UnresolveableMemberAccess extends CompilerError {
 
         this.addPrimaryAnnotation(ident.getSpan());
 
-        this.addSecondaryAnnotation(this.expectedClass.getSpan(), "Expected the method in this class.");
+        // TODO:
+        //this.addSecondaryAnnotation(this.expectedClass.getSpan(), "Expected the method in this class.");
     }
 }

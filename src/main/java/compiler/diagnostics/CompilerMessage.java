@@ -41,8 +41,12 @@ public abstract sealed class CompilerMessage
         this.message = String.format(fmt, o);
     }
 
-    public void addNote(String note) {
-        this.notes.add(note);
+    public void addNote(String fmt, Object... o) {
+        this.notes.add(String.format(fmt, o));
+    }
+
+    public void addNote(String fmt) {
+        this.notes.add(fmt);
     }
 
     public void addPrimaryAnnotation(Span location) {

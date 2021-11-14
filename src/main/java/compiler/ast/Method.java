@@ -3,6 +3,7 @@ package compiler.ast;
 import compiler.HasSpan;
 import compiler.Span;
 import compiler.Token;
+import compiler.resolution.MethodDefinition;
 import compiler.utils.StreamUtils;
 
 import java.util.ArrayList;

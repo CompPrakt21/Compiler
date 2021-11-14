@@ -6,15 +6,17 @@ import compiler.ast.MethodCallExpression;
 import compiler.ast.Parameter;
 import compiler.diagnostics.CompilerError;
 import compiler.diagnostics.Source;
+import compiler.resolution.DefinedMethod;
+import compiler.resolution.MethodDefinition;
 import compiler.types.Ty;
 import compiler.types.TyResult;
 
 public class MethodParameterErrors {
     public static class DifferentLength extends CompilerError {
-        private final Method method;
+        private final MethodDefinition method;
         private final MethodCallExpression methodCall;
 
-        public DifferentLength(Method method, MethodCallExpression methodCall) {
+        public DifferentLength(MethodDefinition method, MethodCallExpression methodCall) {
             this.method = method;
             this.methodCall = methodCall;
         }
@@ -25,20 +27,26 @@ public class MethodParameterErrors {
 
             var argLength = this.methodCall.getArguments().size();
             this.addPrimaryAnnotation(methodCall.getSpanWithoutTarget(), String.format("has %s argument%s", argLength, argLength == 1 ? "" : "s"));
-            var paramLength = this.method.getParameters().size();
-            this.addSecondaryAnnotation(method.getParametersSpan(), String.format("has %s parameter%s", paramLength, paramLength == 1 ? "" : "s"));
+
+            if (this.method instanceof DefinedMethod m) {
+                var astMethod = m.getAstMethod();
+                var paramLength = astMethod.getParameters().size();
+                this.addSecondaryAnnotation(astMethod.getParametersSpan(), String.format("has %s parameter%s", paramLength, paramLength == 1 ? "" : "s"));
+            }
         }
     }
 
     public static class ArgumentTypeMismatch extends CompilerError {
-        private final Parameter param;
+        private final MethodDefinition method;
+        private final int paramIdx;
         private final Expression argument;
 
         private final Ty paramTy;
         private final TyResult argumentTy;
 
-        public ArgumentTypeMismatch(Parameter param, Expression argument, Ty paramTy, TyResult argumentTy) {
-            this.param = param;
+        public ArgumentTypeMismatch(MethodDefinition methodDef, int paramIdx, Expression argument, Ty paramTy, TyResult argumentTy) {
+            this.method = methodDef;
+            this.paramIdx = paramIdx;
             this.argument = argument;
             this.paramTy = paramTy;
             this.argumentTy = argumentTy;
@@ -49,7 +57,10 @@ public class MethodParameterErrors {
             this.setMessage(String.format("Argument with type '%s' can not be given to parameter with type '%s'.", this.argumentTy, this.paramTy));
 
             this.addPrimaryAnnotation(this.argument.getSpan(), "this has type '%s'", this.argumentTy);
-            this.addSecondaryAnnotation(this.param.getSpan(), "this expects type '%s'", this.paramTy);
+
+            if (this.method instanceof DefinedMethod m) {
+                this.addSecondaryAnnotation(m.getAstMethod().getParameters().get(this.paramIdx).getSpan(), "this expects type '%s'", this.paramTy);
+            }
         }
     }
 }
