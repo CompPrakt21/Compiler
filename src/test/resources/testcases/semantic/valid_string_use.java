@@ -1,7 +1,10 @@
 /* OK */
 
 class Main {
+    public String y;
+
     public String foo(String arg) {
+        y = arg;
         return foo(arg);
     }
 
