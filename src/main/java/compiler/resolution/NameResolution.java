@@ -96,6 +96,16 @@ public class NameResolution {
             var klass = classDef.getAstClass();
 
             for (Method m : klass.getMethods()) {
+
+                var methodName = m.getIdentifier().getContent();
+                var maybeAlreadyUsed = classDef.searchMethod(methodName);
+                if (maybeAlreadyUsed.isPresent()) {
+                    assert maybeAlreadyUsed.get() instanceof DefinedMethod;
+                    var firstUse = ((DefinedMethod) maybeAlreadyUsed.get()).getAstMethod();
+                    reportError(new MultipleUseOfSameMemberName(firstUse, m));
+                    continue;
+                }
+
                 var returnType = m.getReturnType();
                 this.resolveType(returnType);
                 var returnTy = this.fromAstType(returnType);
@@ -127,6 +137,15 @@ public class NameResolution {
             }
 
             for (Field f : klass.getFields()) {
+
+                var fieldName = f.getIdentifier().getContent();
+                var maybeAlreadyUsed = classDef.searchField(fieldName);
+                if (maybeAlreadyUsed.isPresent()) {
+                    var firstUse = maybeAlreadyUsed.get();
+                    reportError(new MultipleUseOfSameMemberName(firstUse, f));
+                    continue;
+                }
+
                 var type = f.getType();
                 this.resolveType(type);
                 var ty = this.fromAstType(type);
