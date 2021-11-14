@@ -1,0 +1,10 @@
+/* OK */
+
+class Main {
+	public static void main(String[] args) {
+		System.out.println(1);
+		System.out.write(1);
+		System.out.flush();
+		int x = System.in.read();
+	}
+}

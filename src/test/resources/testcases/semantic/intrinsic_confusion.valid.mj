@@ -1,0 +1,20 @@
+/* OK */
+
+class System {
+	public Out out;
+}
+
+class Out {
+	public void println(int i) {
+	}
+}
+
+class Main {
+	public static void main(String[] args) {
+		System.out.println(1);
+
+		System System;
+
+		System.out.println(1);
+	}
+}
