@@ -2,6 +2,9 @@ package compiler;
 
 import com.sun.source.util.DocSourcePositions;
 import compiler.ast.*;
+import compiler.diagnostics.CompilerMessage;
+import compiler.diagnostics.CompilerMessageReporter;
+import compiler.errors.*;
 
 import java.lang.Class;
 import java.util.*;
@@ -13,25 +16,36 @@ public class Semantic {
     boolean correct = true;
     int expectReturn = 0;
     boolean isStatic = false;
+    private final Optional<CompilerMessageReporter> reporter;
+
+    public Semantic(CompilerMessageReporter reporter) {
+        this.reporter = Optional.of(reporter);
+    }
+
+    private void reportError(CompilerMessage msg) {
+        this.reporter.ifPresent(compilerMessageReporter -> compilerMessageReporter.reportMessage(msg));
+    }
 
     public boolean checkWellFormdness(AstNode node) {
-        if(node == null) fail("Nothing?", node);
-        if(node.getName() != "Program") fail("Starting nodes needs to be of type Program", node);
-        if (node.isError()) fail("Error node found", node);
+        if(node == null) return false;
+        if(node.getName() != "Program") return false;
+        if (node.isError()) return false;
         List<AstNode> children = node.getChildren();
         foundMainMethod = false;
-        recursiveCheckPerBlock(children);
-        if (!foundMainMethod) fail("No main method was found", node);
+        correct = recursiveCheckPerBlock(children);
+        if (!foundMainMethod) {
+            reportError(new MainMethodProblems.MainMethodMissing());
+            return false;
+        };
 
         return correct;
-        //TODO: Check if main method was created
     }
 
     private boolean recursiveCheckPerBlock(List<AstNode> nodes) {
         //TODO: Check all children
         int oldExpectReturn = expectReturn;
-        ArrayList<Integer> instanciatedVars = new ArrayList<>();
-        ArrayList<Integer> instanciatedMethods = new ArrayList<>();
+        ArrayList<String> instanciatedVars = new ArrayList<>();
+        ArrayList<String> instanciatedMethods = new ArrayList<>();
         if (nodes == null) {
             return true;
         }
@@ -41,29 +55,28 @@ public class Semantic {
                 //Checks if the main Method is called.
                 case MethodCallExpression methodCallExpression:
                     if (methodCallExpression.getName().equals("main")) {
+                        reportError(new MainMethodProblems.MainMethodCalled(methodCallExpression));
                         correct = false;
-                        fail("Main method was called", methodCallExpression);
                     }
-                    //TODO: check if Parameters are correct? Are references correct?
-                    recursiveCheckPerBlock(children);
+                    correct &= recursiveCheckPerBlock(children);
                     break;
                 //Checks if a has already variable been instanciated or if its type is void
                 case Field field:
-                    if (instanciatedVars.contains(field.getID()) || children.get(0) instanceof VoidType) {
+                    if (instanciatedVars.contains(field.getName()) || children.get(0) instanceof VoidType) {
+                        reportError(new MultipleUseOfSameMemberName(field, field));
                         correct = false;
-                        fail("Field was instanciated int this program already", field);
                     }
-                    instanciatedVars.add(field.getID());
-                    recursiveCheckPerBlock(children);
+                    instanciatedVars.add(field.getName());
+                    correct &= recursiveCheckPerBlock(children);
                     break;
                 //Checks if a variable has already been instanciated in this block or if its type is of void
                 case LocalVariableDeclarationStatement localVariableDeclarationStatement:
-                    if (instanciatedVars.contains(localVariableDeclarationStatement.getID()) || children.get(0) instanceof  VoidType) {
+                    if (instanciatedVars.contains(localVariableDeclarationStatement.getName()) || children.get(0) instanceof  VoidType) {
+                        reportError(new LocalDeclarationErrors.MultipleUseOfSameVariableName(localVariableDeclarationStatement));
                         correct = false;
-                        fail("Var was instanciated in this block already or the var has type void", localVariableDeclarationStatement);
                     }
-                    instanciatedVars.add(localVariableDeclarationStatement.getID());
-                    recursiveCheckPerBlock(children);
+                    instanciatedVars.add(localVariableDeclarationStatement.getName());
+                    correct &= recursiveCheckPerBlock(children);
                     break;
                 //checks that only one static method exists and that that one is a correctly formed "main".
                 //Checks what return type is expected
@@ -72,51 +85,60 @@ public class Semantic {
                         foundMainMethod = true;
                         isStatic = true;
                     }else if (method.getIdentifier().equals("main") || method.isStatic()) {
-                        fail("Two main methods or two static methods were detected", method);
-                        break;
+                        reportError(new MainMethodProblems.MultipleStaticMethods(method));
+                        correct = false;
                     }
-                    if (instanciatedMethods.contains(method.getID())) fail("Method overloading is disallowed", method);
-                    instanciatedMethods.add(method.getID());
+                    if (instanciatedMethods.contains(method.getName())) {
+                        reportError(new MultipleUseOfSameMemberName(method, method));
+                        correct = false;
+                    }
+                    instanciatedMethods.add(method.getName());
                     expectReturn = (children.get(0) instanceof VoidType) ? 0 : 1;
-                    recursiveCheckPerBlock(children);
-                    if (expectReturn > 0) fail("Not all paths were covered by a return", method); //TODO
+                    correct &= recursiveCheckPerBlock(children);
+                    if (expectReturn > 0) {
+                        reportError(new ReturnStatementErrors.MissingReturnOnPath(method));
+                        correct = false;
+                    }
                     isStatic = false;
                     break;
                 //Checks if the left side of the assignment is formed correctly. Check if type matches?
                 case AssignmentExpression assignmentExpression:
                     AstNode temp = children.get(0);
                     if (temp instanceof Reference || temp instanceof ArrayAccessExpression || temp instanceof FieldAccessExpression) {
-                        recursiveCheckPerBlock(children);
+                        correct &= recursiveCheckPerBlock(children);
                         break;
                     }
-                    fail("Wrong left side in assignment", assignmentExpression);
-                    recursiveCheckPerBlock(children);
+                    reportError(new AssignmentExpressionLeft(assignmentExpression));
+                    correct = false;
                     break;
                 //Check all return paths
                 case IfStatement ifStatement:
                     expectReturn += expectReturn > 0 ? ifStatement.getChildren().size() - 1 : 0;
-                    recursiveCheckPerBlock(children);
+                    correct &= recursiveCheckPerBlock(children);
                     if (expectReturn >= oldExpectReturn) expectReturn = oldExpectReturn;
                     break;
                 //Check all return paths
                 case WhileStatement whileStatement:
                     expectReturn += expectReturn > 0 ? 1 : 0;
-                    recursiveCheckPerBlock(children);
+                    correct &= recursiveCheckPerBlock(children);
                     if (expectReturn >= oldExpectReturn) expectReturn = oldExpectReturn;
                     break;
                 //Checks if a return is expected and delivered
                 case ReturnStatement returnStatement:
                     expectReturn -= expectReturn > 0 ? 1 : 0;
-                    recursiveCheckPerBlock(children);
+                    correct &= recursiveCheckPerBlock(children);
                     break;
 
                 case ThisExpression thisExpression:
-                    if (isStatic) fail("This call in static method " , thisExpression);
-                    recursiveCheckPerBlock(children);
+                    if (isStatic) {
+                        reportError(new MainMethodProblems.ReferenceUsingStatic(thisExpression));
+                        correct = false;
+                    }
+                    correct &= recursiveCheckPerBlock(children);
                     break;
 
                 case null, default:
-                    recursiveCheckPerBlock(children);;
+                    correct &= recursiveCheckPerBlock(children);;
 
             }
         }
@@ -127,46 +149,16 @@ public class Semantic {
 
     private boolean checkMainMethod(Method node){
         List<AstNode> children = node.getChildren();
-        boolean test = true;
-        test &= children.get(0) instanceof VoidType
+        boolean test = children.get(0) instanceof VoidType
                 && node.isStatic()
                 && children.get(1) instanceof Parameter
                 && children.get(1).getChildren().get(0) instanceof ArrayType
                 && children.get(1).getChildren().get(0).getChildren().get(0) instanceof ClassType
-                && ((ClassType) children.get(1).getChildren().get(0).getChildren().get(0)).getName() == "String"
                 && children.get(2) instanceof Block;
 
         return test;
 
     }
-
-    private void fail(String errmsg, AstNode node) {//TODO
-        correct = false;
-        if (node != null) {
-            System.out.println(errmsg + " : " + node.getName() + " : " + node.getSpan());
-        } else {
-            System.out.println(errmsg + " null node");
-        }
-    }
-
-    public void checkCorrectness(AstNode node) {
-        boolean multipleInstanceInstanciations;
-        boolean multipleMainMethods;
-        boolean callsMain;
-        boolean wrongAccess;
-        boolean stringUsed;
-        boolean correctMain;
-        List<AstNode> children = node.getChildren();
-        if (node.isError()) fail();
-
-
-
-    }
-
-    private void fail() {
-
-    }
-
 
 
 }

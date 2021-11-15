@@ -58,4 +58,16 @@ public class LocalDeclarationErrors {
             this.addSecondaryAnnotation(this.stmt.getType().getSpan(), "this is type '%s'", this.expectedTy);
         }
     }
+
+    public static class MultipleUseOfSameVariableName extends CompilerError {
+        private final LocalVariableDeclarationStatement stmt;
+
+        public MultipleUseOfSameVariableName(LocalVariableDeclarationStatement stmt) {this.stmt = stmt;};
+
+        @Override
+        public void generate(Source source) {
+            this.setMessage("Reuse of name %s", stmt.getName());
+            this.addPrimaryAnnotation(stmt.getSpan());
+        }
+    }
 }

@@ -69,4 +69,19 @@ public class ReturnStatementErrors {
             this.addSecondaryAnnotation(this.method.getReturnType().getSpan(), "expecting type '%s'", this.expectedTy);
         }
     }
+
+    public static class MissingReturnOnPath extends CompilerError {
+        private final Method method;
+
+        public MissingReturnOnPath(Method method) {
+            this.method = method;
+        }
+
+        @Override
+        public void generate(Source source) {
+            this.setMessage("Not all paths include a return expression.");
+
+            this.addPrimaryAnnotation(this.method.getSpan());
+        }
+    }
 }
