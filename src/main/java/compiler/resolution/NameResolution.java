@@ -32,6 +32,8 @@ public class NameResolution {
 
     private final Optional<CompilerMessageReporter> reporter;
 
+    private boolean successful;
+
     @SuppressWarnings("unused")
     public NameResolution() {
         this(Optional.empty());
@@ -53,14 +55,40 @@ public class NameResolution {
         this.classInfo = new HashMap<>();
 
         this.reporter = reporter;
+
+        this.successful = true;
+    }
+
+    public record NameResolutionResult(Definitions definitions,
+                                       AstData<TyResult> types,
+                                       boolean successful) {
+    }
+
+    public static NameResolutionResult performNameResolution(Program program, CompilerMessageReporter reporter) {
+        var resolution = new NameResolution(reporter);
+
+        resolution.addIntrinsicClasses();
+
+        resolution.globalNameResolution(program);
+
+        for (Class klass : program.getClasses()) {
+            resolution.currentClass = klass;
+
+            for (Method m : klass.getMethods()) {
+                resolution.resolveMethod(m);
+            }
+        }
+
+        return new NameResolutionResult(
+                resolution.definitions,
+                resolution.expressionTypes,
+                resolution.successful
+        );
     }
 
     private void reportError(CompilerMessage msg) {
         this.reporter.ifPresent(compilerMessageReporter -> compilerMessageReporter.reportMessage(msg));
-    }
-
-    public record NameResolutionResult(Definitions definitions,
-                                       AstData<TyResult> types) {
+        this.successful = false;
     }
 
     private void addIntrinsicClasses() {
@@ -159,27 +187,6 @@ public class NameResolution {
                 classDef.addField(f);
             }
         }
-    }
-
-    public static NameResolutionResult performNameResolution(Program program, CompilerMessageReporter reporter) {
-        var resolution = new NameResolution(reporter);
-
-        resolution.addIntrinsicClasses();
-
-        resolution.globalNameResolution(program);
-
-        for (Class klass : program.getClasses()) {
-            resolution.currentClass = klass;
-
-            for (Method m : klass.getMethods()) {
-                resolution.resolveMethod(m);
-            }
-        }
-
-        return new NameResolutionResult(
-                resolution.definitions,
-                resolution.expressionTypes
-        );
     }
 
     private void resolveMethod(Method method) {

@@ -121,6 +121,19 @@ public class MainCommand implements Callable<Integer> {
         });
     }
 
+    @SuppressWarnings("unused")
+    @Command(name = "--check", description = "Performs semantic analysis of the input.")
+    public Integer check(@Parameters(paramLabel = "FILE", description = "The file to parse.") File file) {
+        return callWithParsed(file, (reporter, parser, ast) -> {
+            var nameResolutionResult = NameResolution.performNameResolution(ast, reporter);
+
+            var semantic = new Semantic(reporter, nameResolutionResult);
+            var semanticRes = semantic.checkWellFormdness(ast);
+
+            return nameResolutionResult.successful() && semanticRes;
+        });
+    }
+
     @Override
     public Integer call() {
         // For now, a subcommand is required.
