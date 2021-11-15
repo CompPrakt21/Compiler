@@ -2,11 +2,13 @@ package compiler;
 
 import com.sun.source.util.DocSourcePositions;
 import compiler.ast.*;
+import compiler.ast.Class;
 import compiler.diagnostics.CompilerMessage;
 import compiler.diagnostics.CompilerMessageReporter;
 import compiler.errors.*;
+import compiler.resolution.NameResolution;
 
-import java.lang.Class;
+import java.lang.constant.ClassDesc;
 import java.util.*;
 
 public class Semantic {
@@ -17,8 +19,10 @@ public class Semantic {
     int expectReturn = 0;
     boolean isStatic = false;
     private final Optional<CompilerMessageReporter> reporter;
+    private final NameResolution.NameResolutionResult nameResolution;
 
-    public Semantic(CompilerMessageReporter reporter) {
+    public Semantic(CompilerMessageReporter reporter, NameResolution.NameResolutionResult nameResolution) {
+        this.nameResolution = nameResolution;
         this.reporter = Optional.of(reporter);
     }
 
@@ -26,13 +30,13 @@ public class Semantic {
         this.reporter.ifPresent(compilerMessageReporter -> compilerMessageReporter.reportMessage(msg));
     }
 
-    public boolean checkWellFormdness(AstNode node) {
+    public boolean checkWellFormdness(Program node) {
         if(node == null) return false;
         if(node.getName() != "Program") return false;
-        if (node.isError()) return false;
-        List<AstNode> children = node.getChildren();
+        if (node.isError()) return false;       //nodes cannot have error
+        List<Class> children = node.getClasses();
         foundMainMethod = false;
-        correct = recursiveCheckPerBlock(children);
+        correct = checkClasses(children);
         if (!foundMainMethod) {
             reportError(new MainMethodProblems.MainMethodMissing());
             return false;
@@ -41,42 +45,31 @@ public class Semantic {
         return correct;
     }
 
+    private boolean checkExpressions(Expression expression) {
+
+        return true;
+    }
+
+    private boolean checkClasses(List<Class> classExpression) {
+
+        for (Class klass : classExpression) {
+            recursiveCheckPerBlock(List.of(klass));
+        }
+
+        return true;
+    }
+
+
     private boolean recursiveCheckPerBlock(List<AstNode> nodes) {
         //TODO: Check all children
-        int oldExpectReturn = expectReturn;
-        ArrayList<String> instanciatedVars = new ArrayList<>();
-        ArrayList<String> instanciatedMethods = new ArrayList<>();
-        if (nodes == null) {
-            return true;
-        }
         for (AstNode child: nodes) {
-            List<AstNode> children = child.getChildren();
             switch (child) {
                 //Checks if the main Method is called.
                 case MethodCallExpression methodCallExpression:
-                    if (methodCallExpression.getName().equals("main")) {
+                    if (methodCallExpression.getIdentifier().getContent().equals("main")) {
                         reportError(new MainMethodProblems.MainMethodCalled(methodCallExpression));
                         correct = false;
                     }
-                    correct &= recursiveCheckPerBlock(children);
-                    break;
-                //Checks if a has already variable been instanciated or if its type is void
-                case Field field:
-                    if (instanciatedVars.contains(field.getName()) || children.get(0) instanceof VoidType) {
-                        reportError(new MultipleUseOfSameMemberName(field, field));
-                        correct = false;
-                    }
-                    instanciatedVars.add(field.getName());
-                    correct &= recursiveCheckPerBlock(children);
-                    break;
-                //Checks if a variable has already been instanciated in this block or if its type is of void
-                case LocalVariableDeclarationStatement localVariableDeclarationStatement:
-                    if (instanciatedVars.contains(localVariableDeclarationStatement.getName()) || children.get(0) instanceof  VoidType) {
-                        reportError(new LocalDeclarationErrors.MultipleUseOfSameVariableName(localVariableDeclarationStatement));
-                        correct = false;
-                    }
-                    instanciatedVars.add(localVariableDeclarationStatement.getName());
-                    correct &= recursiveCheckPerBlock(children);
                     break;
                 //checks that only one static method exists and that that one is a correctly formed "main".
                 //Checks what return type is expected
@@ -88,13 +81,8 @@ public class Semantic {
                         reportError(new MainMethodProblems.MultipleStaticMethods(method));
                         correct = false;
                     }
-                    if (instanciatedMethods.contains(method.getName())) {
-                        reportError(new MultipleUseOfSameMemberName(method, method));
-                        correct = false;
-                    }
-                    instanciatedMethods.add(method.getName());
-                    expectReturn = (children.get(0) instanceof VoidType) ? 0 : 1;
-                    correct &= recursiveCheckPerBlock(children);
+                    expectReturn = (method.getReturnType() instanceof VoidType) ? 0 : 1;
+                    correct &= recursiveCheckPerBlock(List.of(method.getBody()));
                     if (expectReturn > 0) {
                         reportError(new ReturnStatementErrors.MissingReturnOnPath(method));
                         correct = false;
@@ -103,30 +91,13 @@ public class Semantic {
                     break;
                 //Checks if the left side of the assignment is formed correctly. Check if type matches?
                 case AssignmentExpression assignmentExpression:
-                    AstNode temp = children.get(0);
+                    AstNode temp = assignmentExpression.getLvalue(); //TODO;
                     if (temp instanceof Reference || temp instanceof ArrayAccessExpression || temp instanceof FieldAccessExpression) {
-                        correct &= recursiveCheckPerBlock(children);
+                        correct &= recursiveCheckPerBlock(List.of(assignmentExpression.getRvalue()));
                         break;
                     }
                     reportError(new AssignmentExpressionLeft(assignmentExpression));
                     correct = false;
-                    break;
-                //Check all return paths
-                case IfStatement ifStatement:
-                    expectReturn += expectReturn > 0 ? ifStatement.getChildren().size() - 1 : 0;
-                    correct &= recursiveCheckPerBlock(children);
-                    if (expectReturn >= oldExpectReturn) expectReturn = oldExpectReturn;
-                    break;
-                //Check all return paths
-                case WhileStatement whileStatement:
-                    expectReturn += expectReturn > 0 ? 1 : 0;
-                    correct &= recursiveCheckPerBlock(children);
-                    if (expectReturn >= oldExpectReturn) expectReturn = oldExpectReturn;
-                    break;
-                //Checks if a return is expected and delivered
-                case ReturnStatement returnStatement:
-                    expectReturn -= expectReturn > 0 ? 1 : 0;
-                    correct &= recursiveCheckPerBlock(children);
                     break;
 
                 case ThisExpression thisExpression:
@@ -134,11 +105,10 @@ public class Semantic {
                         reportError(new MainMethodProblems.ReferenceUsingStatic(thisExpression));
                         correct = false;
                     }
-                    correct &= recursiveCheckPerBlock(children);
                     break;
 
                 case null, default:
-                    correct &= recursiveCheckPerBlock(children);;
+                    break;
 
             }
         }
@@ -148,13 +118,12 @@ public class Semantic {
 
 
     private boolean checkMainMethod(Method node){
-        List<AstNode> children = node.getChildren();
-        boolean test = children.get(0) instanceof VoidType
+        boolean test = node.getReturnType() instanceof VoidType
                 && node.isStatic()
-                && children.get(1) instanceof Parameter
-                && children.get(1).getChildren().get(0) instanceof ArrayType
-                && children.get(1).getChildren().get(0).getChildren().get(0) instanceof ClassType
-                && children.get(2) instanceof Block;
+                && node.getParameters().size() == 1
+                && node.getParameters().get(0).getType() instanceof ArrayType arrayType
+                && arrayType.getChildType() instanceof ClassType classType
+                && classType.getIdentifier().getContent().equals("String");
 
         return test;
 
