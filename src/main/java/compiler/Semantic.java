@@ -13,7 +13,7 @@ import java.util.*;
 
 public class Semantic {
 
-    private boolean foundMainMethod = false;
+    private Optional<Method> mainMethod;
     private AstNode expectedReturnStatements;
     boolean correct = true;
     int expectReturn = 0;
@@ -24,6 +24,7 @@ public class Semantic {
     public Semantic(CompilerMessageReporter reporter, NameResolution.NameResolutionResult nameResolution) {
         this.nameResolution = nameResolution;
         this.reporter = Optional.of(reporter);
+        mainMethod = Optional.empty();
     }
 
     private void reportError(CompilerMessage msg) {
@@ -32,10 +33,9 @@ public class Semantic {
 
     public boolean checkWellFormdness(Program node) {
         List<Class> children = node.getClasses();
-        foundMainMethod = false;
         correct = checkClasses(children);
 
-        if (!foundMainMethod) {
+        if (mainMethod.isEmpty()) {
             reportError(new MainMethodProblems.MainMethodMissing());
             return false;
         }
@@ -43,24 +43,33 @@ public class Semantic {
         return correct;
     }
 
-    private boolean checkExpressions(Expression expression) {
-
-        return true;
-    }
-
     private boolean checkClasses(List<Class> classExpression) {
 
         for (Class klass : classExpression) {
-            recursiveCheckPerBlock(List.of(klass));
+            checkMethods(klass.getMethods());
         }
 
         return true;
     }
 
+    private boolean checkMethods(List<Method> methods) {
+        for (Method method : methods) {
+            if (method.getIdentifier().getContent().equals("main")) {
+                checkMainMethod(method);
+                continue;
+            }
+            else {
 
-    private boolean recursiveCheckPerBlock(List<AstNode> nodes) {
+            }
+        }
+        return true;
+
+    }
+
+
+    private boolean checkExpressions(List<Expression> nodes) {
         //TODO: Check all children
-        for (AstNode child : nodes) {
+        for (Expression child : nodes) {
             switch (child) {
                 //Checks if the main Method is called.
                 case MethodCallExpression methodCallExpression:
@@ -69,40 +78,15 @@ public class Semantic {
                         correct = false;
                     }
                     break;
-                //checks that only one static method exists and that that one is a correctly formed "main".
-                //Checks what return type is expected
-                case Method method:
-                    if (method.isStatic() && method.getIdentifier().getContent().equals("main") && !foundMainMethod && checkMainMethod(method)) {
-                        foundMainMethod = true;
-                        isStatic = true;
-                    } else if (method.getIdentifier().equals("main") || method.isStatic()) {
-                        reportError(new MainMethodProblems.MultipleStaticMethods(method));
-                        correct = false;
-                    }
-                    expectReturn = (method.getReturnType() instanceof VoidType) ? 0 : 1;
-                    correct &= recursiveCheckPerBlock(List.of(method.getBody()));
-                    if (expectReturn > 0) {
-                        reportError(new ReturnStatementErrors.MissingReturnOnPath(method));
-                        correct = false;
-                    }
-                    isStatic = false;
-                    break;
                 //Checks if the left side of the assignment is formed correctly. Check if type matches?
                 case AssignmentExpression assignmentExpression:
-                    AstNode temp = assignmentExpression.getLvalue(); //TODO;
+                    AstNode temp = assignmentExpression.getLvalue();
                     if (temp instanceof Reference || temp instanceof ArrayAccessExpression || temp instanceof FieldAccessExpression) {
-                        correct &= recursiveCheckPerBlock(List.of(assignmentExpression.getRvalue()));
+                        correct &= checkExpressions(List.of(assignmentExpression.getRvalue()));
                         break;
                     }
                     reportError(new AssignmentExpressionLeft(assignmentExpression));
                     correct = false;
-                    break;
-
-                case ThisExpression thisExpression:
-                    if (isStatic) {
-                        reportError(new MainMethodProblems.ReferenceUsingStatic(thisExpression));
-                        correct = false;
-                    }
                     break;
 
                 case null, default:
@@ -123,7 +107,9 @@ public class Semantic {
                 && arrayType.getChildType() instanceof ClassType classType
                 && classType.getIdentifier().getContent().equals("String");
 
-        return test;
+        if (!test) return false;
+        mainMethod = Optional.of(node);
+        return true;
 
     }
 
