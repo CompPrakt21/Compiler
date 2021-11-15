@@ -81,17 +81,4 @@ public final class BinaryOpExpression extends Expression {
                 && this.operator.equals(other.operator)
                 && this.rhs.syntacticEq(other.rhs);
     }
-
-    @Override
-    public List<AstNode> getChildren() {
-        ArrayList<AstNode> temp = new ArrayList<>();
-        temp.add(lhs);
-        temp.add(rhs);
-        return temp;
-    }
-
-    @Override
-    public String getName() {
-        return operator.name();
-    }
 }

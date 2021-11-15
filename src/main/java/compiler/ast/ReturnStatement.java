@@ -27,18 +27,6 @@ public final class ReturnStatement extends Statement {
     }
 
     @Override
-    public List<AstNode> getChildren() {
-        ArrayList<AstNode> temp = new ArrayList<>();
-        expression.ifPresent(temp::add);
-        return temp;
-    }
-
-    @Override
-    public String getName() {
-        return "ReturnStatement";
-    }
-
-    @Override
     public boolean syntacticEq(AstNode otherAst) {
         if (!(otherAst instanceof ReturnStatement other)) {
             return false;

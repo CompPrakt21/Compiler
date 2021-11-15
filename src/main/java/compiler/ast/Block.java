@@ -24,16 +24,6 @@ public final class Block extends Statement {
     }
 
     @Override
-    public List<AstNode> getChildren() {
-        return new ArrayList<>(statements);
-    }
-
-    @Override
-    public String getName() {
-        return "Block";
-    }
-
-    @Override
     public boolean syntacticEq(AstNode otherAst) {
         if (!(otherAst instanceof Block other)) {
             return false;

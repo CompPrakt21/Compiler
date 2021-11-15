@@ -34,18 +34,4 @@ public final class AssignmentExpression extends Expression {
         return this.lvalue.syntacticEq(other.lvalue)
                 && this.rvalue.syntacticEq(other.rvalue);
     }
-
-    @Override
-    public List<AstNode> getChildren() {
-        ArrayList<AstNode> temp = new ArrayList<>();
-        temp.add(lvalue);
-        temp.add(rvalue);
-        return temp;
-    }
-
-    @Override
-    public String getName() {
-        return "AssignmentExpresssion";
-    }
-
 }

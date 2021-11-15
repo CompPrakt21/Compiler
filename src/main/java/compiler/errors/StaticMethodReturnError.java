@@ -18,7 +18,9 @@ public class StaticMethodReturnError extends CompilerError {
     public void generate(Source source) {
         this.setMessage("Static methods have to have a void return type.");
 
-        this.addPrimaryAnnotation(foundType.getSpan(), "return type is: " + foundType.getName());
+        var typeStr = source.getSpanString(foundType.getSpan());
+
+        this.addPrimaryAnnotation(foundType.getSpan(), "return type is '%s'", typeStr);
         this.addSecondaryAnnotation(staticToken.getSpan(), "method is static");
     }
 }

@@ -51,17 +51,4 @@ public final class LocalVariableDeclarationStatement extends Statement implement
                 && this.identifier.equals(other.identifier)
                 && OptionalUtils.combine(this.initializer, other.initializer, AstNode::syntacticEq).orElse(true);
     }
-
-    @Override
-    public List<AstNode> getChildren() {
-        ArrayList<AstNode> temp = new ArrayList<>();
-        temp.add(type);
-        initializer.ifPresent(temp::add);
-        return temp;
-    }
-
-    @Override
-    public String getName() {
-        return identifier.getContent();
-    }
 }

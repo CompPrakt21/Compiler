@@ -16,16 +16,6 @@ public final class IntLiteral extends Expression {
     }
 
     @Override
-    public List<AstNode> getChildren() {
-        return null;
-    }
-
-    @Override
-    public String getName() {
-        return value;
-    }
-
-    @Override
     public boolean syntacticEq(AstNode otherAst) {
         if (!(otherAst instanceof IntLiteral other)) {
             return false;

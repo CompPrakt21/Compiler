@@ -25,16 +25,6 @@ public final class Program extends AstNode {
     }
 
     @Override
-    public List<AstNode> getChildren() {
-        return new ArrayList<>(classes);
-    }
-
-    @Override
-    public String getName() {
-        return "Program";
-    }
-
-    @Override
     public boolean syntacticEq(AstNode otherAst) {
         if (!(otherAst instanceof Program other)) {
             return false;

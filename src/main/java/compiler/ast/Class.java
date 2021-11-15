@@ -39,20 +39,6 @@ public final class Class extends AstNode {
     }
 
     @Override
-    public List<AstNode> getChildren() {
-        ArrayList<AstNode> temp = new ArrayList<>();
-        temp.add(identifier);
-        temp.addAll(fields);
-        temp.addAll(methods);
-        return temp;
-    }
-
-    @Override
-    public String getName() {
-        return identifier.getContent();
-    }
-
-    @Override
     public boolean syntacticEq(AstNode other) {
         if (!(other instanceof Class otherClass)) {
             return false;

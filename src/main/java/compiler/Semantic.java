@@ -31,16 +31,14 @@ public class Semantic {
     }
 
     public boolean checkWellFormdness(Program node) {
-        if(node == null) return false;
-        if(node.getName() != "Program") return false;
-        if (node.isError()) return false;       //nodes cannot have error
         List<Class> children = node.getClasses();
         foundMainMethod = false;
         correct = checkClasses(children);
+
         if (!foundMainMethod) {
             reportError(new MainMethodProblems.MainMethodMissing());
             return false;
-        };
+        }
 
         return correct;
     }
@@ -62,7 +60,7 @@ public class Semantic {
 
     private boolean recursiveCheckPerBlock(List<AstNode> nodes) {
         //TODO: Check all children
-        for (AstNode child: nodes) {
+        for (AstNode child : nodes) {
             switch (child) {
                 //Checks if the main Method is called.
                 case MethodCallExpression methodCallExpression:
@@ -74,10 +72,10 @@ public class Semantic {
                 //checks that only one static method exists and that that one is a correctly formed "main".
                 //Checks what return type is expected
                 case Method method:
-                    if (method.isStatic() && method.getName().equals("main") && !foundMainMethod && checkMainMethod(method)) {
+                    if (method.isStatic() && method.getIdentifier().getContent().equals("main") && !foundMainMethod && checkMainMethod(method)) {
                         foundMainMethod = true;
                         isStatic = true;
-                    }else if (method.getIdentifier().equals("main") || method.isStatic()) {
+                    } else if (method.getIdentifier().equals("main") || method.isStatic()) {
                         reportError(new MainMethodProblems.MultipleStaticMethods(method));
                         correct = false;
                     }
@@ -117,7 +115,7 @@ public class Semantic {
     }
 
 
-    private boolean checkMainMethod(Method node){
+    private boolean checkMainMethod(Method node) {
         boolean test = node.getReturnType() instanceof VoidType
                 && node.isStatic()
                 && node.getParameters().size() == 1

@@ -31,18 +31,6 @@ public final class Field extends AstNode implements VariableDefinition {
     }
 
     @Override
-    public List<AstNode> getChildren() {
-        ArrayList<AstNode> temp = new ArrayList<>();
-        temp.add(type);
-        return temp;
-    }
-
-    @Override
-    public String getName() {
-        return identifier.getContent();
-    }
-
-    @Override
     public boolean syntacticEq(AstNode otherAst) {
         if (!(otherAst instanceof Field other)) {
             return false;

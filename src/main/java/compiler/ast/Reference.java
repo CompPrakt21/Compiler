@@ -20,16 +20,6 @@ public final class Reference extends Expression {
     }
 
     @Override
-    public List<AstNode> getChildren() {
-        return null;
-    }
-
-    @Override
-    public String getName() {
-        return this.identifier.getContent();
-    }
-
-    @Override
     public boolean syntacticEq(AstNode otherAst) {
         if (!(otherAst instanceof Reference other)) {
             return false;

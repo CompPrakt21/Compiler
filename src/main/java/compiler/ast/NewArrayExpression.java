@@ -36,19 +36,6 @@ public final class NewArrayExpression extends Expression {
     }
 
     @Override
-    public List<AstNode> getChildren() {
-        ArrayList<AstNode> temp = new ArrayList<>();
-        temp.add(type);
-        temp.add(firstDimensionSize);
-        return temp;
-    }
-
-    @Override
-    public String getName() {
-        return "Array_Size_" + dimensions;
-    }
-
-    @Override
     public boolean syntacticEq(AstNode otherAst) {
         if (!(otherAst instanceof NewArrayExpression other)) {
             return false;

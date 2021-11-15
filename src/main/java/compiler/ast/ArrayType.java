@@ -21,18 +21,6 @@ public final class ArrayType extends Type {
     }
 
     @Override
-    public List<AstNode> getChildren() {
-        ArrayList<AstNode> temp = new ArrayList<>();
-        temp.add(childType);
-        return temp;
-    }
-
-    @Override
-    public String getName() {
-        return "ArrayType";
-    }
-
-    @Override
     public boolean syntacticEq(AstNode otherAst) {
         if (!(otherAst instanceof ArrayType other)) {
             return false;

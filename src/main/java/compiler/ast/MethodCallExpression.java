@@ -52,19 +52,6 @@ public final class MethodCallExpression extends Expression {
     }
 
     @Override
-    public List<AstNode> getChildren() {
-        ArrayList<AstNode> temp = new ArrayList<>();
-        target.ifPresent(temp::add);
-        temp.addAll(arguments);
-        return temp;
-    }
-
-    @Override
-    public String getName() {
-        return identifier.getContent();
-    }
-
-    @Override
     public boolean syntacticEq(AstNode otherAst) {
         if (!(otherAst instanceof MethodCallExpression other)) {
             return false;

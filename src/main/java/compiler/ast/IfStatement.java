@@ -37,21 +37,6 @@ public final class IfStatement extends Statement {
     }
 
     @Override
-    public List<AstNode> getChildren() {
-        ArrayList<AstNode> temp = new ArrayList<>();
-        temp.add(condition);
-        temp.add(thenBody);
-        elseBody.ifPresent(temp::add);
-
-        return temp;
-    }
-
-    @Override
-    public String getName() {
-        return "IfStatement";
-    }
-
-    @Override
     public boolean syntacticEq(AstNode otherAst) {
         if (!(otherAst instanceof IfStatement other)) {
             return false;

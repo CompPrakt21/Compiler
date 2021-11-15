@@ -25,16 +25,6 @@ public final class Identifier extends AstNode {
     }
 
     @Override
-    public List<AstNode> getChildren() {
-        return List.of();
-    }
-
-    @Override
-    public String getName() {
-        return "Identifier";
-    }
-
-    @Override
     public boolean syntacticEq(AstNode otherAst) {
         return otherAst instanceof Identifier otherIdent && otherIdent.content.equals(this.content);
     }

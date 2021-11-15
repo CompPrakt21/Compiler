@@ -51,16 +51,4 @@ public final class UnaryExpression extends Expression {
     public String getOperatorRepr() {
         return operatorRepr;
     }
-
-    @Override
-    public List<AstNode> getChildren() {
-        ArrayList<AstNode> temp = new ArrayList<>();
-        temp.add(expression);
-        return temp;
-    }
-
-    @Override
-    public String getName() {
-        return operator.name();
-    }
 }

@@ -21,16 +21,6 @@ public final class NewObjectExpression extends Expression {
     }
 
     @Override
-    public List<AstNode> getChildren() {
-        return null;
-    }
-
-    @Override
-    public String getName() {
-        return typeIdentifier.getIdentifier().getContent();
-    }
-
-    @Override
     public boolean syntacticEq(AstNode otherAst) {
         if (!(otherAst instanceof NewObjectExpression other)) {
             return false;

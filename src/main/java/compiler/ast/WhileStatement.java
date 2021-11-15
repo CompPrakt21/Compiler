@@ -27,19 +27,6 @@ public final class WhileStatement extends Statement {
     }
 
     @Override
-    public List<AstNode> getChildren() {
-        ArrayList<AstNode> temp = new ArrayList<>();
-        temp.add(condition);
-        temp.add(body);
-        return temp;
-    }
-
-    @Override
-    public String getName() {
-        return "WhileStatement";
-    }
-
-    @Override
     public boolean syntacticEq(AstNode otherAst) {
         if (!(otherAst instanceof WhileStatement other)) {
             return false;

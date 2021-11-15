@@ -84,21 +84,6 @@ public final class Method extends AstNode {
     }
 
     @Override
-    public List<AstNode> getChildren() {
-        ArrayList<AstNode> temp = new ArrayList<>();
-        temp.add(returnType);
-        temp.addAll(parameters);
-        temp.add(body);
-        return temp;
-    }
-
-    @Override
-    public String getName() {
-        return identifier.getContent();
-    }
-
-
-    @Override
     public boolean syntacticEq(AstNode otherAst) {
         if (!(otherAst instanceof Method other)) {
             return false;
@@ -108,9 +93,5 @@ public final class Method extends AstNode {
                 && this.returnType.syntacticEq(other.returnType)
                 && StreamUtils.zip(this.parameters.stream(), other.parameters.stream(), AstNode::syntacticEq).allMatch(x -> x)
                 && this.body.syntacticEq(other.body);
-    }
-
-    public boolean getIsStatic() {
-        return isStatic;
     }
 }
