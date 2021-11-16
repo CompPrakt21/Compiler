@@ -130,7 +130,7 @@ public class MainCommand implements Callable<Integer> {
             var semantic = new Semantic(reporter, nameResolutionResult);
             var semanticRes = semantic.checkWellFormdness(ast);
 
-            return nameResolutionResult.successful() && semanticRes;
+            return !(nameResolutionResult.successful() && semanticRes);
         });
     }
 
