@@ -601,7 +601,10 @@ public class NameResolution {
 
                 if (fieldTarget instanceof Reference r && r.getIdentifier().getContent().equals("System")) {
                     var systemSymbol = this.symbols.lookupDefinition("System");
-                    if (systemSymbol.isEmpty()) {
+
+                    var systemClass = Optional.ofNullable(this.classInfo.get("System"));
+
+                    if (systemSymbol.isEmpty() && systemClass.isEmpty()) {
                         return Optional.of(switch (methodName) {
                             case "println" -> IntrinsicMethod.SYSTEM_OUT_PRINTLN;
                             case "write" -> IntrinsicMethod.SYSTEM_OUT_WRITE;
