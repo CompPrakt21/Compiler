@@ -8,7 +8,6 @@ class Main {
 
 		foo[2] = 4;
 		bool = true;
-		length = 23;
 		test = 3;
 		te();
 	}

@@ -1,11 +1,10 @@
 package compiler.errors;
 
-import compiler.ast.Method;
-import compiler.ast.MethodCallExpression;
-import compiler.ast.ThisExpression;
+import compiler.ast.*;
 import compiler.diagnostics.CompilerError;
 import compiler.diagnostics.Source;
 
+import java.awt.image.renderable.ContextualRenderedImageFactory;
 import java.lang.invoke.MethodHandle;
 
 public class MainMethodProblems {
@@ -39,6 +38,19 @@ public class MainMethodProblems {
         public void generate(Source source) {
             this.setMessage("Only the main method may be static");
             this.addPrimaryAnnotation(method.getSpan());
+        }
+    }
+
+    public static class UsingArgs extends CompilerError {
+        private final Reference reference;
+
+        public UsingArgs(Reference reference) {this.reference = reference;}
+
+
+        @Override
+        public void generate(Source source) {
+            this.setMessage("'args' may not be used in the main method");
+            this.addPrimaryAnnotation(reference.getSpan());
         }
     }
 

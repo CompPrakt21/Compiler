@@ -58,4 +58,16 @@ public class LocalDeclarationErrors {
             this.addSecondaryAnnotation(this.stmt.getType().getSpan(), "this is type '%s'", this.expectedTy);
         }
     }
+
+    public static class StringUsed extends CompilerError {
+        private final LocalVariableDeclarationStatement stmt;
+
+        public StringUsed(LocalVariableDeclarationStatement stmt) {this.stmt = stmt;}
+
+        @Override
+        public void generate(Source source) {
+            this.setMessage("Cannot create new String class");
+            this.addPrimaryAnnotation(stmt.getType().getSpan());
+        }
+    }
 }

@@ -106,9 +106,10 @@ public class TestSampleFiles {
                     try {
                         String content = Files.readString(file.toPath());
 
+                        //boolean expected = content.startsWith(PASSING_TEST_PREFIX);
                         boolean expected = true;
-
                         return DynamicTest.dynamicTest(file.getName(), () -> {
+                            //boolean compiles = doesThisCheck(content);
                             boolean compiles = doesThisParse(content);
                             assertEquals(expected, compiles);
                         });
@@ -126,6 +127,7 @@ public class TestSampleFiles {
         var ast = parser.parse();
 
         var names = NameResolution.performNameResolution(ast, reporter);
+        var sem = new Semantic(reporter, names);
 
         try {
             DumpAst.dump(new PrintWriter(new BufferedOutputStream(new FileOutputStream("astDump.dot"))), ast, names.definitions());
@@ -133,7 +135,7 @@ public class TestSampleFiles {
             e.printStackTrace();
         }
 
-        return parser.successfulParse;
+        return names.successful() && sem.checkWellFormdness(ast);
     }
 
     /*@TestFactory
