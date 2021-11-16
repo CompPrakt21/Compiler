@@ -7,6 +7,7 @@ import compiler.diagnostics.CompilerMessage;
 import compiler.diagnostics.CompilerMessageReporter;
 import compiler.errors.*;
 import compiler.resolution.NameResolution;
+import compiler.types.Ty;
 import compiler.types.UnresolveableTy;
 
 import java.lang.constant.ClassDesc;
@@ -27,6 +28,21 @@ public class Semantic {
         this.nameResolution = nameResolution;
         this.reporter = Optional.of(reporter);
         mainMethod = Optional.empty();
+    }
+
+    private boolean checkReturnPathsInStatements(List<Statement> statements) {
+        for (Statement statement : statements) {
+            if (statement instanceof ReturnStatement) return true;
+            if (statement instanceof IfStatement ifstmt) return hasReturnInIfElse(ifstmt);
+
+        }
+        return false;
+    }
+
+    private boolean hasReturnInIfElse(IfStatement ifStatement){
+        if (ifStatement.getElseBody().isEmpty()) return false;
+        return checkReturnPathsInStatements(List.of(ifStatement.getThenBody())) && checkReturnPathsInStatements(List.of(ifStatement.getElseBody().get()));
+
     }
 
     private void reportError(CompilerMessage msg) {
@@ -68,7 +84,9 @@ public class Semantic {
                     isStatic = true;
 
             }
-
+            if (!(method.getReturnType() instanceof VoidType)) {
+                correct &= checkReturnPathsInStatements(method.getBody().getStatements());
+            }
             checkStatements(method.getBody().getStatements());
             isStatic = false;
         }
