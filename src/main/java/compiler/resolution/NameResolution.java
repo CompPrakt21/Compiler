@@ -284,6 +284,8 @@ public class NameResolution {
 
                 resolveType(declStmt.getType());
 
+                declStmt.getInitializer().ifPresent(this::resolveExpression);
+
                 if (maybeAlreadyDefined.isPresent()) {
                     var previousDefinition = maybeAlreadyDefined.get();
 
@@ -293,8 +295,6 @@ public class NameResolution {
                 } else {
                     symbols.insert(localName, declStmt);
                 }
-
-                declStmt.getInitializer().ifPresent(this::resolveExpression);
 
                 var bindingTy = this.fromAstType(declStmt.getType());
                 this.bindingTypes.set(declStmt, bindingTy);
