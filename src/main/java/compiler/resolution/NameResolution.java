@@ -200,6 +200,12 @@ public class NameResolution {
         symbols.enterScope();
 
         for (var param : method.getParameters()) {
+
+            var maybeAlreadyExists = symbols.lookupDefinition(param.getIdentifier().getContent());
+            if (maybeAlreadyExists.isPresent() && maybeAlreadyExists.get() instanceof Parameter firstParam) {
+                reportError(new DuplicateParameterName(firstParam, param));
+            }
+
             symbols.insert(param.getIdentifier().getContent(), param);
         }
 
