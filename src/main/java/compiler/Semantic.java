@@ -167,6 +167,7 @@ public class Semantic {
                 for (Expression expr : methodCallExpression.getArguments()) {
                     checkExpressions(expr);
                 }
+                methodCallExpression.getTarget().ifPresent(this::checkExpressions);
             }
             //Checks if the left side of the assignment is formed correctly. Check if type matches?
             case AssignmentExpression assignmentExpression -> {
