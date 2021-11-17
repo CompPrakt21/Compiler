@@ -8,7 +8,6 @@ import compiler.diagnostics.CompilerMessageReporter;
 import compiler.errors.*;
 import compiler.types.*;
 
-import java.sql.Ref;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -248,25 +247,29 @@ public class NameResolution {
 
                 var returnType = this.bindingTypes.get(this.currentMethod).get();
 
-                if (returnType instanceof Ty expectedReturnTy) {
-                    if (retStmt.getExpression().isPresent()) {
-                        var retExpr = retStmt.getExpression().get();
-                        var retExprTyRes = this.expressionTypes.get(retExpr).get();
+                switch (returnType) {
+                    case Ty expectedReturnTy -> {
+                        if (retStmt.getExpression().isPresent()) {
+                            var retExpr = retStmt.getExpression().get();
+                            var retExprTyRes = this.expressionTypes.get(retExpr).get();
 
-                        if (retExprTyRes instanceof Ty retExprTy) {
-                            if (!(retExprTy.comparable(expectedReturnTy))) {
-                                reportError(new ReturnStatementErrors.TypeMismatch(currentMethod, expectedReturnTy, retStmt, retExprTy));
+                            if (retExprTyRes instanceof Ty retExprTy) {
+                                if (!(retExprTy.comparable(expectedReturnTy))) {
+                                    reportError(new ReturnStatementErrors.TypeMismatch(currentMethod, expectedReturnTy, retStmt, retExprTy));
+                                }
                             }
+                        } else {
+                            reportError(new ReturnStatementErrors.MissingReturnExpr(this.currentMethod, retStmt, expectedReturnTy));
                         }
-                    } else {
-                        reportError(new ReturnStatementErrors.MissingReturnExpr(this.currentMethod, retStmt, expectedReturnTy));
                     }
-                } else {
-                    assert returnType instanceof VoidTy;
+                    case VoidTy ty -> {
+                        assert returnType instanceof VoidTy;
 
-                    if (retStmt.getExpression().isPresent()) {
-                        reportError(new ReturnStatementErrors.UnexpectedReturnExpr(this.currentMethod, retStmt));
+                        if (retStmt.getExpression().isPresent()) {
+                            reportError(new ReturnStatementErrors.UnexpectedReturnExpr(this.currentMethod, retStmt));
+                        }
                     }
+                    case UnresolveableTy ignored -> { /* error already reported */}
                 }
             }
             case LocalVariableDeclarationStatement declStmt -> {
@@ -331,7 +334,8 @@ public class NameResolution {
         }
     }
 
-    private void typeCheckSimpleBinaryExpression(BinaryOpExpression binaryOp, Ty expectedOperandTy, Ty operationTy, Ty lhsTy, Ty rhsTy) {
+    private void typeCheckSimpleBinaryExpression(BinaryOpExpression binaryOp, Ty expectedOperandTy, Ty
+            operationTy, Ty lhsTy, Ty rhsTy) {
         Optional<Ty> lhs = expectedOperandTy.equals(lhsTy) ? Optional.empty() : Optional.of(lhsTy);
         Optional<Ty> rhs = expectedOperandTy.equals(rhsTy) ? Optional.empty() : Optional.of(rhsTy);
 
@@ -388,7 +392,7 @@ public class NameResolution {
                 var rvalTyRes = this.expressionTypes.get(rval).get();
 
                 if (lvalTyRes instanceof Ty lvalTy && rvalTyRes instanceof Ty rvalTy) {
-                    if (lvalTy.equals(rvalTy)) {
+                    if (lvalTy.comparable(rvalTy)) {
                         this.expressionTypes.set(assign, lvalTy);
                     } else {
                         reportError(new AssignmentArgumentTypeMismatch(assign, lvalTy, rvalTy));
