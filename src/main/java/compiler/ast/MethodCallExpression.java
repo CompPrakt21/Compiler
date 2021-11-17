@@ -1,7 +1,5 @@
 package compiler.ast;
 
-import java.util.ArrayList;
-
 import compiler.HasSpan;
 import compiler.Span;
 import compiler.Token;
@@ -25,14 +23,19 @@ public final class MethodCallExpression extends Expression {
     public MethodCallExpression(Optional<Expression> target, Optional<Token> dot, Token identifier, Token openParen, List<Expression> arguments, Token closedParen) {
         super();
         //noinspection ConstantConditions
-        this.isError |= target.map(Objects::isNull).orElse(false) || identifier == null || arguments.stream().anyMatch(Objects::isNull);
+        this.isError |= target.map(Objects::isNull).orElse(false) || identifier == null || arguments.stream().anyMatch(Objects::isNull) || closedParen == null;
 
         setSpan(new HasSpan.OptionalWrapper(target), new HasSpan.OptionalWrapper(dot), identifier, openParen, new HasSpan.ListWrapper(arguments), closedParen);
 
         this.target = target;
-        this.identifier = new Identifier(identifier);
+        this.identifier = identifier != null ? new Identifier(identifier) : null;
         this.arguments = arguments;
-        this.spanWithoutTarget = this.identifier.getSpan().merge(closedParen.getSpan());
+
+        if (closedParen != null && this.identifier != null) {
+            this.spanWithoutTarget = this.identifier.getSpan().merge(closedParen.getSpan());
+        } else {
+            this.spanWithoutTarget = this.span;
+        }
     }
 
     public Optional<Expression> getTarget() {
