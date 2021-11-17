@@ -1,7 +1,7 @@
 package compiler;
 
-import compiler.ast.*;
 import compiler.ast.Class;
+import compiler.ast.*;
 import compiler.diagnostics.CompilerMessage;
 import compiler.diagnostics.CompilerMessageReporter;
 import compiler.errors.*;
@@ -9,7 +9,9 @@ import compiler.resolution.DefinedMethod;
 import compiler.resolution.MethodDefinition;
 import compiler.resolution.NameResolution;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 
 public class Semantic {
 
@@ -40,7 +42,7 @@ public class Semantic {
         return hasReturn;
     }
 
-    private boolean hasReturnInIfElse(IfStatement ifStatement){
+    private boolean hasReturnInIfElse(IfStatement ifStatement) {
         if (ifStatement.getElseBody().isEmpty()) return false;
         return checkReturnPathsInStatements(List.of(ifStatement.getThenBody())) && checkReturnPathsInStatements(List.of(ifStatement.getElseBody().get()));
 
@@ -75,7 +77,7 @@ public class Semantic {
 
     private void checkMethods(List<Method> methods) {
         for (Method method : methods) {
-            if (method.isStatic() && mainMethod.isPresent()){
+            if (method.isStatic() && mainMethod.isPresent()) {
                 reportError(new MainMethodProblems.MultipleStaticMethods(method));
             }
             if (mainMethod.isEmpty() && method.isStatic()) {
@@ -96,7 +98,7 @@ public class Semantic {
     private void checkFirstExpression(Expression expression) {
         if (expression instanceof MethodCallExpression || expression instanceof AssignmentExpression) {
             checkExpressions(expression);
-        }else {
+        } else {
             reportError(new WrongExpressionStatements(expression));
         }
     }
@@ -105,7 +107,7 @@ public class Semantic {
         for (Expression expression : expressions) {
             if (expression instanceof Reference reference) {
                 Optional<VariableDefinition> tempReference = nameResolution.definitions().getReference(reference);
-                if(tempReference.isPresent() && tempReference.get() == mainMethodParam)
+                if (tempReference.isPresent() && tempReference.get() == mainMethodParam)
                     reportError(new MainMethodProblems.UsingArgs(reference));
 
             }
@@ -125,9 +127,6 @@ public class Semantic {
                             reportError(new MainMethodProblems.MainMethodCalled(methodCallExpression));
                         }
                     }
-                }
-                if (isStatic) {
-                    checkParametersForArgs(methodCallExpression.getArguments());
                 }
             }
             //Checks if the left side of the assignment is formed correctly. Check if type matches?
@@ -160,17 +159,22 @@ public class Semantic {
                 checkExpressions(arrayAccessExpression.getIndexExpression());
                 checkExpressions(arrayAccessExpression.getTarget());
             }
-            case BoolLiteral boolLiteral -> {}
-            case IntLiteral intLiteral -> {}
+            case BoolLiteral boolLiteral -> {
+            }
+            case IntLiteral intLiteral -> {
+            }
             case NewObjectExpression newObjectExpression -> {
                 if (newObjectExpression.getType().getIdentifier().getContent().equals("String")) {
                     reportError(new NewObjectStringUse(newObjectExpression));
-                    break;
                 }
             }
-            case NewArrayExpression newArrayExpression -> {}
-            case NullExpression nullExpression -> {}
-            case Reference reference -> {}
+            case NewArrayExpression newArrayExpression -> {
+            }
+            case NullExpression nullExpression -> {
+            }
+            case Reference reference -> {
+                checkParametersForArgs(List.of(reference));
+            }
         }
     }
 
@@ -206,7 +210,8 @@ public class Semantic {
                     if (!returnStatement.getExpression().isEmpty())
                         checkExpressions(returnStatement.getExpression().get());
                 }
-                case EmptyStatement emptyStatement -> {}
+                case EmptyStatement emptyStatement -> {
+                }
 
 
             }
