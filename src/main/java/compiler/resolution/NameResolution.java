@@ -280,18 +280,14 @@ public class NameResolution {
             }
             case LocalVariableDeclarationStatement declStmt -> {
                 var localName = declStmt.getIdentifier().getContent();
-                var maybeAlreadyDefined = this.symbols.lookupDefinition(localName);
 
                 resolveType(declStmt.getType());
 
                 declStmt.getInitializer().ifPresent(this::resolveExpression);
 
-                if (maybeAlreadyDefined.isPresent()) {
-                    var previousDefinition = maybeAlreadyDefined.get();
-
-                    if (previousDefinition instanceof LocalVariableDeclarationStatement || previousDefinition instanceof Parameter) {
-                        reportError(new IllegalLocalVariableShadowing(previousDefinition, declStmt));
-                    }
+                var maybeAlreadyDefined = this.symbols.lookupDefinition(localName);
+                if (maybeAlreadyDefined.isPresent() && (maybeAlreadyDefined.get() instanceof LocalVariableDeclarationStatement || maybeAlreadyDefined.get() instanceof Parameter)) {
+                    reportError(new IllegalLocalVariableShadowing(maybeAlreadyDefined.get(), declStmt));
                 } else {
                     symbols.insert(localName, declStmt);
                 }
