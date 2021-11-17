@@ -51,29 +51,27 @@ public class Semantic {
 
     public boolean checkWellFormdness(Program node) {
         List<Class> children = node.getClasses();
-        correct = checkClasses(children);
+        checkClasses(children);
 
         if (mainMethod.isEmpty()) {
             reportError(new MainMethodProblems.MainMethodMissing());
             return false;
         }
         for (MethodCallExpression expr : doLast) {
-            correct &= checkExpressions(expr);
+            checkExpressions(expr);
         }
 
         return correct;
     }
 
-    private boolean checkClasses(List<Class> classExpression) {
+    private void checkClasses(List<Class> classExpression) {
 
         for (Class klass : classExpression) {
-            correct &= checkMethods(klass.getMethods());
+            checkMethods(klass.getMethods());
         }
-
-        return correct;
     }
 
-    private boolean checkMethods(List<Method> methods) {
+    private void checkMethods(List<Method> methods) {
         for (Method method : methods) {
             if (method.isStatic() && !mainMethod.isEmpty()){
                 reportError(new MainMethodProblems.MultipleStaticMethods(method));
@@ -90,20 +88,14 @@ public class Semantic {
             checkStatements(method.getBody().getStatements());
             isStatic = false;
         }
-        return correct;
-
     }
 
-    private boolean checkFirstExpression(Expression expression) {
-        switch (expression) {
-            case MethodCallExpression d:
-                return checkExpressions(expression);
-            case AssignmentExpression ignored:
-                return checkExpressions(expression);
-            case default:
-                reportError(new WrongExpressionStatements(expression));
-                return false;
-
+    private void checkFirstExpression(Expression expression) {
+        if (expression instanceof MethodCallExpression || expression instanceof AssignmentExpression) {
+            checkExpressions(expression);
+        }else {
+            reportError(new WrongExpressionStatements(expression));
+            correct = false;
         }
     }
 
@@ -119,8 +111,7 @@ public class Semantic {
         return true;
     }
 
-    private boolean checkExpressions(Expression expression) {
-
+    private void checkExpressions(Expression expression) {
         switch (expression) {
             //Checks if the main Method is called.
             case MethodCallExpression methodCallExpression:
@@ -142,7 +133,8 @@ public class Semantic {
             case AssignmentExpression assignmentExpression:
                 AstNode temp = assignmentExpression.getLvalue();
                 if (temp instanceof Reference || temp instanceof ArrayAccessExpression || temp instanceof FieldAccessExpression) {
-                    correct &= checkExpressions(assignmentExpression.getRvalue());
+                    checkExpressions(assignmentExpression.getLvalue());
+                    checkExpressions(assignmentExpression.getRvalue());
                     break;
                 }
                 reportError(new AssignmentExpressionLeft(assignmentExpression));
@@ -150,42 +142,56 @@ public class Semantic {
                 break;
 
             case ThisExpression thisExpression:
-                System.out.println(isStatic);
                 if (isStatic) {
                     reportError(new MainMethodProblems.ReferenceUsingStatic(thisExpression));
                     correct = false;
                 }
                 break;
+            case BinaryOpExpression binaryOpExpression:
+                checkExpressions(binaryOpExpression.getLhs());
+                checkExpressions(binaryOpExpression.getRhs());
+                break;
+            case UnaryExpression unaryExpression:
+                checkExpressions(unaryExpression.getExpression());
+                break;
+            case FieldAccessExpression fieldAccessExpression:
+                checkExpressions(fieldAccessExpression.getTarget());
+                break;
+            case ArrayAccessExpression arrayAccessExpression:
+                checkExpressions(arrayAccessExpression.getIndexExpression());
+                checkExpressions(arrayAccessExpression.getTarget());
+                break;
+
+
             case default, null:
-                return correct;
+                break;
         }
-        return correct;
     }
 
 
-    private boolean checkStatements(List<Statement> nodes) {
+    private void checkStatements(List<Statement> nodes) {
         //TODO: Check all children
         for (Statement child : nodes) {
             switch (child) {
                 case Block block:
-                    correct &= checkStatements(block.getStatements());
+                    checkStatements(block.getStatements());
                     break;
                 case IfStatement ifStatement:
                     if (isStatic) {
-                        correct &= checkExpressions(ifStatement.getCondition());
+                        checkExpressions(ifStatement.getCondition());
                     }
-                    correct &= checkStatements(List.of(ifStatement.getThenBody()));
+                    checkStatements(List.of(ifStatement.getThenBody()));
                     if (!ifStatement.getElseBody().isEmpty())
-                        correct &= checkStatements(List.of(ifStatement.getElseBody().get()));
+                        checkStatements(List.of(ifStatement.getElseBody().get()));
                     break;
                 case WhileStatement whileStatement:
                     if (isStatic)
-                        correct &= checkExpressions(whileStatement.getCondition());
-                    correct &= checkStatements(List.of(whileStatement.getBody()));
+                        checkExpressions(whileStatement.getCondition());
+                    checkStatements(List.of(whileStatement.getBody()));
                     break;
                 case LocalVariableDeclarationStatement lclVrlStmt:
                     if (isStatic && !lclVrlStmt.getInitializer().isEmpty())
-                        correct &= checkExpressions(lclVrlStmt.getInitializer().get());
+                        checkExpressions(lclVrlStmt.getInitializer().get());
                     if(lclVrlStmt.getType() instanceof ClassType classType && classType.getIdentifier().getContent().equals("String")) {
                         correct = false;
                         reportError(new LocalDeclarationErrors.StringUsed(lclVrlStmt));
@@ -193,8 +199,11 @@ public class Semantic {
                     }
                     break;
                 case ExpressionStatement expressionStatement:
-                    correct &= checkFirstExpression(expressionStatement.getExpression());
+                    checkFirstExpression(expressionStatement.getExpression());
                     break;
+                case ReturnStatement returnStatement:
+                    if (!returnStatement.getExpression().isEmpty())
+                        checkExpressions(returnStatement.getExpression().get());
 
                 case null, default:
                     break;
@@ -202,7 +211,6 @@ public class Semantic {
             }
         }
         //Checks if everything worked
-        return correct;
     }
 
 
