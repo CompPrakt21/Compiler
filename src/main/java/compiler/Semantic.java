@@ -162,7 +162,12 @@ public class Semantic {
             }
             case BoolLiteral boolLiteral -> {}
             case IntLiteral intLiteral -> {}
-            case NewObjectExpression newObjectExpression -> {}
+            case NewObjectExpression newObjectExpression -> {
+                if (newObjectExpression.getType().getIdentifier().getContent().equals("String")) {
+                    reportError(new NewObjectStringUse(newObjectExpression));
+                    break;
+                }
+            }
             case NewArrayExpression newArrayExpression -> {}
             case NullExpression nullExpression -> {}
             case Reference reference -> {}
@@ -193,10 +198,6 @@ public class Semantic {
                 case LocalVariableDeclarationStatement lclVrlStmt -> {
                     if (isStatic && !lclVrlStmt.getInitializer().isEmpty())
                         checkExpressions(lclVrlStmt.getInitializer().get());
-                    if (lclVrlStmt.getType() instanceof ClassType classType && classType.getIdentifier().getContent().equals("String")) {
-                        reportError(new LocalDeclarationErrors.StringUsed(lclVrlStmt));
-                        break;
-                    }
                 }
                 case ExpressionStatement expressionStatement -> {
                     checkFirstExpression(expressionStatement.getExpression());
