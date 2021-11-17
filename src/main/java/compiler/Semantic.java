@@ -161,6 +161,9 @@ public class Semantic {
                         }
                     }
                 }
+                if (isStatic && methodCallExpression.getTarget().isEmpty()) {
+                    reportError(new ImplicitThis.ImplicitThisMethodCall(methodCallExpression));
+                }
                 for (Expression expr : methodCallExpression.getArguments()) {
                     checkExpressions(expr);
                 }
@@ -209,6 +212,9 @@ public class Semantic {
             case NullExpression nullExpression -> {
             }
             case Reference reference -> {
+                Optional<VariableDefinition> tempField = nameResolution.definitions().getReference(reference);
+                if (tempField.isPresent() && isStatic && tempField.map(def -> def instanceof Field).orElse(false))
+                    reportError(new ImplicitThis.ImplicitThisFieldCall(reference, tempField.get()));
                 checkParametersForArgs(List.of(reference));
             }
         }
