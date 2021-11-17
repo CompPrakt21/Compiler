@@ -5,9 +5,12 @@ import compiler.resolution.NameResolution;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.TestFactory;
 
-import java.io.*;
+import java.io.File;
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.util.Arrays;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -127,15 +130,16 @@ public class TestSampleFiles {
         var ast = parser.parse();
 
         var names = NameResolution.performNameResolution(ast, reporter);
+        var constantFolding = ConstantFolding.performConstantFolding(ast, Optional.of(reporter));
         var sem = new Semantic(reporter, names);
 
-        try {
+        /*try {
             DumpAst.dump(new PrintWriter(new BufferedOutputStream(new FileOutputStream("astDump.dot"))), ast, names.definitions());
         } catch (Exception e) {
             e.printStackTrace();
-        }
+        }*/
 
-        return names.successful() && sem.checkWellFormdness(ast);
+        return names.successful() && constantFolding && sem.checkWellFormdness(ast);
     }
 
     @TestFactory

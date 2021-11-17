@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
+import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.function.Function;
 
@@ -127,10 +128,12 @@ public class MainCommand implements Callable<Integer> {
         return callWithParsed(file, (reporter, parser, ast) -> {
             var nameResolutionResult = NameResolution.performNameResolution(ast, reporter);
 
+            var constantFolding = ConstantFolding.performConstantFolding(ast, Optional.of(reporter));
+
             var semantic = new Semantic(reporter, nameResolutionResult);
             var semanticRes = semantic.checkWellFormdness(ast);
 
-            return !(nameResolutionResult.successful() && semanticRes);
+            return !(nameResolutionResult.successful() && semanticRes && constantFolding);
         });
     }
 
