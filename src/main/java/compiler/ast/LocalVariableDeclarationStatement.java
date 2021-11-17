@@ -1,8 +1,5 @@
 package compiler.ast;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import compiler.Token;
 import compiler.utils.OptionalUtils;
 
@@ -17,12 +14,12 @@ public final class LocalVariableDeclarationStatement extends Statement implement
 
     private final Optional<Expression> initializer;
 
-    public LocalVariableDeclarationStatement(Type type, Token identifier, Optional<Token> assign, Optional<Expression> initializer) {
+    public LocalVariableDeclarationStatement(Type type, Token identifier, Optional<Token> assign, Optional<Expression> initializer, Token semicolon) {
         super();
         //noinspection ConstantConditions
         this.isError |= type == null || identifier == null || initializer.map(Objects::isNull).orElse(false);
 
-        setSpan(type, identifier, new OptionalWrapper(assign), new OptionalWrapper(initializer));
+        setSpan(type, identifier, new OptionalWrapper(assign), new OptionalWrapper(initializer), semicolon);
 
         this.type = type;
         this.identifier = new Identifier(identifier);

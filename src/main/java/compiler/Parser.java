@@ -1,20 +1,38 @@
 package compiler;
 
+import compiler.ast.AssignmentExpression;
+import compiler.ast.Block;
 import compiler.ast.Class;
+import compiler.ast.EmptyStatement;
+import compiler.ast.Expression;
+import compiler.ast.ExpressionStatement;
+import compiler.ast.Field;
+import compiler.ast.IfStatement;
+import compiler.ast.IntLiteral;
+import compiler.ast.LocalVariableDeclarationStatement;
+import compiler.ast.Method;
+import compiler.ast.NewArrayExpression;
+import compiler.ast.NewObjectExpression;
+import compiler.ast.Parameter;
+import compiler.ast.Program;
+import compiler.ast.ReturnStatement;
+import compiler.ast.Statement;
+import compiler.ast.Type;
+import compiler.ast.UnaryExpression;
+import compiler.ast.WhileStatement;
 import compiler.ast.*;
 import compiler.diagnostics.CompilerError;
 import compiler.diagnostics.CompilerMessage;
 import compiler.diagnostics.CompilerMessageReporter;
 import compiler.errors.*;
 
-import java.io.BufferedWriter;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.OutputStreamWriter;
 import java.util.*;
 import java.util.stream.Collectors;
 
 import static compiler.Grammar.NonT.*;
+import static compiler.TokenType.Boolean;
+import static compiler.TokenType.Class;
+import static compiler.TokenType.Void;
 import static compiler.TokenType.*;
 
 public class Parser {
@@ -562,9 +580,10 @@ public class Parser {
         }
 
         expectResult = expect(anchors, SemiColon);
+        var semicolon = expectResult.token;
         error |= expectResult.isError;
 
-        return new ReturnStatement(returnToken, expression).makeError(error);
+        return new ReturnStatement(returnToken, expression, semicolon).makeError(error);
     }
 
     private LocalVariableDeclarationStatement parseLocalVariableDeclarationStatement(TokenSet anchors) {
@@ -596,9 +615,10 @@ public class Parser {
         }
 
         expectResult = expect(anchors, SemiColon);
+        var semicolon = expectResult.token;
         error |= expectResult.isError;
 
-        return new LocalVariableDeclarationStatement(type, identToken, assignToken, initializer).makeError(error);
+        return new LocalVariableDeclarationStatement(type, identToken, assignToken, initializer, semicolon).makeError(error);
     }
 
     private static final TokenSet EXPRESSION_TOKEN_FOLLOWED_BY_IDENT = TokenSet.of(
@@ -1051,7 +1071,6 @@ public class Parser {
         Expression expr = new NewArrayExpression(newToken, type, expression, dimensions, lastCloseBracket).makeError(error);
         return new ParseExpressionResult(expr, parentError);
     }
-
 
 
 }

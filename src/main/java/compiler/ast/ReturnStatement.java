@@ -1,8 +1,5 @@
 package compiler.ast;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import compiler.Token;
 import compiler.utils.OptionalUtils;
 
@@ -14,10 +11,10 @@ public final class ReturnStatement extends Statement {
     private final Optional<Expression> expression;
 
     @SuppressWarnings("ConstantConditions")
-    public ReturnStatement(Token returnToken, Optional<Expression> expression) {
+    public ReturnStatement(Token returnToken, Optional<Expression> expression, Token semicolon) {
         super();
         this.isError |= returnToken == null || expression.map(Objects::isNull).orElse(false);
-        setSpan(returnToken, new OptionalWrapper(expression));
+        setSpan(returnToken, new OptionalWrapper(expression), semicolon);
 
         this.expression = expression;
     }

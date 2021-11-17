@@ -31,21 +31,54 @@ public class Semantic {
         mainMethod = Optional.empty();
     }
 
-    private boolean checkReturnPathsInStatements(List<Statement> statements) {
-        boolean hasReturn = false;
+    private List<ReturnStatement> checkReturnPathsInStatements(List<Statement> statements) {
+        Optional<List<ReturnStatement>> hasReturn = Optional.empty();
+        List<Statement> deadCode = new ArrayList<>();
+
         for (Statement statement : statements) {
-            if (statement instanceof Block block) hasReturn |= checkReturnPathsInStatements(block.getStatements());
-            if (statement instanceof ReturnStatement) hasReturn = true;
-            if (statement instanceof IfStatement ifstmt && hasReturnInIfElse(ifstmt)) hasReturn = true;
+            if (hasReturn.isPresent()) {
+                deadCode.add(statement);
+                continue;
+            }
+            if (statement instanceof Block block) {
+                List<ReturnStatement> blockCheck = checkReturnPathsInStatements(block.getStatements());
+                hasReturn = blockCheck == null ? Optional.empty() : Optional.of(blockCheck);
+                continue;
+            }
+            if (statement instanceof WhileStatement whileStatement) {
+                List<ReturnStatement> blockCheck = checkReturnPathsInStatements(List.of(whileStatement.getBody()));
+                continue;
+            }
+            if (statement instanceof ReturnStatement rtnStmt) {
+                List<ReturnStatement> tempList = new ArrayList<>();
+                tempList.add(rtnStmt);
+                hasReturn = Optional.of(tempList);
+                continue;
+            }
+            if (statement instanceof IfStatement ifstmt) {
+                List<ReturnStatement> ifElse = hasReturnInIfElse(ifstmt);
+                hasReturn = ifElse != null ? Optional.of(ifElse) : Optional.empty();
+                continue;
+            }
 
         }
-        return hasReturn;
+        if (!deadCode.isEmpty()) reportWarning(new DeadCodeWarning(deadCode, hasReturn.get()));
+        return hasReturn.isPresent() ? hasReturn.get() : null;
     }
 
-    private boolean hasReturnInIfElse(IfStatement ifStatement) {
-        if (ifStatement.getElseBody().isEmpty()) return false;
-        return checkReturnPathsInStatements(List.of(ifStatement.getThenBody())) && checkReturnPathsInStatements(List.of(ifStatement.getElseBody().get()));
+    private List<ReturnStatement> hasReturnInIfElse(IfStatement ifStatement) {
+        List<ReturnStatement> thenList = checkReturnPathsInStatements(List.of(ifStatement.getThenBody()));
+        if (ifStatement.getElseBody().isEmpty()) return null;
+        List<ReturnStatement> elseList = checkReturnPathsInStatements(List.of(ifStatement.getElseBody().get()));
+        if (thenList == null || elseList == null) {
+            return null;
+        }
+        return thenList.addAll(elseList) ? thenList : null;
 
+    }
+
+    private void reportWarning(CompilerMessage msg) {
+        this.reporter.ifPresent(compilerMessageReporter -> compilerMessageReporter.reportMessage(msg));
     }
 
     private void reportError(CompilerMessage msg) {
@@ -85,8 +118,8 @@ public class Semantic {
                     isStatic = true;
 
             }
-            if (!(method.getReturnType() instanceof VoidType)) {
-                if (!checkReturnPathsInStatements(method.getBody().getStatements())) {
+            if (checkReturnPathsInStatements(method.getBody().getStatements()) == null) {
+                if (!(method.getReturnType() instanceof VoidType)) {
                     reportError(new ReturnStatementErrors.MissingReturnOnPath(method));
                 }
             }
@@ -127,6 +160,9 @@ public class Semantic {
                             reportError(new MainMethodProblems.MainMethodCalled(methodCallExpression));
                         }
                     }
+                }
+                for (Expression expr : methodCallExpression.getArguments()) {
+                    checkExpressions(expr);
                 }
             }
             //Checks if the left side of the assignment is formed correctly. Check if type matches?
