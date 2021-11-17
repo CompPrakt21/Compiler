@@ -1,4 +1,4 @@
-/* Some assignments are not allowed. */
+/* OK */
 
 class Main {
 	public static void main(String[] args) {
