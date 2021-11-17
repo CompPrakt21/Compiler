@@ -1,16 +1,14 @@
 package compiler;
 
-import com.sun.source.util.DocSourcePositions;
 import compiler.ast.*;
 import compiler.ast.Class;
 import compiler.diagnostics.CompilerMessage;
 import compiler.diagnostics.CompilerMessageReporter;
 import compiler.errors.*;
+import compiler.resolution.DefinedMethod;
+import compiler.resolution.MethodDefinition;
 import compiler.resolution.NameResolution;
-import compiler.types.Ty;
-import compiler.types.UnresolveableTy;
 
-import java.lang.constant.ClassDesc;
 import java.util.*;
 
 public class Semantic {
@@ -20,6 +18,7 @@ public class Semantic {
     boolean correct = true;
     int expectReturn = 0;
     boolean isStatic = false;
+    private Parameter mainMethodParam;
     private final Optional<CompilerMessageReporter> reporter;
     private final NameResolution.NameResolutionResult nameResolution;
     private List<MethodCallExpression> doLast = new ArrayList<>();
@@ -31,12 +30,14 @@ public class Semantic {
     }
 
     private boolean checkReturnPathsInStatements(List<Statement> statements) {
+        boolean hasReturn = false;
         for (Statement statement : statements) {
-            if (statement instanceof ReturnStatement) return true;
-            if (statement instanceof IfStatement ifstmt) return hasReturnInIfElse(ifstmt);
+            if (statement instanceof Block block) hasReturn |= checkReturnPathsInStatements(block.getStatements());
+            if (statement instanceof ReturnStatement) hasReturn = true;
+            if (statement instanceof IfStatement ifstmt && hasReturnInIfElse(ifstmt)) hasReturn = true;
 
         }
-        return false;
+        return hasReturn;
     }
 
     private boolean hasReturnInIfElse(IfStatement ifStatement){
@@ -47,6 +48,7 @@ public class Semantic {
 
     private void reportError(CompilerMessage msg) {
         this.reporter.ifPresent(compilerMessageReporter -> compilerMessageReporter.reportMessage(msg));
+        correct = false;
     }
 
     public boolean checkWellFormdness(Program node) {
@@ -73,9 +75,8 @@ public class Semantic {
 
     private void checkMethods(List<Method> methods) {
         for (Method method : methods) {
-            if (method.isStatic() && !mainMethod.isEmpty()){
+            if (method.isStatic() && mainMethod.isPresent()){
                 reportError(new MainMethodProblems.MultipleStaticMethods(method));
-                correct = false;
             }
             if (mainMethod.isEmpty() && method.isStatic()) {
                 if (checkMainMethod(method))
@@ -83,7 +84,9 @@ public class Semantic {
 
             }
             if (!(method.getReturnType() instanceof VoidType)) {
-                correct &= checkReturnPathsInStatements(method.getBody().getStatements());
+                if (!checkReturnPathsInStatements(method.getBody().getStatements())) {
+                    reportError(new ReturnStatementErrors.MissingReturnOnPath(method));
+                }
             }
             checkStatements(method.getBody().getStatements());
             isStatic = false;
@@ -95,42 +98,40 @@ public class Semantic {
             checkExpressions(expression);
         }else {
             reportError(new WrongExpressionStatements(expression));
-            correct = false;
         }
     }
 
-    private boolean checkParametersForArgs(List<Expression> expressions) {
+    private void checkParametersForArgs(List<Expression> expressions) {
         for (Expression expression : expressions) {
             if (expression instanceof Reference reference) {
-                if(reference.getIdentifier().getContent().equals("args")){
+                Optional<VariableDefinition> tempReference = nameResolution.definitions().getReference(reference);
+                if(tempReference.isPresent() && tempReference.get() == mainMethodParam)
                     reportError(new MainMethodProblems.UsingArgs(reference));
-                    return false;
-                }
+
             }
         }
-        return true;
     }
 
     private void checkExpressions(Expression expression) {
         switch (expression) {
             //Checks if the main Method is called.
-            case MethodCallExpression methodCallExpression:
+            case MethodCallExpression methodCallExpression -> {
                 if (methodCallExpression.getIdentifier().getContent().equals("main")) {
                     if (mainMethod.isEmpty())
                         doLast.add(methodCallExpression);
                     else {
-                        if (nameResolution.definitions().getMethod(methodCallExpression).equals(mainMethod)) {
+                        Optional<MethodDefinition> med = nameResolution.definitions().getMethod(methodCallExpression);
+                        if (med.isPresent() && med.get() instanceof DefinedMethod definedMethod && definedMethod.getAstMethod().equals(mainMethod.get())) {
                             reportError(new MainMethodProblems.MainMethodCalled(methodCallExpression));
-                            correct = false;
                         }
                     }
                 }
                 if (isStatic) {
-                    correct &= checkParametersForArgs(methodCallExpression.getArguments());
+                    checkParametersForArgs(methodCallExpression.getArguments());
                 }
-                break;
+            }
             //Checks if the left side of the assignment is formed correctly. Check if type matches?
-            case AssignmentExpression assignmentExpression:
+            case AssignmentExpression assignmentExpression -> {
                 AstNode temp = assignmentExpression.getLvalue();
                 if (temp instanceof Reference || temp instanceof ArrayAccessExpression || temp instanceof FieldAccessExpression) {
                     checkExpressions(assignmentExpression.getLvalue());
@@ -138,33 +139,33 @@ public class Semantic {
                     break;
                 }
                 reportError(new AssignmentExpressionLeft(assignmentExpression));
-                correct = false;
-                break;
+            }
 
-            case ThisExpression thisExpression:
+            case ThisExpression thisExpression -> {
                 if (isStatic) {
                     reportError(new MainMethodProblems.ReferenceUsingStatic(thisExpression));
-                    correct = false;
                 }
-                break;
-            case BinaryOpExpression binaryOpExpression:
+            }
+            case BinaryOpExpression binaryOpExpression -> {
                 checkExpressions(binaryOpExpression.getLhs());
                 checkExpressions(binaryOpExpression.getRhs());
-                break;
-            case UnaryExpression unaryExpression:
+            }
+            case UnaryExpression unaryExpression -> {
                 checkExpressions(unaryExpression.getExpression());
-                break;
-            case FieldAccessExpression fieldAccessExpression:
+            }
+            case FieldAccessExpression fieldAccessExpression -> {
                 checkExpressions(fieldAccessExpression.getTarget());
-                break;
-            case ArrayAccessExpression arrayAccessExpression:
+            }
+            case ArrayAccessExpression arrayAccessExpression -> {
                 checkExpressions(arrayAccessExpression.getIndexExpression());
                 checkExpressions(arrayAccessExpression.getTarget());
-                break;
-
-
-            case default, null:
-                break;
+            }
+            case BoolLiteral boolLiteral -> {}
+            case IntLiteral intLiteral -> {}
+            case NewObjectExpression newObjectExpression -> {}
+            case NewArrayExpression newArrayExpression -> {}
+            case NullExpression nullExpression -> {}
+            case Reference reference -> {}
         }
     }
 
@@ -173,40 +174,39 @@ public class Semantic {
         //TODO: Check all children
         for (Statement child : nodes) {
             switch (child) {
-                case Block block:
+                case Block block -> {
                     checkStatements(block.getStatements());
-                    break;
-                case IfStatement ifStatement:
+                }
+                case IfStatement ifStatement -> {
                     if (isStatic) {
                         checkExpressions(ifStatement.getCondition());
                     }
                     checkStatements(List.of(ifStatement.getThenBody()));
                     if (!ifStatement.getElseBody().isEmpty())
                         checkStatements(List.of(ifStatement.getElseBody().get()));
-                    break;
-                case WhileStatement whileStatement:
+                }
+                case WhileStatement whileStatement -> {
                     if (isStatic)
                         checkExpressions(whileStatement.getCondition());
                     checkStatements(List.of(whileStatement.getBody()));
-                    break;
-                case LocalVariableDeclarationStatement lclVrlStmt:
+                }
+                case LocalVariableDeclarationStatement lclVrlStmt -> {
                     if (isStatic && !lclVrlStmt.getInitializer().isEmpty())
                         checkExpressions(lclVrlStmt.getInitializer().get());
-                    if(lclVrlStmt.getType() instanceof ClassType classType && classType.getIdentifier().getContent().equals("String")) {
-                        correct = false;
+                    if (lclVrlStmt.getType() instanceof ClassType classType && classType.getIdentifier().getContent().equals("String")) {
                         reportError(new LocalDeclarationErrors.StringUsed(lclVrlStmt));
                         break;
                     }
-                    break;
-                case ExpressionStatement expressionStatement:
+                }
+                case ExpressionStatement expressionStatement -> {
                     checkFirstExpression(expressionStatement.getExpression());
-                    break;
-                case ReturnStatement returnStatement:
+                }
+                case ReturnStatement returnStatement -> {
                     if (!returnStatement.getExpression().isEmpty())
                         checkExpressions(returnStatement.getExpression().get());
+                }
+                case EmptyStatement emptyStatement -> {}
 
-                case null, default:
-                    break;
 
             }
         }
@@ -224,6 +224,7 @@ public class Semantic {
 
         if (!test) return false;
         mainMethod = Optional.of(node);
+        mainMethodParam = node.getParameters().get(0);
         return true;
 
     }

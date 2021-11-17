@@ -106,11 +106,11 @@ public class TestSampleFiles {
                     try {
                         String content = Files.readString(file.toPath());
 
-                        //boolean expected = content.startsWith(PASSING_TEST_PREFIX);
-                        boolean expected = true;
+                        boolean expected = content.startsWith(PASSING_TEST_PREFIX);
+                        //boolean expected = true;
                         return DynamicTest.dynamicTest(file.getName(), () -> {
-                            //boolean compiles = doesThisCheck(content);
-                            boolean compiles = doesThisParse(content);
+                            boolean compiles = doesThisCheck(content);
+                            //boolean compiles = doesThisParse(content);
                             assertEquals(expected, compiles);
                         });
                     } catch (IOException e) {
