@@ -138,7 +138,7 @@ public class TestSampleFiles {
         return names.successful() && sem.checkWellFormdness(ast);
     }
 
-    /*@TestFactory
+    @TestFactory
     public Stream<DynamicTest> generateSemanticTestForSemantic() {
         var syntaxTestFiles = SEMANTIC_TEST_DIR.listFiles();
         assertNotNull(syntaxTestFiles, "No test files found");
@@ -148,16 +148,16 @@ public class TestSampleFiles {
                     try {
                         String content = Files.readString(file.toPath());
 
-                        boolean expected = true;
+                        boolean expected = content.startsWith(PASSING_TEST_PREFIX);
 
                         return DynamicTest.dynamicTest(file.getName(), () -> {
                             boolean compiles = doesThisCheck(content);
-                            //assertEquals(expected, compiles);
+                            assertEquals(expected, compiles);
                         });
                     } catch (IOException e) {
                         fail(e);
                         return null;
                     }
                 }));
-    }*/
+    }
 }
