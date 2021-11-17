@@ -283,8 +283,6 @@ public class NameResolution {
 
                 resolveType(declStmt.getType());
 
-                declStmt.getInitializer().ifPresent(this::resolveExpression);
-
                 var maybeAlreadyDefined = this.symbols.lookupDefinition(localName);
                 if (maybeAlreadyDefined.isPresent() && (maybeAlreadyDefined.get() instanceof LocalVariableDeclarationStatement || maybeAlreadyDefined.get() instanceof Parameter)) {
                     reportError(new IllegalLocalVariableShadowing(maybeAlreadyDefined.get(), declStmt));
@@ -294,6 +292,8 @@ public class NameResolution {
 
                 var bindingTy = this.fromAstType(declStmt.getType());
                 this.bindingTypes.set(declStmt, bindingTy);
+
+                declStmt.getInitializer().ifPresent(this::resolveExpression);
 
                 switch (bindingTy) {
                     case Ty ty -> {
