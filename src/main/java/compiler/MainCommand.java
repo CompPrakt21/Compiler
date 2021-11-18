@@ -130,10 +130,9 @@ public class MainCommand implements Callable<Integer> {
 
             var constantFolding = ConstantFolding.performConstantFolding(ast, Optional.of(reporter));
 
-            var semantic = new Semantic(reporter, nameResolutionResult);
-            var semanticRes = semantic.checkWellFormdness(ast);
+            var wellFormed = WellFormed.checkWellFormdness(ast, nameResolutionResult, Optional.of(reporter));
 
-            return !(nameResolutionResult.successful() && semanticRes && constantFolding);
+            return !(nameResolutionResult.successful() && wellFormed && constantFolding);
         });
     }
 

@@ -131,7 +131,7 @@ public class TestSampleFiles {
 
         var names = NameResolution.performNameResolution(ast, reporter);
         var constantFolding = ConstantFolding.performConstantFolding(ast, Optional.of(reporter));
-        var sem = new Semantic(reporter, names);
+        var wellFormed = WellFormed.checkWellFormdness(ast, names, Optional.of(reporter));
 
         /*try {
             DumpAst.dump(new PrintWriter(new BufferedOutputStream(new FileOutputStream("astDump.dot"))), ast, names.definitions());
@@ -139,7 +139,7 @@ public class TestSampleFiles {
             e.printStackTrace();
         }*/
 
-        return names.successful() && constantFolding && sem.checkWellFormdness(ast);
+        return names.successful() && constantFolding && wellFormed;
     }
 
     @TestFactory

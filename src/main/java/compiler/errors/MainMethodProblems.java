@@ -1,15 +1,15 @@
 package compiler.errors;
 
-import compiler.ast.*;
+import compiler.ast.Method;
+import compiler.ast.MethodCallExpression;
+import compiler.ast.Reference;
+import compiler.ast.ThisExpression;
 import compiler.diagnostics.CompilerError;
 import compiler.diagnostics.Source;
 
-import java.awt.image.renderable.ContextualRenderedImageFactory;
-import java.lang.invoke.MethodHandle;
-
 public class MainMethodProblems {
 
-    public static class MainMethodMissing extends CompilerError{
+    public static class MainMethodMissing extends CompilerError {
 
         @Override
         public void generate(Source source) {
@@ -20,7 +20,9 @@ public class MainMethodProblems {
     public static class MainMethodCalled extends CompilerError {
         private final MethodCallExpression expr;
 
-        public MainMethodCalled(MethodCallExpression expr) {this.expr = expr;}
+        public MainMethodCalled(MethodCallExpression expr) {
+            this.expr = expr;
+        }
 
         @Override
         public void generate(Source source) {
@@ -29,10 +31,30 @@ public class MainMethodProblems {
         }
     }
 
-    public static class MultipleStaticMethods extends CompilerError {
+    public static class MultipleMainMethods extends CompilerError {
+        private final Method firstMainMethod;
+        private final Method secondMainMethod;
+
+        public MultipleMainMethods(Method firstMainMethod, Method secondMainMethod) {
+            this.firstMainMethod = firstMainMethod;
+            this.secondMainMethod = secondMainMethod;
+        }
+
+        @Override
+        public void generate(Source source) {
+            this.setMessage("Multiple main methods found.");
+
+            this.addSecondaryAnnotation(this.firstMainMethod.getSpan(), "first main method here.");
+            this.addPrimaryAnnotation(this.secondMainMethod.getSpan(), "second main method here.");
+        }
+    }
+
+    public static class StaticNonMainMethod extends CompilerError {
         private final Method method;
 
-        public MultipleStaticMethods(Method method) {this.method = method;}
+        public StaticNonMainMethod(Method method) {
+            this.method = method;
+        }
 
         @Override
         public void generate(Source source) {
@@ -44,7 +66,9 @@ public class MainMethodProblems {
     public static class UsingArgs extends CompilerError {
         private final Reference reference;
 
-        public UsingArgs(Reference reference) {this.reference = reference;}
+        public UsingArgs(Reference reference) {
+            this.reference = reference;
+        }
 
 
         @Override
@@ -57,7 +81,9 @@ public class MainMethodProblems {
     public static class ReferenceUsingStatic extends CompilerError {
         private final ThisExpression expr;
 
-        public ReferenceUsingStatic(ThisExpression expr) {this.expr = expr;}
+        public ReferenceUsingStatic(ThisExpression expr) {
+            this.expr = expr;
+        }
 
         @Override
         public void generate(Source source) {
@@ -65,7 +91,6 @@ public class MainMethodProblems {
             this.addPrimaryAnnotation(expr.getSpan());
         }
     }
-
 
 
 }
