@@ -7,6 +7,14 @@
     <groupId>edu.kit.informatik</groupId>
     <artifactId>Compiler</artifactId>
     <version>1.0-SNAPSHOT</version>
+
+    <repositories>
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+        </repository>
+    </repositories>
+
     <dependencies>
         <dependency>
             <groupId>info.picocli</groupId>
@@ -26,6 +34,18 @@
             <artifactId>mockito-core</artifactId>
             <version>3.6.0</version>
             <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>net.java.dev.jna</groupId>
+            <artifactId>jna</artifactId>
+            <version>3.5.2</version>
+        </dependency>
+
+        <dependency>
+            <groupId>de.uni-karlsruhe.info.pp.git</groupId>
+            <artifactId>jFirm</artifactId>
+            <version>master-SNAPSHOT</version>
         </dependency>
     </dependencies>
 
