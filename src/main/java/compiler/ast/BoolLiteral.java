@@ -1,8 +1,6 @@
 package compiler.ast;
 
-import compiler.Token;
-
-import java.util.List;
+import compiler.syntax.Token;
 
 public final class BoolLiteral extends Expression {
     private final boolean value;

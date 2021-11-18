@@ -1,6 +1,8 @@
 package compiler;
 
 import compiler.ast.Program;
+import compiler.syntax.Lexer;
+import compiler.syntax.Parser;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

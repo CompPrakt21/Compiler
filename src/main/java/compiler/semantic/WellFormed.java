@@ -1,12 +1,12 @@
-package compiler;
+package compiler.semantic;
 
 import compiler.ast.*;
 import compiler.diagnostics.CompilerMessage;
 import compiler.diagnostics.CompilerMessageReporter;
 import compiler.errors.*;
-import compiler.resolution.DefinedMethod;
-import compiler.resolution.IntrinsicClass;
-import compiler.resolution.NameResolution;
+import compiler.semantic.resolution.DefinedMethod;
+import compiler.semantic.resolution.IntrinsicClass;
+import compiler.semantic.resolution.NameResolution;
 import compiler.types.ClassTy;
 
 import java.util.ArrayList;

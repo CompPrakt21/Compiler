@@ -1,8 +1,6 @@
 package compiler.ast;
 
-import compiler.Token;
-
-import java.util.List;
+import compiler.syntax.Token;
 
 public final class VoidType extends Type {
     public VoidType(Token voidType) {

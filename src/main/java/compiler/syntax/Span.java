@@ -1,4 +1,4 @@
-package compiler;
+package compiler.syntax;
 
 public record Span(int start, int length) implements HasSpan {
     public int end() {

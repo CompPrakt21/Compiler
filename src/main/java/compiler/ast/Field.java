@@ -1,10 +1,7 @@
 package compiler.ast;
 
-import compiler.Token;
-import compiler.TokenType;
-
-import java.util.ArrayList;
-import java.util.List;
+import compiler.syntax.Token;
+import compiler.syntax.TokenType;
 
 public final class Field extends AstNode implements VariableDefinition {
     private final Identifier identifier;

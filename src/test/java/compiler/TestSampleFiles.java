@@ -1,7 +1,11 @@
 package compiler;
 
 import compiler.diagnostics.CompilerMessageReporter;
-import compiler.resolution.NameResolution;
+import compiler.semantic.resolution.NameResolution;
+import compiler.semantic.ConstantFolding;
+import compiler.semantic.WellFormed;
+import compiler.syntax.Lexer;
+import compiler.syntax.Parser;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.TestFactory;
 

@@ -1,12 +1,15 @@
 package compiler;
 
+import compiler.syntax.Lexer;
+import compiler.syntax.Token;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
-import static compiler.TokenType.*;
+
+import static compiler.syntax.TokenType.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TestLexer {

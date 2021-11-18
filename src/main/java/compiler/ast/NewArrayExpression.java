@@ -1,9 +1,6 @@
 package compiler.ast;
 
-import compiler.Token;
-
-import java.util.ArrayList;
-import java.util.List;
+import compiler.syntax.Token;
 
 public final class NewArrayExpression extends Expression {
     // Structure: new type[firstDimensionSize]([])^(dimensions - 1)

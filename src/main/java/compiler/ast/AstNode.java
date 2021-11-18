@@ -1,10 +1,9 @@
 package compiler.ast;
 
-import compiler.HasSpan;
-import compiler.Span;
+import compiler.syntax.HasSpan;
+import compiler.syntax.Span;
 
 import java.util.Arrays;
-import java.util.List;
 import java.util.Objects;
 
 public abstract sealed class AstNode implements HasSpan

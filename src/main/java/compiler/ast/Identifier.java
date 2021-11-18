@@ -1,9 +1,7 @@
 package compiler.ast;
 
-import compiler.Token;
-import compiler.TokenType;
-
-import java.util.List;
+import compiler.syntax.Token;
+import compiler.syntax.TokenType;
 
 public final class Identifier extends AstNode {
     private final String content;

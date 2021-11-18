@@ -1,10 +1,9 @@
 package compiler.ast;
 
-import compiler.HasSpan;
-import compiler.Token;
+import compiler.syntax.HasSpan;
+import compiler.syntax.Token;
 import compiler.utils.StreamUtils;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 

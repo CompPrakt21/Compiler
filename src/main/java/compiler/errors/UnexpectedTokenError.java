@@ -1,9 +1,9 @@
 package compiler.errors;
 
-import compiler.Token;
-import compiler.TokenSet;
-import compiler.TokenSetLike;
-import compiler.TokenType;
+import compiler.syntax.Token;
+import compiler.syntax.TokenSet;
+import compiler.syntax.TokenSetLike;
+import compiler.syntax.TokenType;
 import compiler.diagnostics.CompilerError;
 import compiler.diagnostics.Source;
 

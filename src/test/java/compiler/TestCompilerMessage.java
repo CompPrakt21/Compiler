@@ -1,6 +1,7 @@
 package compiler;
 
 import compiler.diagnostics.*;
+import compiler.syntax.Span;
 import org.junit.jupiter.api.Test;
 
 import java.io.PrintWriter;

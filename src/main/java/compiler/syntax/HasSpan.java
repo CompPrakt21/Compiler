@@ -1,4 +1,4 @@
-package compiler;
+package compiler.syntax;
 
 import java.util.List;
 import java.util.Objects;

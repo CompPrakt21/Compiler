@@ -2,7 +2,12 @@ package compiler;
 
 import compiler.ast.Program;
 import compiler.diagnostics.CompilerMessageReporter;
-import compiler.resolution.NameResolution;
+import compiler.semantic.resolution.NameResolution;
+import compiler.semantic.ConstantFolding;
+import compiler.semantic.WellFormed;
+import compiler.syntax.Lexer;
+import compiler.syntax.Parser;
+import compiler.syntax.Token;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Model.CommandSpec;

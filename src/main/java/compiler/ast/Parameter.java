@@ -1,9 +1,6 @@
 package compiler.ast;
 
-import compiler.Token;
-
-import java.util.ArrayList;
-import java.util.List;
+import compiler.syntax.Token;
 
 public final class Parameter extends AstNode implements VariableDefinition {
     private final Type type;

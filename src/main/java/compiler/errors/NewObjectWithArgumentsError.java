@@ -1,6 +1,6 @@
 package compiler.errors;
 
-import compiler.HasSpan;
+import compiler.syntax.HasSpan;
 import compiler.ast.Expression;
 import compiler.diagnostics.CompilerError;
 import compiler.diagnostics.Source;

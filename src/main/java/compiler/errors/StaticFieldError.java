@@ -1,6 +1,6 @@
 package compiler.errors;
 
-import compiler.Token;
+import compiler.syntax.Token;
 import compiler.diagnostics.CompilerError;
 import compiler.diagnostics.Source;
 

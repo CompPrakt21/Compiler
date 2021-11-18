@@ -1,4 +1,4 @@
-package compiler.resolution;
+package compiler.semantic.resolution;
 
 import java.util.HashMap;
 import java.util.Map;

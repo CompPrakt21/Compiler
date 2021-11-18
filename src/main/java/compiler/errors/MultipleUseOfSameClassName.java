@@ -3,8 +3,8 @@ package compiler.errors;
 import compiler.ast.Class;
 import compiler.diagnostics.CompilerError;
 import compiler.diagnostics.Source;
-import compiler.resolution.ClassDefinition;
-import compiler.resolution.DefinedClass;
+import compiler.semantic.resolution.ClassDefinition;
+import compiler.semantic.resolution.DefinedClass;
 
 public class MultipleUseOfSameClassName extends CompilerError {
     private final ClassDefinition firstUse;

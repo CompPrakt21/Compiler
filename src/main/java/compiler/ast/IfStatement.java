@@ -1,10 +1,8 @@
 package compiler.ast;
 
-import compiler.Token;
+import compiler.syntax.Token;
 import compiler.utils.OptionalUtils;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")

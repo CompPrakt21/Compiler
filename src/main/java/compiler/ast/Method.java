@@ -1,12 +1,10 @@
 package compiler.ast;
 
-import compiler.HasSpan;
-import compiler.Span;
-import compiler.Token;
-import compiler.resolution.MethodDefinition;
+import compiler.syntax.HasSpan;
+import compiler.syntax.Span;
+import compiler.syntax.Token;
 import compiler.utils.StreamUtils;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;

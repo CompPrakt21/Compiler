@@ -1,9 +1,7 @@
-package compiler.resolution;
+package compiler.semantic.resolution;
 
 import compiler.ast.Field;
-import compiler.types.TyResult;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 

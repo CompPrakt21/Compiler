@@ -1,4 +1,4 @@
-package compiler;
+package compiler.semantic;
 
 import compiler.ast.Class;
 import compiler.ast.*;

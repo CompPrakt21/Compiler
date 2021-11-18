@@ -1,7 +1,6 @@
-package compiler.resolution;
+package compiler.semantic.resolution;
 
 import compiler.types.IntTy;
-import compiler.types.Ty;
 import compiler.types.TyResult;
 import compiler.types.VoidTy;
 

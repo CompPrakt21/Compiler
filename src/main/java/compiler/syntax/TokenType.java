@@ -1,4 +1,4 @@
-package compiler;
+package compiler.syntax;
 
 import java.util.Arrays;
 import java.util.List;

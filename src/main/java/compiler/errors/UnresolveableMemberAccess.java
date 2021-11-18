@@ -1,10 +1,9 @@
 package compiler.errors;
 
 import compiler.ast.*;
-import compiler.ast.Class;
 import compiler.diagnostics.CompilerError;
 import compiler.diagnostics.Source;
-import compiler.resolution.ClassDefinition;
+import compiler.semantic.resolution.ClassDefinition;
 
 public class UnresolveableMemberAccess extends CompilerError {
     private final ClassDefinition expectedClass;

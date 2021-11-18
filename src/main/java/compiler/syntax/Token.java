@@ -1,4 +1,4 @@
-package compiler;
+package compiler.syntax;
 
 public class Token implements HasSpan {
 

@@ -1,4 +1,4 @@
-package compiler;
+package compiler.syntax;
 
 import compiler.ast.AssignmentExpression;
 import compiler.ast.Block;
@@ -29,11 +29,11 @@ import compiler.errors.*;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static compiler.Grammar.NonT.*;
-import static compiler.TokenType.Boolean;
-import static compiler.TokenType.Class;
-import static compiler.TokenType.Void;
-import static compiler.TokenType.*;
+import static compiler.syntax.Grammar.NonT.*;
+import static compiler.syntax.TokenType.Boolean;
+import static compiler.syntax.TokenType.Class;
+import static compiler.syntax.TokenType.Void;
+import static compiler.syntax.TokenType.*;
 
 public class Parser {
 

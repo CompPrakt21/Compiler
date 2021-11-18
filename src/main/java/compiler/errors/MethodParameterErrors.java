@@ -1,13 +1,11 @@
 package compiler.errors;
 
 import compiler.ast.Expression;
-import compiler.ast.Method;
 import compiler.ast.MethodCallExpression;
-import compiler.ast.Parameter;
 import compiler.diagnostics.CompilerError;
 import compiler.diagnostics.Source;
-import compiler.resolution.DefinedMethod;
-import compiler.resolution.MethodDefinition;
+import compiler.semantic.resolution.DefinedMethod;
+import compiler.semantic.resolution.MethodDefinition;
 import compiler.types.Ty;
 import compiler.types.TyResult;
 

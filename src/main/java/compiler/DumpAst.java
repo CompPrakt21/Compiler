@@ -2,13 +2,13 @@ package compiler;
 
 import compiler.ast.Class;
 import compiler.ast.*;
-import compiler.resolution.DefinedClass;
-import compiler.resolution.DefinedMethod;
-import compiler.resolution.Definitions;
-import compiler.resolution.IntrinsicMethod;
+import compiler.semantic.AstData;
+import compiler.semantic.resolution.DefinedClass;
+import compiler.semantic.resolution.DefinedMethod;
+import compiler.semantic.resolution.Definitions;
+import compiler.semantic.resolution.IntrinsicMethod;
 import compiler.types.TyResult;
 
-import javax.swing.*;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;

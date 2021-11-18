@@ -1,8 +1,8 @@
 package compiler.ast;
 
-import compiler.HasSpan;
-import compiler.Span;
-import compiler.Token;
+import compiler.syntax.HasSpan;
+import compiler.syntax.Span;
+import compiler.syntax.Token;
 import compiler.utils.OptionalUtils;
 import compiler.utils.StreamUtils;
 

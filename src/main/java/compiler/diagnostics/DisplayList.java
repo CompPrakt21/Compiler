@@ -1,6 +1,6 @@
 package compiler.diagnostics;
 
-import compiler.Span;
+import compiler.syntax.Span;
 
 import java.util.*;
 import java.util.stream.Collectors;

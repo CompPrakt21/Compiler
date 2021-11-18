@@ -1,7 +1,6 @@
 package compiler.types;
 
-import compiler.ast.Class;
-import compiler.resolution.ClassDefinition;
+import compiler.semantic.resolution.ClassDefinition;
 
 public final class ClassTy extends Ty {
     private final ClassDefinition definition;

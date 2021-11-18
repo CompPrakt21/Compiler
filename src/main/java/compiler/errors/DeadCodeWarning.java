@@ -1,6 +1,6 @@
 package compiler.errors;
 
-import compiler.Span;
+import compiler.syntax.Span;
 import compiler.ast.ReturnStatement;
 import compiler.ast.Statement;
 import compiler.diagnostics.CompilerWarning;

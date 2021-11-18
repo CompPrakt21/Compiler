@@ -1,8 +1,6 @@
 package compiler.ast;
 
-import java.util.ArrayList;
-
-import compiler.Token;
+import compiler.syntax.Token;
 import compiler.utils.StreamUtils;
 
 import java.util.List;

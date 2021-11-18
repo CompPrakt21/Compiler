@@ -1,6 +1,5 @@
-package compiler.resolution;
+package compiler.semantic.resolution;
 
-import compiler.ast.Method;
 import compiler.types.TyResult;
 
 import java.util.List;

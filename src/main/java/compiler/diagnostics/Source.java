@@ -1,6 +1,6 @@
 package compiler.diagnostics;
 
-import compiler.Span;
+import compiler.syntax.Span;
 
 import java.util.ArrayList;
 import java.util.Collections;

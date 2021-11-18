@@ -1,6 +1,6 @@
-package compiler.resolution;
+package compiler.semantic.resolution;
 
-import compiler.AstData;
+import compiler.semantic.AstData;
 import compiler.ast.Class;
 import compiler.ast.*;
 import compiler.diagnostics.CompilerMessage;

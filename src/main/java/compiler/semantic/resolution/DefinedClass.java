@@ -1,4 +1,4 @@
-package compiler.resolution;
+package compiler.semantic.resolution;
 
 import compiler.ast.Class;
 import compiler.ast.Field;

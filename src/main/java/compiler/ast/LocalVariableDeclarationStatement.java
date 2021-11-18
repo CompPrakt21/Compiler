@@ -1,6 +1,6 @@
 package compiler.ast;
 
-import compiler.Token;
+import compiler.syntax.Token;
 import compiler.utils.OptionalUtils;
 
 import java.util.Objects;
