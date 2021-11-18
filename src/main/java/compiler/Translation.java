@@ -8,18 +8,19 @@ import compiler.semantic.resolution.NameResolution;
 import compiler.types.*;
 import firm.*;
 import firm.Type;
+import firm.nodes.Block;
+import firm.nodes.Node;
 
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Stream;
 
 public class Translation {
 
-    // TODO: Think of some better caching
-    private Map<Ty, Type> primitiveTypes;
-    private Map<String, CompoundType> classTypes;
-    private NameResolution.NameResolutionResult nres;
-    private CompoundType globalType;
+    private final Map<Ty, Type> primitiveTypes;
+    private final Map<String, PointerType> classTypes;
+    private final CompoundType globalType;
 
     public Translation() {
         Firm.init();
@@ -37,7 +38,11 @@ public class Translation {
     }
 
     private Type getMethodType(MethodDefinition method) {
-        var paramTypes = method.getParameterTy().stream().map(ty -> getFirmType((Ty) ty)).toArray(Type[]::new);
+        var paramTypes = Stream.concat(
+                Stream.of(classTypes.get(method.getContainingClass().get().getName())),
+                method.getParameterTy().stream().map(ty -> getFirmType((Ty) ty))
+        ).toArray(Type[]::new);
+
         Type[] returnTypes;
         var returnType = method.getReturnTy();
         returnTypes = switch (returnType) {
@@ -82,11 +87,12 @@ public class Translation {
                 }
                 var definition = clsTy.getDefinition();
                 var firmType = switch (definition) {
-                    case DefinedClass cls -> getClassType(clsTy.toString());
+                    case DefinedClass ignored -> getClassType(clsTy.toString());
                     case IntrinsicClass ignored -> getClassType("String");
                 };
-                classTypes.put(clsTy.toString(), firmType);
-                yield firmType;
+                var clsPtr = new PointerType(firmType);
+                classTypes.put(clsTy.toString(), clsPtr);
+                yield clsPtr;
             }
             case NullTy ignored -> throw new UnsupportedOperationException("void");
         };
@@ -98,21 +104,34 @@ public class Translation {
         var type = getMethodType(method);
 
         Entity methodEnt = new Entity(globalType, name, type);
+        if (!"init".equals(name)) {
+            Graph graph = new Graph(methodEnt, 10);
+            return graph;
+        }
 
         Graph graph = new Graph(methodEnt, 10);
 
         Construction construction = new Construction(graph);
+
+        Node startNode = construction.newStart();
+        Node memProj = construction.newProj(startNode, Mode.getM(), 0);
+        //Node argProj = construction.newProj(startNode, Mode.getT(), 1);
+        //graph.keepAlive(argProj);
+        Node constNode = construction.newConst(0, Mode.getIs());
+        Node returnNode = construction.newReturn(memProj, new Node[]{constNode});
+        Block endBlock = construction.getGraph().getEndBlock();
+        endBlock.addPred(returnNode);
+        
         construction.finish();
 
         return graph;
     }
 
     public void translate(Program ast, NameResolution.NameResolutionResult nres) {
-        this.nres = nres;
         // TODO: Fill classTypes
 
         for (var classTy : nres.classes()) {
-            CompoundType classType = (CompoundType) getFirmType(classTy);
+            CompoundType classType = (CompoundType) ((PointerType) getFirmType(classTy)).getPointsTo();
 
             for (var methodDef : classTy.getDefinition().getMethods().values()) {
                 Graph graph = genGraphForMethod(methodDef);
