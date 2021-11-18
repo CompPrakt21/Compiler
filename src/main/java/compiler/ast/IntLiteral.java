@@ -2,15 +2,19 @@ package compiler.ast;
 
 import compiler.Token;
 
-import java.util.List;
+import java.util.Optional;
 
+@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public final class IntLiteral extends Expression {
     private final String value;
+    private final Optional<Token> minusToken;
 
-    public IntLiteral(Token value) {
+    public IntLiteral(Optional<Token> minusToken, Token value) {
         super();
         this.isError |= value == null;
-        setSpan(value);
+        setSpan(value, new OptionalWrapper(minusToken));
+
+        this.minusToken = minusToken;
 
         this.value = value != null ? value.getIntLiteralContent() : null;
     }
@@ -25,5 +29,9 @@ public final class IntLiteral extends Expression {
 
     public String getValue() {
         return value;
+    }
+
+    public Optional<Token> getMinusToken() {
+        return this.minusToken;
     }
 }

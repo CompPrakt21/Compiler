@@ -1,9 +1,12 @@
 package compiler;
 
-import compiler.ast.*;
 import compiler.ast.Class;
+import compiler.ast.*;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -89,7 +92,7 @@ public class AstPrinter {
             case FieldAccessExpression f -> fmt("%s.%s", f.getTarget(), f.getIdentifier());
             case ArrayAccessExpression a -> fmt("%s[%s]", a.getTarget(), expressionTopLevel(a.getIndexExpression()));
             case BoolLiteral b -> String.valueOf(b.getValue());
-            case IntLiteral i -> print(i.getValue());
+            case IntLiteral i -> print(i.getMinusToken().map(ignored -> "-").orElse("") + i.getValue());
             case ThisExpression ignored -> "this";
             case NewObjectExpression n -> fmt("new %s()", n.getType().getIdentifier());
             case NewArrayExpression n -> {

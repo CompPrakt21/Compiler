@@ -774,13 +774,22 @@ public class Parser {
 
             var expectResult = expectNoConsume(anchors, UnaryExpression.first());
             var error = expectResult.isError;
-            var parseExpressionResult = parseUnaryExpression(anchors);
-            var child = parseExpressionResult.expression;
-            var parentError = parseExpressionResult.parentError;
 
-            Expression expr = new UnaryExpression(child, minusToken).makeError(error);
+            if (token.type == TokenType.IntLiteral) {
+                var intLit = assertExpect(TokenType.IntLiteral);
 
-            return new ParseExpressionResult(expr, parentError);
+                Expression expr = new IntLiteral(Optional.of(minusToken), intLit);
+
+                return new ParseExpressionResult(expr, error);
+            } else {
+                var parseExpressionResult = parseUnaryExpression(anchors);
+                var child = parseExpressionResult.expression;
+                var parentError = parseExpressionResult.parentError;
+
+                Expression expr = new UnaryExpression(child, minusToken).makeError(error);
+
+                return new ParseExpressionResult(expr, parentError);
+            }
         } else {
             var expectResult = expectNoConsume(anchors, PostfixExpression.first());
             var error = expectResult.isError;
@@ -893,7 +902,7 @@ public class Parser {
             }
             case IntLiteral -> {
                 var token = assertExpect(IntLiteral);
-                return new ParseExpressionResult(new IntLiteral(token), false);
+                return new ParseExpressionResult(new IntLiteral(Optional.empty(), token), false);
             }
             case Identifier -> {
                 var identToken = assertExpect(Identifier);

@@ -66,6 +66,7 @@ public class ConstantFolding {
         }
     }
 
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     public void constantFoldExpression(Expression expression) {
         switch (expression) {
             case AssignmentExpression expr -> {
@@ -86,12 +87,8 @@ public class ConstantFolding {
                     long result = Long.MAX_VALUE;
 
                     switch (binop.getOperator()) {
-                        case Addition -> {
-                            result = lhs + rhs;
-                        }
-                        case Subtraction -> {
-                            result = lhs - rhs;
-                        }
+                        case Addition -> result = lhs + rhs;
+                        case Subtraction -> result = lhs - rhs;
                         case Division -> {
                             if (rhs == 0) {
                                 reportWarning(new ConstantError.DivisonByZero(binop, binop.getRhs()));
@@ -99,9 +96,7 @@ public class ConstantFolding {
                                 result = lhs / rhs;
                             }
                         }
-                        case Multiplication -> {
-                            result = lhs * rhs;
-                        }
+                        case Multiplication -> result = lhs * rhs;
                         case Modulo -> {
                             if (rhs == 0) {
                                 reportWarning(new ConstantError.DivisonByZero(binop, binop.getRhs()));
@@ -123,35 +118,21 @@ public class ConstantFolding {
                 }
             }
             case UnaryExpression unary -> {
+                constantFoldExpression(unary.getExpression());
                 switch (unary.getOperator()) {
                     case LogicalNot -> {
-                        constantFoldExpression(unary.getExpression());
                     }
                     case Negate -> {
-                        if (unary.getExpression() instanceof IntLiteral intLit) {
+                        var childConstant = this.constants.get(unary.getExpression());
+
+                        if (childConstant.isPresent()) {
+                            long result = childConstant.get();
+                            long signedResult = -result;
                             try {
-                                long value = Long.parseLong(intLit.getValue());
-                                long signedValue = -value;
-                                int exactValue = Math.toIntExact(signedValue);
-
-                                this.constants.set(intLit, exactValue);
-                            } catch (ArithmeticException | NumberFormatException ignored) {
-                                reportError(new ConstantError.LiteralTooLarge(unary));
-                            }
-                        } else {
-                            constantFoldExpression(unary.getExpression());
-
-                            var childConstant = this.constants.get(unary.getExpression());
-
-                            if (childConstant.isPresent()) {
-                                long result = childConstant.get();
-                                long signedResult = -result;
-                                try {
-                                    int exactResult = Math.toIntExact(signedResult);
-                                    this.constants.set(unary, exactResult);
-                                } catch (ArithmeticException ignored) {
-                                    reportWarning(new ConstantError.ExpressionTooLarge(unary, signedResult));
-                                }
+                                int exactResult = Math.toIntExact(signedResult);
+                                this.constants.set(unary, exactResult);
+                            } catch (ArithmeticException ignored) {
+                                reportWarning(new ConstantError.ExpressionTooLarge(unary, signedResult));
                             }
                         }
                     }
@@ -171,9 +152,15 @@ public class ConstantFolding {
             }
             case IntLiteral intLit -> {
                 try {
-                    int value = Integer.parseInt(intLit.getValue());
-                    this.constants.set(intLit, value);
-                } catch (NumberFormatException ignored) {
+                    long value = Long.parseLong(intLit.getValue());
+
+                    if (intLit.getMinusToken().isPresent()) {
+                        value *= -1;
+                    }
+
+                    int exactValue = Math.toIntExact(value);
+                    this.constants.set(intLit, exactValue);
+                } catch (ArithmeticException ignored) {
                     reportError(new ConstantError.LiteralTooLarge(intLit));
                 }
             }
@@ -181,9 +168,7 @@ public class ConstantFolding {
             }
             case NewObjectExpression ignored -> {
             }
-            case NewArrayExpression newArray -> {
-                constantFoldExpression(newArray.getFirstDimensionSize());
-            }
+            case NewArrayExpression newArray -> constantFoldExpression(newArray.getFirstDimensionSize());
             case Reference ignored -> {
             }
             case NullExpression ignored -> {
