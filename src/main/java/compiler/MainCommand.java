@@ -137,6 +137,13 @@ public class MainCommand implements Callable<Integer> {
         });
     }
 
+    @SuppressWarnings("unused")
+    @Command(name = "--firm-version", description = "Print Firm version.")
+    public Integer firmVersion() {
+        FirmTest.printVersion();
+        return 0;
+    }
+
     @Override
     public Integer call() {
         // For now, a subcommand is required.
