@@ -207,7 +207,7 @@ public class WellFormed {
             case IntLiteral ignored -> {
             }
             case NewObjectExpression newObjectExpression -> {
-                var type = nameResolution.types().get(newObjectExpression);
+                var type = nameResolution.expressionTypes().get(newObjectExpression);
 
                 if (type.isPresent() && type.get() instanceof ClassTy classTy && classTy.getDefinition() instanceof IntrinsicClass) {
                     reportError(new NewObjectStringUse(newObjectExpression));

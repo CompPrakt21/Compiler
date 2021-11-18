@@ -60,7 +60,9 @@ public class NameResolution {
     }
 
     public record NameResolutionResult(Definitions definitions,
-                                       AstData<TyResult> types,
+                                       AstData<TyResult> expressionTypes,
+                                       AstData<TyResult> bindingTypes,
+                                       List<ClassTy> classes,
                                        boolean successful) {
     }
 
@@ -79,9 +81,13 @@ public class NameResolution {
             }
         }
 
+        var classes = resolution.classInfo.values().stream().map(ClassInfo::type).collect(Collectors.toList());
+
         return new NameResolutionResult(
                 resolution.definitions,
                 resolution.expressionTypes,
+                resolution.bindingTypes,
+                classes,
                 resolution.successful
         );
     }

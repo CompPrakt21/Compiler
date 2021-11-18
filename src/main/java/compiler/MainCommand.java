@@ -119,7 +119,7 @@ public class MainCommand implements Callable<Integer> {
             var wellFormed = WellFormed.checkWellFormdness(ast, resolution, Optional.of(reporter));
 
             new DumpAst(new PrintWriter(System.out), resolution.definitions())
-                    .addNodeAttribute("ty", resolution.types())
+                    .addNodeAttribute("ty", resolution.expressionTypes())
                     .addNodeAttribute("const", constantFolding.constants())
                     .addNodeAttribute("local_vars", wellFormed.variableCounts())
                     .dump(ast);
@@ -156,6 +156,17 @@ public class MainCommand implements Callable<Integer> {
     public Integer firmVersion() {
         FirmTest.printVersion();
         return 0;
+    }
+
+    @SuppressWarnings("unused")
+    @Command(name = "--translate", description = "Translate to libFirm and dump.")
+    public Integer translate(@Parameters(paramLabel = "FILE", description = "The file to parse.") File file) {
+        return callWithParsed(file, (reporter, parser, ast) -> {
+            var nr = NameResolution.performNameResolution(ast, reporter);
+            Translation translation = new Translation();
+            translation.translate(ast, nr);
+            return false;
+        });
     }
 
     @Override
