@@ -22,6 +22,15 @@ class Main {
 
 	public static void main(String[] args) {
 		int x = 1;
+		Main[] foo1 = new Main[x = -1];
+		Main[][] foo2 = new Main[new int[1][0]][];
+		foo1 = foo2[0];
+		foo2[0] = foo1;
+		foo1[0] = null;
+		foo2[0][0] = null;
+		foo1 = null;
+		foo2[0][0].foo(0, 0);
+		int[] foo3 = null;
 		int y = x;
 		boolean z = x > y;
 		while (z) {
