@@ -43,9 +43,9 @@
         </dependency>
 
         <dependency>
-            <groupId>de.uni-karlsruhe.info.pp.git</groupId>
+            <groupId>com.github.libfirm</groupId>
             <artifactId>jFirm</artifactId>
-            <version>master-SNAPSHOT</version>
+            <version>f629d75dd9</version>
         </dependency>
     </dependencies>
 
