@@ -19,16 +19,23 @@ import java.util.stream.Stream;
 public class WellFormed {
 
     private Optional<Method> mainMethod;
-    boolean inMainMethod = false;
+    private boolean inMainMethod;
+    private int countedLocalVariablesInCurrentMethod;
 
     private final NameResolution.NameResolutionResult nameResolution;
 
-    boolean correct = true;
+    private AstData<Integer> countedLocalVariables; // Maps method definitions to the number of local variables they contain.
+    boolean correct;
 
     private final Optional<CompilerMessageReporter> reporter;
 
     private WellFormed(Optional<CompilerMessageReporter> reporter, NameResolution.NameResolutionResult nameResolution) {
         this.nameResolution = nameResolution;
+
+        this.inMainMethod = false;
+        this.correct = true;
+        this.countedLocalVariables = new SparseAstData<>();
+
         this.reporter = reporter;
         mainMethod = Optional.empty();
     }
@@ -42,9 +49,15 @@ public class WellFormed {
         correct = false;
     }
 
-    public static boolean checkWellFormdness(Program program, NameResolution.NameResolutionResult nameResolution, Optional<CompilerMessageReporter> reporter) {
+    public record WellFormedResult(boolean correct, AstData<Integer> variableCounts) {
+    }
+
+    public static WellFormedResult checkWellFormdness(Program program, NameResolution.NameResolutionResult nameResolution, Optional<CompilerMessageReporter> reporter) {
         var analysis = new WellFormed(reporter, nameResolution);
-        return analysis.checkProgram(program);
+
+        analysis.checkProgram(program);
+
+        return new WellFormedResult(analysis.correct, analysis.countedLocalVariables);
     }
 
     private boolean checkProgram(Program program) {
@@ -61,9 +74,11 @@ public class WellFormed {
         for (var klass : program.getClasses()) {
             for (var method : klass.getMethods()) {
                 inMainMethod = mainMethod.map(main -> method == main).orElse(false);
+                countedLocalVariablesInCurrentMethod = 0;
 
                 checkStatement(method.getBody());
 
+                this.countedLocalVariables.set(method, countedLocalVariablesInCurrentMethod);
                 inMainMethod = false;
             }
         }
@@ -235,6 +250,7 @@ public class WellFormed {
                 checkStatement(whileStatement.getBody());
             }
             case LocalVariableDeclarationStatement lclVrlStmt -> {
+                this.countedLocalVariablesInCurrentMethod += 1;
                 if (lclVrlStmt.getInitializer().isPresent())
                     checkExpression(lclVrlStmt.getInitializer().get());
             }

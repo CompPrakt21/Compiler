@@ -1,9 +1,9 @@
 package compiler;
 
 import compiler.diagnostics.CompilerMessageReporter;
-import compiler.semantic.resolution.NameResolution;
 import compiler.semantic.ConstantFolding;
 import compiler.semantic.WellFormed;
+import compiler.semantic.resolution.NameResolution;
 import compiler.syntax.Lexer;
 import compiler.syntax.Parser;
 import org.junit.jupiter.api.DynamicTest;
@@ -143,7 +143,7 @@ public class TestSampleFiles {
             e.printStackTrace();
         }*/
 
-        return names.successful() && constantFolding && wellFormed;
+        return names.successful() && constantFolding.successful() && wellFormed.correct();
     }
 
     @TestFactory

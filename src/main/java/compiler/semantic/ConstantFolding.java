@@ -20,7 +20,7 @@ public class ConstantFolding {
 
     public ConstantFolding(Optional<CompilerMessageReporter> reporter) {
         this.reporter = reporter;
-        this.constants = new AstData<>();
+        this.constants = new SparseAstData<>();
         this.successful = true;
     }
 
@@ -33,8 +33,10 @@ public class ConstantFolding {
         this.reporter.ifPresent(compilerMessageReporter -> compilerMessageReporter.reportMessage(msg));
     }
 
+    public record ConstantFoldingResult(boolean successful, AstData<Integer> constants) {
+    }
 
-    public static boolean performConstantFolding(Program program, Optional<CompilerMessageReporter> reporter) {
+    public static ConstantFoldingResult performConstantFolding(Program program, Optional<CompilerMessageReporter> reporter) {
         ConstantFolding folder = new ConstantFolding(reporter);
 
         for (Class klass : program.getClasses()) {
@@ -43,7 +45,7 @@ public class ConstantFolding {
             }
         }
 
-        return folder.successful;
+        return new ConstantFoldingResult(folder.successful, folder.constants);
     }
 
     public void contantFoldStatement(Statement statement) {

@@ -7,7 +7,6 @@ import compiler.semantic.resolution.DefinedClass;
 import compiler.semantic.resolution.DefinedMethod;
 import compiler.semantic.resolution.Definitions;
 import compiler.semantic.resolution.IntrinsicMethod;
-import compiler.types.TyResult;
 
 import java.io.PrintWriter;
 import java.util.ArrayList;
@@ -15,7 +14,7 @@ import java.util.List;
 
 class DotWriter {
     private final PrintWriter out;
-    private final AstData<TyResult> types;
+    private final List<Attribute> attributes;
 
     public static class Node {
         private final AstNode ast;
@@ -23,6 +22,7 @@ class DotWriter {
 
         public Node(AstNode ast, String name) {
             this.ast = ast;
+
             this.attributes = new ArrayList<>();
             this.attributes.add(name);
         }
@@ -31,13 +31,15 @@ class DotWriter {
             this.attributes.add(attr);
         }
 
-        String toDot(AstData<TyResult> types) {
+        String toDot(List<Attribute> attributes) {
             if (this.ast == null) {
                 return "";
             }
 
-            var ty = types.get(this.ast);
-            ty.ifPresent(tyResult -> this.addAttribute(String.format("ty=%s", tyResult)));
+            for (var attr : attributes) {
+                var d = attr.data().get(this.ast);
+                d.ifPresent(a -> this.attributes.add(String.format("%s = %s", attr.name(), a)));
+            }
 
             var color = this.ast.isError() ? "red" : "black";
 
@@ -51,20 +53,20 @@ class DotWriter {
         }
     }
 
-    DotWriter(PrintWriter out, AstData<TyResult> types) {
+    DotWriter(PrintWriter out, List<Attribute> attributes) {
         this.out = out;
-        this.types = types;
+        this.attributes = attributes;
         this.out.println("digraph {");
     }
 
     void addNode(AstNode ast, String label) {
         var n = new DotWriter.Node(ast, label);
 
-        this.out.println(n.toDot(this.types));
+        this.out.println(n.toDot(this.attributes));
     }
 
     void addNode(Node n) {
-        this.out.println(n.toDot(this.types));
+        this.out.println(n.toDot(this.attributes));
     }
 
     void addEdge(AstNode start, AstNode end) {
@@ -89,26 +91,29 @@ class DotWriter {
     }
 }
 
+record Attribute(String name, AstData<?> data) {
+}
+
 public class DumpAst {
 
     private final DotWriter out;
     private final Definitions definitions;
+    private final List<Attribute> attributes;
 
-    private DumpAst(PrintWriter out, Definitions definitions, AstData<TyResult> types) {
-        this.out = new DotWriter(out, types);
+    public DumpAst(PrintWriter out, Definitions definitions) {
+        this.attributes = new ArrayList<>();
+        this.out = new DotWriter(out, attributes);
         this.definitions = definitions;
     }
 
-    public static void dump(PrintWriter out, AstNode ast, Definitions definitions, AstData<TyResult> types) {
-        var dumper = new DumpAst(out, definitions, types);
-        dumper.dumpAst(ast);
-        dumper.out.finish();
+    public DumpAst addNodeAttribute(String attrName, AstData<?> data) {
+        this.attributes.add(new Attribute(attrName, data));
+        return this;
     }
 
-    public static void dump(PrintWriter out, AstNode ast, Definitions definitions) {
-        var dumper = new DumpAst(out, definitions, new AstData<>());
-        dumper.dumpAst(ast);
-        dumper.out.finish();
+    public void dump(AstNode ast) {
+        this.dumpAst(ast);
+        this.out.finish();
     }
 
     private void dumpAst(AstNode ast) {

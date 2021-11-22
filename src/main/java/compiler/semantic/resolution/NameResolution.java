@@ -1,11 +1,12 @@
 package compiler.semantic.resolution;
 
-import compiler.semantic.AstData;
 import compiler.ast.Class;
 import compiler.ast.*;
 import compiler.diagnostics.CompilerMessage;
 import compiler.diagnostics.CompilerMessageReporter;
 import compiler.errors.*;
+import compiler.semantic.AstData;
+import compiler.semantic.DenseAstData;
 import compiler.types.*;
 
 import java.util.*;
@@ -48,8 +49,8 @@ public class NameResolution {
         this.currentMethod = null;
 
         this.definitions = new Definitions();
-        this.expressionTypes = new AstData<>();
-        this.bindingTypes = new AstData<>();
+        this.expressionTypes = new DenseAstData<>();
+        this.bindingTypes = new DenseAstData<>();
 
         this.classInfo = new HashMap<>();
 

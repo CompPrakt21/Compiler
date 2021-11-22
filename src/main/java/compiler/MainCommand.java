@@ -2,9 +2,9 @@ package compiler;
 
 import compiler.ast.Program;
 import compiler.diagnostics.CompilerMessageReporter;
-import compiler.semantic.resolution.NameResolution;
 import compiler.semantic.ConstantFolding;
 import compiler.semantic.WellFormed;
+import compiler.semantic.resolution.NameResolution;
 import compiler.syntax.Lexer;
 import compiler.syntax.Parser;
 import compiler.syntax.Token;
@@ -113,8 +113,18 @@ public class MainCommand implements Callable<Integer> {
     public Integer callDumpAst(@Parameters(paramLabel = "FILE", description = "The file to parse.") File file) {
         return callWithParsed(file, (reporter, parser, ast) -> {
             var resolution = NameResolution.performNameResolution(ast, reporter);
-            DumpAst.dump(new PrintWriter(System.out), ast, resolution.definitions(), resolution.types());
-            return false;
+
+            var constantFolding = ConstantFolding.performConstantFolding(ast, Optional.of(reporter));
+
+            var wellFormed = WellFormed.checkWellFormdness(ast, resolution, Optional.of(reporter));
+
+            new DumpAst(new PrintWriter(System.out), resolution.definitions())
+                    .addNodeAttribute("ty", resolution.types())
+                    .addNodeAttribute("const", constantFolding.constants())
+                    .addNodeAttribute("local_vars", wellFormed.variableCounts())
+                    .dump(ast);
+
+            return !(resolution.successful() && wellFormed.correct() && constantFolding.successful());
         });
     }
 
@@ -137,7 +147,7 @@ public class MainCommand implements Callable<Integer> {
 
             var wellFormed = WellFormed.checkWellFormdness(ast, nameResolutionResult, Optional.of(reporter));
 
-            return !(nameResolutionResult.successful() && wellFormed && constantFolding);
+            return !(nameResolutionResult.successful() && wellFormed.correct() && constantFolding.successful());
         });
     }
 

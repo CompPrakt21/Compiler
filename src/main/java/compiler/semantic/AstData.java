@@ -2,37 +2,10 @@ package compiler.semantic;
 
 import compiler.ast.AstNode;
 
-import java.util.ArrayList;
 import java.util.Optional;
 
-public class AstData<T> {
-    private final ArrayList<T> data;
+public abstract class AstData<T> {
+    public abstract Optional<T> get(AstNode a);
 
-    public AstData() {
-        this.data = new ArrayList<>();
-    }
-
-    public void set(AstNode a, T data) {
-        var id = a.getID();
-
-        extendDataList(id + 1);
-
-        this.data.set(id, data);
-    }
-
-    public Optional<T> get(AstNode a) {
-        var id = a.getID();
-
-        if (id < data.size()) {
-            return Optional.ofNullable(this.data.get(id));
-        } else {
-            return Optional.empty();
-        }
-    }
-
-    private void extendDataList(int length) {
-        while (this.data.size() < length) {
-            this.data.add(null);
-        }
-    }
+    public abstract void set(AstNode a, T t);
 }

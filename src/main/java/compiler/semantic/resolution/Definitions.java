@@ -1,7 +1,8 @@
 package compiler.semantic.resolution;
 
-import compiler.semantic.AstData;
 import compiler.ast.*;
+import compiler.semantic.AstData;
+import compiler.semantic.DenseAstData;
 
 import java.util.Optional;
 
@@ -9,7 +10,7 @@ public class Definitions {
     private final AstData<Object> inner;
 
     public Definitions() {
-        this.inner = new AstData<>();
+        this.inner = new DenseAstData<>();
     }
 
     public AstData<Object> getInner() {
