@@ -11,4 +11,4 @@ popd  > /dev/null
 #echo "script=[${SCRIPT_PATH}]"
 #echo "pwd   =[`pwd`]"
 
-java --enable-preview -jar "${SCRIPT_PATH}/target/Compiler-jar-with-dependencies.jar" "$@"
+"${SCRIPT_PATH}/target/install/Compiler/bin/Compiler" "$@"
