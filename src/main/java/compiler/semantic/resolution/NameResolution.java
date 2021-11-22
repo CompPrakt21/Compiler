@@ -264,6 +264,8 @@ public class NameResolution {
                                 if (!(retExprTy.comparable(expectedReturnTy))) {
                                     reportError(new ReturnStatementErrors.TypeMismatch(currentMethod, expectedReturnTy, retStmt, retExprTy));
                                 }
+                            } else if (retExprTyRes instanceof VoidTy) {
+                                reportError(new ReturnStatementErrors.TypeMismatch(this.currentMethod, expectedReturnTy, retStmt, retExprTyRes));
                             }
                         } else {
                             reportError(new ReturnStatementErrors.MissingReturnExpr(this.currentMethod, retStmt, expectedReturnTy));
@@ -313,6 +315,7 @@ public class NameResolution {
                 }
             }
         }
+
     }
 
     private void resolveMethodCallWithTarget(MethodCallExpression methodCall, TyResult targetType) {

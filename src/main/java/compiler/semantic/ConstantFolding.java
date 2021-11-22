@@ -162,7 +162,7 @@ public class ConstantFolding {
 
                     int exactValue = Math.toIntExact(value);
                     this.constants.set(intLit, exactValue);
-                } catch (ArithmeticException ignored) {
+                } catch (NumberFormatException | ArithmeticException ignored) {
                     reportError(new ConstantError.LiteralTooLarge(intLit));
                 }
             }
