@@ -37,14 +37,6 @@ public class Translation {
         this.nextVariableId = 0;
     }
 
-    private Type getBoolType() {
-        return new PrimitiveType(Mode.getBu());
-    }
-
-    private Type getIntType() {
-        return new PrimitiveType(Mode.getIs());
-    }
-
     private MethodType getMethodType(MethodDefinition method) {
         var paramTypes = Stream.concat(
                 Stream.of(this.firmTypes.get(method.getContainingClass().orElseThrow())),
@@ -53,30 +45,17 @@ public class Translation {
 
         Type[] returnTypes;
         var returnType = method.getReturnTy();
-        returnTypes = switch (returnType) {
-            case VoidTy ignored -> new Type[0];
-            default -> new Type[]{getFirmType((Ty) returnType)};
-        };
+        returnTypes = returnType instanceof VoidTy ? new Type[0] : new Type[]{getFirmType((Ty) returnType)};
         return new MethodType(paramTypes, returnTypes);
     }
 
-    private CompoundType getClassType(String identifier) {
-        return new StructType(identifier);
-    }
-
-    private Type getArrayType(ArrayTy arrTy) {
-        var elemType = getFirmType(arrTy.getChildTy());
-        return new firm.PointerType(elemType);
-    }
-
     private Type getFirmType(Ty type) {
-        // TODO: Should ArrayTypes also be cached?
         var result = switch (type) {
             case BoolTy ignored -> {
                 if (this.firmTypes.containsKey(type)) {
                     yield this.firmTypes.get(type);
                 } else {
-                    var firmType = getBoolType();
+                    var firmType = new PrimitiveType(Mode.getBu());
                     this.firmTypes.put(type, firmType);
                     yield firmType;
                 }
@@ -85,20 +64,27 @@ public class Translation {
                 if (this.firmTypes.containsKey(type)) {
                     yield this.firmTypes.get(type);
                 } else {
-                    var firmType = getIntType();
+                    var firmType = new PrimitiveType(Mode.getIs());
                     this.firmTypes.put(type, firmType);
                     yield firmType;
                 }
             }
-            case ArrayTy arrTy -> getArrayType(arrTy);
+            case ArrayTy arrTy -> {
+                if (this.firmTypes.containsKey(arrTy)) {
+                    yield this.firmTypes.get(arrTy);
+                } else {
+                    var elemType = getFirmType(arrTy.getChildTy());
+                    var firmType = new PointerType(elemType);
+
+                    this.firmTypes.put(arrTy, firmType);
+                    yield firmType;
+                }
+            }
             case ClassTy clsTy -> {
                 if (this.firmTypes.containsKey(clsTy)) {
                     yield this.firmTypes.get(clsTy);
                 } else {
-                    var firmType = switch (clsTy) {
-                        case DefinedClassTy ignored -> getClassType(clsTy.toString());
-                        case IntrinsicClassTy ignored -> getClassType("String");
-                    };
+                    var firmType = new StructType(clsTy.getName());
                     var clsPtr = new PointerType(firmType);
                     this.firmTypes.put(clsTy, clsPtr);
                     yield clsPtr;
