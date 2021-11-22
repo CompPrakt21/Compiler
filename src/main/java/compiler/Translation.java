@@ -2,20 +2,18 @@ package compiler;
 
 import compiler.ast.*;
 import compiler.ast.Program;
-import compiler.semantic.resolution.DefinedClass;
-import compiler.semantic.resolution.IntrinsicClass;
-import compiler.semantic.resolution.MethodDefinition;
-import compiler.semantic.resolution.NameResolution;
+import compiler.semantic.resolution.*;
 import compiler.types.*;
 import firm.*;
 import firm.Type;
 import firm.bindings.binding_ircons;
 import firm.nodes.Block;
 import firm.nodes.Node;
-import firm.nodes.Pin;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
@@ -23,14 +21,20 @@ public class Translation {
 
     private final Map<Ty, Type> primitiveTypes;
     private final Map<String, PointerType> classTypes;
+    private final Map<String, Integer> variableId;
+    private final List<Node> returns;
     private final CompoundType globalType;
+    private int nextVariableId;
     private Construction construction;
 
     public Translation() {
         Firm.init();
         this.primitiveTypes = new HashMap<>();
         this.classTypes = new HashMap<>();
+        this.variableId = new HashMap<>();
+        this.returns = new ArrayList<>();
         this.globalType = firm.Program.getGlobalType();
+        this.nextVariableId = 0;
     }
 
     private Type getBoolType() {
@@ -41,7 +45,7 @@ public class Translation {
         return new PrimitiveType(Mode.getIs());
     }
 
-    private Type getMethodType(MethodDefinition method) {
+    private MethodType getMethodType(MethodDefinition method) {
         var paramTypes = Stream.concat(
                 Stream.of(classTypes.get(method.getContainingClass().get().getName())),
                 method.getParameterTy().stream().map(ty -> getFirmType((Ty) ty))
@@ -130,9 +134,10 @@ public class Translation {
             case Multiplication -> construction.newMul(lhs, rhs); //TODO: Mul or Mulh?
             case Division -> {
                 Node div = construction.newDiv(construction.getCurrentMem(), lhs, rhs, binding_ircons.op_pin_state.op_pin_state_pinned);
-                Node proj = construction.newProj(div, Mode.getM(), 0);
-                construction.setCurrentMem(proj);
-                yield div;
+                Node memProj = construction.newProj(div, Mode.getM(), 0);
+                Node resProj = construction.newProj(div, Mode.getIs(), 1);
+                construction.setCurrentMem(memProj);
+                yield resProj;
             }
             case Modulo -> {
                 Node div = construction.newMod(construction.getCurrentMem(), lhs, rhs, binding_ircons.op_pin_state.op_pin_state_pinned);
@@ -156,7 +161,17 @@ public class Translation {
         return switch (root) {
             case BinaryOpExpression expr -> translateBinOp(expr);
             case FieldAccessExpression expr -> throw new UnsupportedOperationException();
-            case AssignmentExpression expr -> throw new UnsupportedOperationException();
+            case AssignmentExpression expr -> {
+                switch (expr.getLvalue()) {
+                    case Reference var -> {
+                        // TODO: What if not a local var
+                        var rhs = translateExpr(expr.getRvalue());
+                        construction.setVariable(variableId.get(var.getIdentifier().toString()), rhs);
+                        yield rhs;
+                    }
+                    default -> throw new UnsupportedOperationException(); //TODO
+                }
+            }
             case ArrayAccessExpression expr -> throw new UnsupportedOperationException();
             case MethodCallExpression expr -> throw new UnsupportedOperationException();
             case NewArrayExpression expr -> throw new UnsupportedOperationException();
@@ -164,18 +179,44 @@ public class Translation {
             case NullExpression expr -> throw new UnsupportedOperationException("null");
             case ThisExpression expr -> throw new UnsupportedOperationException();
             case UnaryExpression expr -> translateUnaryOp(expr);
-            case Reference expr -> throw new UnsupportedOperationException();
+            case Reference expr -> {
+                // TODO: What if not a local var
+                // TODO: different mode
+                yield construction.getVariable(variableId.get(expr.getIdentifier().toString()), Mode.getIs());
+            }
             case BoolLiteral expr -> translateLiteral(expr);
             case IntLiteral expr -> translateLiteral(expr);
         };
     }
 
-    private Graph genGraphForMethod(MethodDefinition method) {
-        var name = method.getName();
-        var type = getMethodType(method);
+    private Node translateStatement(Statement statement) {
+        var res = switch (statement) {
+            case EmptyStatement stmt -> construction.newBad(Mode.getIs()); // TODO: stmts
+            case ExpressionStatement stmt -> translateExpr(stmt.getExpression());
+            case IfStatement stmt -> throw new UnsupportedOperationException();
+            case LocalVariableDeclarationStatement stmt -> {
+                variableId.put(stmt.getIdentifier().toString(), nextVariableId);
+                nextVariableId++;
+                yield null;
+            }
+            case ReturnStatement stmt -> {
+                Node[] rhs = stmt.getExpression().map(expr -> new Node[]{translateExpr(expr)}).orElse(new Node[0]);
+                var ret =  construction.newReturn(construction.getCurrentMem(), rhs);
+                returns.add(ret);
+                yield ret;
+            }
+            case WhileStatement stmt -> throw new UnsupportedOperationException();
+            case compiler.ast.Block block -> throw new UnsupportedOperationException();
+        };
+        return res;
+    }
+
+    private Graph genGraphForMethod(MethodDefinition methodDef) {
+        var name = methodDef.getName();
+        var type = getMethodType(methodDef);
 
         Entity methodEnt = new Entity(globalType, name, type);
-        if (!"init".equals(name)) {
+        if ("main".equals(name)) {
             Graph graph = new Graph(methodEnt, 10);
             return graph;
         }
@@ -186,19 +227,41 @@ public class Translation {
 
         Node startNode = construction.newStart();
         Node memProj = construction.newProj(startNode, Mode.getM(), 0);
+        construction.setCurrentMem(memProj);
         Node argsProj = construction.newProj(startNode, Mode.getT(), 2);
 
         Node thisArg = construction.newProj(argsProj, Mode.getP(), 0);
-        Node firstArg = construction.newProj(argsProj, Mode.getIs(), 1);
-        Node secondArg = construction.newProj(argsProj, Mode.getIs(), 2);
+        construction.setVariable(nextVariableId, thisArg);
+        variableId.put("this", nextVariableId);
+        nextVariableId++;
 
-        Node add = construction.newAdd(firstArg, secondArg);
-        //graph.keepAlive(add);
+        Method method = ((DefinedMethod)methodDef).getAstMethod();
+        Node arg;
+        int index = 1;
+        for (var param : method.getParameters()) {
+            Mode mode = switch (param.getType()) {
+                case IntType ignored -> Mode.getIs();
+                case BoolType ignored -> Mode.getBu();
+                default -> throw new UnsupportedOperationException(); // TODO: Other tys
+            };
+            arg = construction.newProj(argsProj, mode, index);
+            construction.setVariable(nextVariableId, arg);
+            variableId.put(param.getIdentifier().toString(), nextVariableId);
+            nextVariableId++;
+            index++;
+        }
 
-        //Node constNode = construction.newConst(0, Mode.getIs());
-        Node returnNode = construction.newReturn(memProj, new Node[]{add});
+
+        var body = method.getBody();
+
+        for (var statement : body.getStatements()) {
+            translateStatement(statement);
+        }
+
         Block endBlock = construction.getGraph().getEndBlock();
-        endBlock.addPred(returnNode);
+        for (var ret : returns) {
+            endBlock.addPred(ret);
+        }
 
         construction.finish();
 
