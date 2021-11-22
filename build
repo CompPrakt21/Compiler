@@ -12,4 +12,4 @@ popd  > /dev/null
 #echo "pwd   =[`pwd`]"
 cd "$SCRIPT_PATH"
 
-mvn clean verify
+./gradlew --no-daemon clean installDist
