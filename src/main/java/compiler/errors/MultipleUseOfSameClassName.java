@@ -3,14 +3,14 @@ package compiler.errors;
 import compiler.ast.Class;
 import compiler.diagnostics.CompilerError;
 import compiler.diagnostics.Source;
-import compiler.semantic.resolution.ClassDefinition;
-import compiler.semantic.resolution.DefinedClass;
+import compiler.types.ClassTy;
+import compiler.types.DefinedClassTy;
 
 public class MultipleUseOfSameClassName extends CompilerError {
-    private final ClassDefinition firstUse;
+    private final ClassTy firstUse;
     private final Class secondUse;
 
-    public MultipleUseOfSameClassName(ClassDefinition firstUse, Class secondUse) {
+    public MultipleUseOfSameClassName(ClassTy firstUse, Class secondUse) {
         this.firstUse = firstUse;
         this.secondUse = secondUse;
     }
@@ -24,7 +24,7 @@ public class MultipleUseOfSameClassName extends CompilerError {
 
         this.addPrimaryAnnotation(secondUse.getIdentifier().getSpan());
 
-        if (this.firstUse instanceof DefinedClass dc) {
+        if (this.firstUse instanceof DefinedClassTy dc) {
             this.addSecondaryAnnotation(dc.getAstClass().getIdentifier().getSpan(), "first definition here");
         } else {
             this.addNote("%s is an intrinsic class.", name);

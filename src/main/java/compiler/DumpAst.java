@@ -3,10 +3,10 @@ package compiler;
 import compiler.ast.Class;
 import compiler.ast.*;
 import compiler.semantic.AstData;
-import compiler.semantic.resolution.DefinedClass;
 import compiler.semantic.resolution.DefinedMethod;
 import compiler.semantic.resolution.Definitions;
 import compiler.semantic.resolution.IntrinsicMethod;
+import compiler.types.DefinedClassTy;
 
 import java.io.PrintWriter;
 import java.util.ArrayList;
@@ -357,7 +357,7 @@ public class DumpAst {
                 var node = new DotWriter.Node(classTy, String.format("class '%s'", classTy.getIdentifier()));
                 if (maybeClassDef.isPresent()) {
                     var classDef = maybeClassDef.get();
-                    if (classDef instanceof DefinedClass definedClassDef) {
+                    if (classDef instanceof DefinedClassTy definedClassDef) {
                         this.out.addDataEdge(classTy, definedClassDef.getAstClass());
                     } else {
                         node.addAttribute("intrinsic");

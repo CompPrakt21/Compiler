@@ -1,25 +1,17 @@
 package compiler.types;
 
-import compiler.semantic.resolution.ClassDefinition;
+import compiler.semantic.resolution.MethodDefinition;
 
-public final class ClassTy extends Ty {
-    private final ClassDefinition definition;
+import java.util.Map;
+import java.util.Optional;
 
-    public ClassTy(ClassDefinition definition) {
-        this.definition = definition;
-    }
+public abstract sealed class ClassTy extends Ty permits DefinedClassTy, IntrinsicClassTy {
 
-    public ClassDefinition getDefinition() {
-        return definition;
-    }
+    public abstract String getName();
 
-    @Override
-    public boolean equals(Object obj) {
-        return obj instanceof ClassTy other && other.definition == this.definition;
-    }
+    public abstract Map<String, MethodDefinition> getMethods();
 
-    @Override
-    public String toString() {
-        return this.definition.getName();
+    public Optional<MethodDefinition> searchMethod(String name) {
+        return Optional.ofNullable(this.getMethods().get(name));
     }
 }

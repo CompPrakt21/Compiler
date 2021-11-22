@@ -22,11 +22,8 @@ public class NameResolution {
     private final Definitions definitions; // Maps every ast node with an identifier to the ast node that defines it.
     private final AstData<TyResult> expressionTypes; // Types of all expressions
 
-    private record ClassInfo(ClassDefinition definition, ClassTy type) {
-    }
-
     // Identifier -> (Class, ClassTy)
-    private final Map<String, ClassInfo> classInfo;
+    private final Map<String, ClassTy> classInfo;
 
     private final AstData<TyResult> bindingTypes; // Field type, Method return type, Parameter types or Local var declarations
 
@@ -62,7 +59,7 @@ public class NameResolution {
     public record NameResolutionResult(Definitions definitions,
                                        AstData<TyResult> expressionTypes,
                                        AstData<TyResult> bindingTypes,
-                                       List<ClassTy> classes,
+                                       List<DefinedClassTy> classes,
                                        boolean successful) {
     }
 
@@ -81,7 +78,11 @@ public class NameResolution {
             }
         }
 
-        var classes = resolution.classInfo.values().stream().map(ClassInfo::type).collect(Collectors.toList());
+        var classes = resolution.classInfo.values()
+                .stream()
+                .filter(classTy -> classTy instanceof DefinedClassTy)
+                .map(classTy -> (DefinedClassTy) classTy)
+                .collect(Collectors.toList());
 
         return new NameResolutionResult(
                 resolution.definitions,
@@ -98,7 +99,7 @@ public class NameResolution {
     }
 
     private void addIntrinsicClasses() {
-        this.classInfo.put(IntrinsicClass.STRING_CLASS.getName(), new ClassInfo(IntrinsicClass.STRING_CLASS, new ClassTy(IntrinsicClass.STRING_CLASS)));
+        this.classInfo.put(IntrinsicClassTy.STRING_CLASS.getName(), IntrinsicClassTy.STRING_CLASS);
     }
 
     private void globalNameResolution(Program program) {
@@ -108,31 +109,30 @@ public class NameResolution {
 
             if (this.classInfo.containsKey(name)) {
                 var firstDef = this.classInfo.get(name);
-                reportError(new MultipleUseOfSameClassName(firstDef.definition, klass));
+                reportError(new MultipleUseOfSameClassName(firstDef, klass));
                 continue;
             }
 
-            var classDef = new DefinedClass(klass);
-            this.classInfo.put(name, new ClassInfo(classDef, new ClassTy(classDef)));
+            this.classInfo.put(name, new DefinedClassTy(klass));
         }
 
         // Only look at collected classes (thereby ignoring classes which reuse an already defined class name)
         for (String className : classInfo.keySet()) {
-            var classInfo = this.classInfo.get(className);
+            var classTy = this.classInfo.get(className);
 
-            DefinedClass classDef;
-            if (classInfo.definition instanceof DefinedClass dc) {
-                classDef = dc;
+            DefinedClassTy definedClassTy;
+            if (classTy instanceof DefinedClassTy dc) {
+                definedClassTy = dc;
             } else {
                 continue;
             }
 
-            var klass = classDef.getAstClass();
+            var klass = definedClassTy.getAstClass();
 
             for (Method m : klass.getMethods()) {
 
                 var methodName = m.getIdentifier().getContent();
-                var maybeAlreadyUsed = classDef.searchMethod(methodName);
+                var maybeAlreadyUsed = definedClassTy.searchMethod(methodName);
                 if (maybeAlreadyUsed.isPresent()) {
                     assert maybeAlreadyUsed.get() instanceof DefinedMethod;
                     var firstUse = ((DefinedMethod) maybeAlreadyUsed.get()).getAstMethod();
@@ -166,13 +166,13 @@ public class NameResolution {
                     this.bindingTypes.set(param, paramType);
                 }
 
-                classDef.addMethod(new DefinedMethod(m, classDef, returnTy, paramTys));
+                definedClassTy.addMethod(new DefinedMethod(m, definedClassTy, returnTy, paramTys));
             }
 
             for (Field f : klass.getFields()) {
 
                 var fieldName = f.getIdentifier().getContent();
-                var maybeAlreadyUsed = classDef.searchField(fieldName);
+                var maybeAlreadyUsed = definedClassTy.searchField(fieldName);
                 if (maybeAlreadyUsed.isPresent()) {
                     var firstUse = maybeAlreadyUsed.get();
                     reportError(new MultipleUseOfSameMemberName(firstUse, f));
@@ -189,7 +189,7 @@ public class NameResolution {
                     reportError(new UnresolveableMemberType(f));
                 }
 
-                classDef.addField(f);
+                definedClassTy.addField(f);
             }
         }
     }
@@ -326,9 +326,7 @@ public class NameResolution {
     private void resolveMethodCallWithTarget(MethodCallExpression methodCall, TyResult targetType) {
         if (targetType instanceof ClassTy classTy) {
 
-            var classDef = classTy.getDefinition();
-
-            var methodDef = classDef.searchMethod(methodCall.getIdentifier().getContent());
+            var methodDef = classTy.searchMethod(methodCall.getIdentifier().getContent());
             if (methodDef.isPresent()) {
                 this.definitions.setMethod(methodCall, methodDef.get());
 
@@ -336,7 +334,7 @@ public class NameResolution {
 
                 this.expressionTypes.set(methodCall, returnType);
             } else {
-                reportError(new UnresolveableMemberAccess(classTy.getDefinition(), methodCall));
+                reportError(new UnresolveableMemberAccess(classTy, methodCall));
                 this.expressionTypes.set(methodCall, new UnresolveableTy());
             }
         } else {
@@ -357,8 +355,8 @@ public class NameResolution {
     }
 
     private void typecheckBinaryExpression(BinaryOpExpression binaryOp) {
-        var lhsTyRes = this.expressionTypes.get(binaryOp.getLhs()).get();
-        var rhsTyRes = this.expressionTypes.get(binaryOp.getRhs()).get();
+        var lhsTyRes = this.expressionTypes.get(binaryOp.getLhs()).orElseThrow();
+        var rhsTyRes = this.expressionTypes.get(binaryOp.getRhs()).orElseThrow();
 
         if (lhsTyRes instanceof UnresolveableTy || rhsTyRes instanceof UnresolveableTy) {
 
@@ -499,10 +497,9 @@ public class NameResolution {
                 var targetType = this.expressionTypes.get(target).get();
 
                 // If the target expression doesn't have a type an error was reported during resolve of this expression.
-                if (targetType instanceof ClassTy classTy) {
-                    var classDef = classTy.getDefinition();
+                if (targetType instanceof DefinedClassTy classTy) {
 
-                    var fieldDef = classDef.searchField(fieldAccess.getIdentifier().getContent());
+                    var fieldDef = classTy.searchField(fieldAccess.getIdentifier().getContent());
                     if (fieldDef.isPresent()) {
 
                         this.definitions.setField(fieldAccess, fieldDef.get());
@@ -511,9 +508,11 @@ public class NameResolution {
 
                         ty.ifPresent(value -> this.expressionTypes.set(fieldAccess, value));
                     } else {
-                        reportError(new UnresolveableMemberAccess(classTy.getDefinition(), fieldAccess));
+                        reportError(new UnresolveableMemberAccess(classTy, fieldAccess));
                         this.expressionTypes.set(fieldAccess, new UnresolveableTy());
                     }
+                } else if (targetType instanceof IntrinsicClassTy classTy) {
+                    reportError(new UnresolveableMemberAccess(classTy, fieldAccess));
                 } else {
                     reportError(new MemberAccessOnNonClassType(fieldAccess, targetType));
                     this.expressionTypes.set(fieldAccess, new UnresolveableTy());
@@ -660,14 +659,14 @@ public class NameResolution {
         var klass = Optional.ofNullable(this.classInfo.get(type.getIdentifier().getContent()));
 
         if (klass.isPresent()) {
-            this.definitions.setClass(type, klass.get().definition);
+            this.definitions.setClass(type, klass.get());
         } else {
             reportError(new ClassDoesNotExist(type));
         }
     }
 
     private Optional<ClassTy> identToClassTy(String ident) {
-        return Optional.ofNullable(this.classInfo.get(ident)).map(info -> info.type);
+        return Optional.ofNullable(this.classInfo.get(ident));
     }
 
     private ClassTy getCurrentClassTy() {
@@ -686,7 +685,7 @@ public class NameResolution {
                 var klass = Optional.ofNullable(this.classInfo.get(c.getIdentifier().getContent()));
 
                 if (klass.isPresent()) {
-                    return klass.get().type;
+                    return klass.get();
                 } else {
                     return new UnresolveableTy();
                 }

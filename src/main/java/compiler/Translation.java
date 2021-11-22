@@ -1,11 +1,13 @@
 package compiler;
 
-import compiler.ast.*;
 import compiler.ast.Program;
-import compiler.semantic.resolution.*;
+import compiler.ast.*;
+import compiler.semantic.resolution.DefinedMethod;
+import compiler.semantic.resolution.MethodDefinition;
+import compiler.semantic.resolution.NameResolution;
 import compiler.types.*;
-import firm.*;
 import firm.Type;
+import firm.*;
 import firm.bindings.binding_ircons;
 import firm.nodes.Block;
 import firm.nodes.Node;
@@ -19,8 +21,7 @@ import java.util.stream.Stream;
 
 public class Translation {
 
-    private final Map<Ty, Type> primitiveTypes;
-    private final Map<String, PointerType> classTypes;
+    private final Map<Ty, Type> firmTypes;
     private final Map<String, Integer> variableId;
     private final List<Node> returns;
     private final CompoundType globalType;
@@ -29,8 +30,7 @@ public class Translation {
 
     public Translation() {
         Firm.init();
-        this.primitiveTypes = new HashMap<>();
-        this.classTypes = new HashMap<>();
+        this.firmTypes = new HashMap<>();
         this.variableId = new HashMap<>();
         this.returns = new ArrayList<>();
         this.globalType = firm.Program.getGlobalType();
@@ -47,7 +47,7 @@ public class Translation {
 
     private MethodType getMethodType(MethodDefinition method) {
         var paramTypes = Stream.concat(
-                Stream.of(classTypes.get(method.getContainingClass().get().getName())),
+                Stream.of(this.firmTypes.get(method.getContainingClass().orElseThrow())),
                 method.getParameterTy().stream().map(ty -> getFirmType((Ty) ty))
         ).toArray(Type[]::new);
 
@@ -73,34 +73,36 @@ public class Translation {
         // TODO: Should ArrayTypes also be cached?
         var result = switch (type) {
             case BoolTy ignored -> {
-                if (primitiveTypes.containsKey(type)) {
-                    yield primitiveTypes.get(type);
+                if (this.firmTypes.containsKey(type)) {
+                    yield this.firmTypes.get(type);
+                } else {
+                    var firmType = getBoolType();
+                    this.firmTypes.put(type, firmType);
+                    yield firmType;
                 }
-                var firmType = getBoolType();
-                primitiveTypes.put(type, firmType);
-                yield firmType;
             }
             case IntTy ignored -> {
-                if (primitiveTypes.containsKey(type)) {
-                    yield primitiveTypes.get(type);
+                if (this.firmTypes.containsKey(type)) {
+                    yield this.firmTypes.get(type);
+                } else {
+                    var firmType = getIntType();
+                    this.firmTypes.put(type, firmType);
+                    yield firmType;
                 }
-                var firmType = getIntType();
-                primitiveTypes.put(type, firmType);
-                yield firmType;
             }
             case ArrayTy arrTy -> getArrayType(arrTy);
             case ClassTy clsTy -> {
-                if (classTypes.containsKey(clsTy.toString())) {
-                    yield classTypes.get(clsTy.toString());
+                if (this.firmTypes.containsKey(clsTy)) {
+                    yield this.firmTypes.get(clsTy);
+                } else {
+                    var firmType = switch (clsTy) {
+                        case DefinedClassTy ignored -> getClassType(clsTy.toString());
+                        case IntrinsicClassTy ignored -> getClassType("String");
+                    };
+                    var clsPtr = new PointerType(firmType);
+                    this.firmTypes.put(clsTy, clsPtr);
+                    yield clsPtr;
                 }
-                var definition = clsTy.getDefinition();
-                var firmType = switch (definition) {
-                    case DefinedClass ignored -> getClassType(clsTy.toString());
-                    case IntrinsicClass ignored -> getClassType("String");
-                };
-                var clsPtr = new PointerType(firmType);
-                classTypes.put(clsTy.toString(), clsPtr);
-                yield clsPtr;
             }
             case NullTy ignored -> throw new UnsupportedOperationException("void");
         };
@@ -201,7 +203,7 @@ public class Translation {
             }
             case ReturnStatement stmt -> {
                 Node[] rhs = stmt.getExpression().map(expr -> new Node[]{translateExpr(expr)}).orElse(new Node[0]);
-                var ret =  construction.newReturn(construction.getCurrentMem(), rhs);
+                var ret = construction.newReturn(construction.getCurrentMem(), rhs);
                 returns.add(ret);
                 yield ret;
             }
@@ -235,7 +237,7 @@ public class Translation {
         variableId.put("this", nextVariableId);
         nextVariableId++;
 
-        Method method = ((DefinedMethod)methodDef).getAstMethod();
+        Method method = ((DefinedMethod) methodDef).getAstMethod();
         Node arg;
         int index = 1;
         for (var param : method.getParameters()) {
@@ -274,11 +276,11 @@ public class Translation {
         for (var classTy : nres.classes()) {
             CompoundType classType = (CompoundType) ((PointerType) getFirmType(classTy)).getPointsTo();
 
-            for (var methodDef : classTy.getDefinition().getMethods().values()) {
+            for (var methodDef : classTy.getMethods().values()) {
                 Graph graph = genGraphForMethod(methodDef);
                 Dump.dumpGraph(graph, methodDef.getName());
             }
-            for (var field : classTy.getDefinition().getFields().values()) {
+            for (var field : classTy.getFields().values()) {
                 Type fieldType = getFirmType((Ty) nres.bindingTypes().get(field).get());
                 Entity fieldEnt = new Entity(classType, field.getIdentifier().toString(), fieldType);
             }

@@ -10,4 +10,9 @@ public final class IntTy extends Ty {
     public boolean equals(Object obj) {
         return obj instanceof IntTy;
     }
+
+    @Override
+    public int hashCode() {
+        return 1463667553; // random integer.
+    }
 }

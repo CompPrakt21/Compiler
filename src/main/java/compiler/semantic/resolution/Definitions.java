@@ -3,6 +3,7 @@ package compiler.semantic.resolution;
 import compiler.ast.*;
 import compiler.semantic.AstData;
 import compiler.semantic.DenseAstData;
+import compiler.types.ClassTy;
 
 import java.util.Optional;
 
@@ -47,13 +48,13 @@ public class Definitions {
         return ast.map(o -> (VariableDefinition) o);
     }
 
-    public void setClass(ClassType classType, ClassDefinition classDef) {
+    public void setClass(ClassType classType, ClassTy classDef) {
         this.inner.set(classType, classDef);
     }
 
-    public Optional<ClassDefinition> getClass(ClassType classType) {
+    public Optional<ClassTy> getClass(ClassType classType) {
         var klass = this.inner.get(classType);
-        assert klass.map(o -> o instanceof ClassDefinition).orElse(true);
-        return klass.map(o -> (ClassDefinition) o);
+        assert klass.map(o -> o instanceof ClassTy).orElse(true);
+        return klass.map(o -> (ClassTy) o);
     }
 }

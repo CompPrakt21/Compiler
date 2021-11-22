@@ -23,9 +23,4 @@ public abstract sealed class Ty extends TyResult permits IntTy, BoolTy, ClassTy,
             return false;
         }
     }
-
-    @Override
-    public int hashCode() {
-        return this.getClass().hashCode();
-    }
 }

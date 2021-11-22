@@ -10,4 +10,9 @@ public final class NullTy extends Ty {
     public String toString() {
         return "null";
     }
+
+    @Override
+    public int hashCode() {
+        return 536996823; // random integer
+    }
 }

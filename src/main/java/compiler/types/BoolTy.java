@@ -10,4 +10,9 @@ public final class BoolTy extends Ty {
     public String toString() {
         return "bool";
     }
+
+    @Override
+    public int hashCode() {
+        return 182277479; // random integer.
+    }
 }

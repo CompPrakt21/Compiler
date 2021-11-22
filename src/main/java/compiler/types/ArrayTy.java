@@ -30,4 +30,9 @@ public final class ArrayTy extends Ty {
     public String toString() {
         return this.childTy + "[]";
     }
+
+    @Override
+    public int hashCode() {
+        return childTy.hashCode() + 1529164737;
+    }
 }

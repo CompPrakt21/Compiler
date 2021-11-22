@@ -1,6 +1,7 @@
 package compiler.semantic.resolution;
 
 import compiler.ast.Method;
+import compiler.types.ClassTy;
 import compiler.types.TyResult;
 
 import java.util.List;
@@ -8,13 +9,13 @@ import java.util.Optional;
 
 public final class DefinedMethod extends MethodDefinition {
     private Method method;
-    private ClassDefinition containingClass;
+    private ClassTy containingClass;
 
     private TyResult returnTy;
 
     private List<TyResult> parameterTy;
 
-    public DefinedMethod(Method method, ClassDefinition containingClass, TyResult returnTy, List<TyResult> parameterTy) {
+    public DefinedMethod(Method method, ClassTy containingClass, TyResult returnTy, List<TyResult> parameterTy) {
         this.method = method;
         this.containingClass = containingClass;
         this.returnTy = returnTy;
@@ -31,7 +32,7 @@ public final class DefinedMethod extends MethodDefinition {
     }
 
     @Override
-    public Optional<ClassDefinition> getContainingClass() {
+    public Optional<ClassTy> getContainingClass() {
         return Optional.of(this.containingClass);
     }
 

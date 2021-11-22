@@ -1,20 +1,23 @@
 package compiler.errors;
 
-import compiler.ast.*;
+import compiler.ast.AstNode;
+import compiler.ast.FieldAccessExpression;
+import compiler.ast.Identifier;
+import compiler.ast.MethodCallExpression;
 import compiler.diagnostics.CompilerError;
 import compiler.diagnostics.Source;
-import compiler.semantic.resolution.ClassDefinition;
+import compiler.types.ClassTy;
 
 public class UnresolveableMemberAccess extends CompilerError {
-    private final ClassDefinition expectedClass;
+    private final ClassTy expectedClass;
     private final AstNode member;
 
-    public UnresolveableMemberAccess(ClassDefinition expectedClass, MethodCallExpression methodCall) {
+    public UnresolveableMemberAccess(ClassTy expectedClass, MethodCallExpression methodCall) {
         this.expectedClass = expectedClass;
         this.member = methodCall;
     }
 
-    public UnresolveableMemberAccess(ClassDefinition expectedClass, FieldAccessExpression fieldAccess) {
+    public UnresolveableMemberAccess(ClassTy expectedClass, FieldAccessExpression fieldAccess) {
         this.expectedClass = expectedClass;
         this.member = fieldAccess;
     }

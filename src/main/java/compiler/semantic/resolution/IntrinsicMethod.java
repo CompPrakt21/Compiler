@@ -1,5 +1,6 @@
 package compiler.semantic.resolution;
 
+import compiler.types.ClassTy;
 import compiler.types.IntTy;
 import compiler.types.TyResult;
 import compiler.types.VoidTy;
@@ -31,7 +32,7 @@ public final class IntrinsicMethod extends MethodDefinition {
     }
 
     @Override
-    public Optional<ClassDefinition> getContainingClass() {
+    public Optional<ClassTy> getContainingClass() {
         return Optional.empty();
     }
 

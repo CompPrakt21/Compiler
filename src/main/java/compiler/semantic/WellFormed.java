@@ -5,9 +5,9 @@ import compiler.diagnostics.CompilerMessage;
 import compiler.diagnostics.CompilerMessageReporter;
 import compiler.errors.*;
 import compiler.semantic.resolution.DefinedMethod;
-import compiler.semantic.resolution.IntrinsicClass;
 import compiler.semantic.resolution.NameResolution;
 import compiler.types.ClassTy;
+import compiler.types.IntrinsicClassTy;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -209,7 +209,7 @@ public class WellFormed {
             case NewObjectExpression newObjectExpression -> {
                 var type = nameResolution.expressionTypes().get(newObjectExpression);
 
-                if (type.isPresent() && type.get() instanceof ClassTy classTy && classTy.getDefinition() instanceof IntrinsicClass) {
+                if (type.isPresent() && type.get() instanceof ClassTy classTy && classTy instanceof IntrinsicClassTy) {
                     reportError(new NewObjectStringUse(newObjectExpression));
                 }
             }
