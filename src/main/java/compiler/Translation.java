@@ -4,6 +4,7 @@ import compiler.ast.Program;
 import compiler.ast.*;
 import compiler.semantic.AstData;
 import compiler.semantic.ConstantFolding;
+import compiler.semantic.SparseAstData;
 import compiler.semantic.WellFormed;
 import compiler.semantic.resolution.DefinedMethod;
 import compiler.semantic.resolution.MethodDefinition;
@@ -29,9 +30,10 @@ public class Translation {
     private final AstData<Integer> localsVarsInMethod;
 
     private final Map<Ty, Type> firmTypes;
-    private final Map<String, Integer> variableId;
+    private final AstData<Integer> variableId; // maps variable definitions to their firm variable ids.
     private final List<Node> returns;
     private final CompoundType globalType;
+    private int thisVariableId; // firm variable id for implicit this parameter
     private int nextVariableId;
     private Construction construction;
 
@@ -42,10 +44,17 @@ public class Translation {
 
         Firm.init();
         this.firmTypes = new HashMap<>();
-        this.variableId = new HashMap<>();
+        this.variableId = new SparseAstData<>();
         this.returns = new ArrayList<>();
         this.globalType = firm.Program.getGlobalType();
+
         this.nextVariableId = 0;
+    }
+
+    private int newVariableId() {
+        var varId = this.nextVariableId;
+        this.nextVariableId += 1;
+        return varId;
     }
 
     private MethodType getMethodType(MethodDefinition method) {
@@ -132,7 +141,7 @@ public class Translation {
             case GreaterEqual -> construction.newCmp(lhs, rhs, Relation.GreaterEqual);
             case Addition -> construction.newAdd(lhs, rhs);
             case Subtraction -> construction.newSub(lhs, rhs);
-            case Multiplication -> construction.newMul(lhs, rhs); //TODO: Mul or Mulh?
+            case Multiplication -> construction.newMul(lhs, rhs);
             case Division -> {
                 Node div = construction.newDiv(construction.getCurrentMem(), lhs, rhs, binding_ircons.op_pin_state.op_pin_state_pinned);
                 Node memProj = construction.newProj(div, Mode.getM(), 0);
@@ -167,10 +176,16 @@ public class Translation {
                     case Reference var -> {
                         // TODO: What if not a local var
                         var rhs = translateExpr(expr.getRvalue());
-                        construction.setVariable(variableId.get(var.getIdentifier().toString()), rhs);
+                        construction.setVariable(variableId.get(var).orElseThrow(), rhs);
                         yield rhs;
                     }
-                    default -> throw new UnsupportedOperationException(); //TODO
+                    case FieldAccessExpression fieldAccess -> {
+                        throw new UnsupportedOperationException();
+                    }
+                    case ArrayAccessExpression arrayAccess -> {
+                        throw new UnsupportedOperationException();
+                    }
+                    default -> throw new AssertionError("Not an lvalue"); //TODO
                 }
             }
             case ArrayAccessExpression expr -> throw new UnsupportedOperationException();
@@ -181,9 +196,14 @@ public class Translation {
             case ThisExpression expr -> throw new UnsupportedOperationException();
             case UnaryExpression expr -> translateUnaryOp(expr);
             case Reference expr -> {
-                // TODO: What if not a local var
-                // TODO: different mode
-                yield construction.getVariable(variableId.get(expr.getIdentifier().toString()), Mode.getIs());
+                var definition = this.resolution.definitions().getReference(expr).orElseThrow();
+
+                if (definition instanceof LocalVariableDeclarationStatement || definition instanceof Parameter) {
+                    yield construction.getVariable(variableId.get(expr).orElseThrow(), Mode.getIs());
+                } else {
+                    assert definition instanceof Field;
+                    throw new UnsupportedOperationException();
+                }
             }
             case BoolLiteral expr -> translateLiteral(expr);
             case IntLiteral expr -> translateLiteral(expr);
@@ -196,8 +216,7 @@ public class Translation {
             case ExpressionStatement stmt -> translateExpr(stmt.getExpression());
             case IfStatement stmt -> throw new UnsupportedOperationException();
             case LocalVariableDeclarationStatement stmt -> {
-                variableId.put(stmt.getIdentifier().toString(), nextVariableId);
-                nextVariableId++;
+                variableId.set(stmt, this.newVariableId());
                 yield null;
             }
             case ReturnStatement stmt -> {
@@ -212,7 +231,7 @@ public class Translation {
         return res;
     }
 
-    private Graph genGraphForMethod(MethodDefinition methodDef) {
+    private Graph genGraphForMethod(DefinedMethod methodDef) {
         var name = methodDef.getName();
         var type = getMethodType(methodDef);
 
@@ -222,7 +241,8 @@ public class Translation {
             return graph;
         }
 
-        Graph graph = new Graph(methodEnt, 10);
+        var numberLocalVars = this.localsVarsInMethod.get(methodDef.getAstMethod()).orElseThrow();
+        Graph graph = new Graph(methodEnt, numberLocalVars);
 
         construction = new Construction(graph);
 
@@ -232,11 +252,10 @@ public class Translation {
         Node argsProj = construction.newProj(startNode, Mode.getT(), 2);
 
         Node thisArg = construction.newProj(argsProj, Mode.getP(), 0);
-        construction.setVariable(nextVariableId, thisArg);
-        variableId.put("this", nextVariableId);
-        nextVariableId++;
+        this.thisVariableId = this.newVariableId();
+        construction.setVariable(this.thisVariableId, thisArg);
 
-        Method method = ((DefinedMethod) methodDef).getAstMethod();
+        Method method = methodDef.getAstMethod();
         Node arg;
         int index = 1;
         for (var param : method.getParameters()) {
@@ -246,9 +265,9 @@ public class Translation {
                 default -> throw new UnsupportedOperationException(); // TODO: Other tys
             };
             arg = construction.newProj(argsProj, mode, index);
-            construction.setVariable(nextVariableId, arg);
-            variableId.put(param.getIdentifier().toString(), nextVariableId);
-            nextVariableId++;
+            var paramVariableId = this.newVariableId();
+            variableId.set(param, paramVariableId);
+            construction.setVariable(paramVariableId, arg);
             index++;
         }
 
@@ -276,8 +295,11 @@ public class Translation {
             CompoundType classType = (CompoundType) ((PointerType) getFirmType(classTy)).getPointsTo();
 
             for (var methodDef : classTy.getMethods().values()) {
-                Graph graph = genGraphForMethod(methodDef);
-                Dump.dumpGraph(graph, methodDef.getName());
+                // We don't generate code for intrinsic methods.
+                if (methodDef instanceof DefinedMethod definedMethod) {
+                    Graph graph = genGraphForMethod(definedMethod);
+                    Dump.dumpGraph(graph, methodDef.getName());
+                }
             }
             for (var field : classTy.getFields().values()) {
                 Type fieldType = getFirmType((Ty) this.resolution.bindingTypes().get(field).orElseThrow());
