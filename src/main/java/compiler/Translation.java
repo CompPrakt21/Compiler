@@ -177,7 +177,17 @@ public class Translation {
                     case Reference var -> {
                         // TODO: What if not a local var
                         var rhs = translateExpr(expr.getRvalue());
-                        construction.setVariable(variableId.get(var).orElseThrow(), rhs);
+
+                        var definition = this.resolution.definitions().getReference(var).orElseThrow();
+
+                        if (definition instanceof LocalVariableDeclarationStatement || definition instanceof Parameter) {
+                            var firmVarId = variableId.get((AstNode) definition).orElseThrow();
+                            construction.setVariable(firmVarId, rhs);
+                        } else {
+                            assert definition instanceof Field;
+                            throw new UnsupportedOperationException();
+                        }
+
                         yield rhs;
                     }
                     case FieldAccessExpression fieldAccess -> {
