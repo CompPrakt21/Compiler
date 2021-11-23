@@ -45,15 +45,20 @@ public class AstPrinter {
     }
 
     private static String fmt(String format, Object... args) {
-        return String.format(format, Arrays.stream(args).map(arg -> {
-            if (arg == null) {
-                return error;
+        var array = new Object[args.length];
+
+        // Sorry Marc, but this doesn't take three stack frames.
+        for (int i = 0; i < array.length; i++) {
+            if (args[i] == null) {
+                array[i] = error;
+            } else if (args[i] instanceof AstNode a) {
+                array[i] = print(a);
+            } else {
+                array[i] = args[i];
             }
-            if (arg instanceof AstNode a) {
-                return print(a);
-            }
-            return arg;
-        }).toArray());
+        }
+
+        return String.format(format, array);
     }
 
     public static String type(Type t) {
