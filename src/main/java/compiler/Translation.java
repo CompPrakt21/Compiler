@@ -60,7 +60,7 @@ public class Translation {
 
     private MethodType getMethodType(MethodDefinition method) {
         var paramTypes = Stream.concat(
-                Stream.of(this.firmTypes.get(method.getContainingClass().orElseThrow())),
+                Stream.of(getFirmType(method.getContainingClass().orElseThrow())),
                 method.getParameterTy().stream().map(ty -> getFirmType((Ty) ty))
         ).toArray(Type[]::new);
 
@@ -111,7 +111,13 @@ public class Translation {
                     yield clsPtr;
                 }
             }
-            case NullTy ignored -> throw new UnsupportedOperationException("void");
+            case NullTy nullTy -> {
+                if (this.firmTypes.containsKey(nullTy)) {
+                    yield this.firmTypes.get(nullTy);
+                } else {
+                    throw new AssertionError("This should never be needed.");
+                }
+            }
         };
         return result;
     }
@@ -135,7 +141,10 @@ public class Translation {
             case And -> construction.newAnd(lhs, rhs);
             case Or -> construction.newOr(lhs, rhs);
             case Equal -> construction.newCmp(lhs, rhs, Relation.Equal);
-            case NotEqual -> throw new UnsupportedOperationException("NEQ");
+            case NotEqual -> {
+                var equalNode = construction.newCmp(lhs, rhs, Relation.Equal);
+                yield construction.newNot(equalNode);
+            }
             case Less -> construction.newCmp(lhs, rhs, Relation.Less);
             case LessEqual -> construction.newCmp(lhs, rhs, Relation.LessEqual);
             case Greater -> construction.newCmp(lhs, rhs, Relation.Greater);
@@ -175,7 +184,6 @@ public class Translation {
             case AssignmentExpression expr -> {
                 switch (expr.getLvalue()) {
                     case Reference var -> {
-                        // TODO: What if not a local var
                         var rhs = translateExpr(expr.getRvalue());
 
                         var definition = this.resolution.definitions().getReference(var).orElseThrow();
@@ -196,7 +204,7 @@ public class Translation {
                     case ArrayAccessExpression arrayAccess -> {
                         throw new UnsupportedOperationException();
                     }
-                    default -> throw new AssertionError("Not an lvalue"); //TODO
+                    default -> throw new AssertionError("Not an lvalue");
                 }
             }
             case ArrayAccessExpression expr -> throw new UnsupportedOperationException();
@@ -210,7 +218,11 @@ public class Translation {
                 var definition = this.resolution.definitions().getReference(expr).orElseThrow();
 
                 if (definition instanceof LocalVariableDeclarationStatement || definition instanceof Parameter) {
-                    yield construction.getVariable(variableId.get((AstNode) definition).orElseThrow(), Mode.getIs());
+                    var defType = (Ty) this.resolution.expressionTypes().get(expr).orElseThrow();
+                    var firmType = this.getFirmType(defType);
+                    var mode = firmType.getMode();
+
+                    yield construction.getVariable(variableId.get((AstNode) definition).orElseThrow(), mode);
                 } else {
                     assert definition instanceof Field;
                     throw new UnsupportedOperationException();
@@ -308,8 +320,6 @@ public class Translation {
     }
 
     public void translate(Program ast) {
-        // TODO: Fill classTypes
-
         for (var classTy : this.resolution.classes()) {
             CompoundType classType = (CompoundType) ((PointerType) getFirmType(classTy)).getPointsTo();
 
