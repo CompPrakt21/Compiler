@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
+@SuppressWarnings("DuplicateBranchesInSwitch")
 public class Translation {
 
     private final NameResolution.NameResolutionResult resolution;
@@ -199,7 +200,7 @@ public class Translation {
                 var definition = this.resolution.definitions().getReference(expr).orElseThrow();
 
                 if (definition instanceof LocalVariableDeclarationStatement || definition instanceof Parameter) {
-                    yield construction.getVariable(variableId.get(expr).orElseThrow(), Mode.getIs());
+                    yield construction.getVariable(variableId.get((AstNode) definition).orElseThrow(), Mode.getIs());
                 } else {
                     assert definition instanceof Field;
                     throw new UnsupportedOperationException();
@@ -210,25 +211,27 @@ public class Translation {
         };
     }
 
-    private Node translateStatement(Statement statement) {
-        var res = switch (statement) {
-            case EmptyStatement stmt -> construction.newBad(Mode.getIs()); // TODO: stmts
+    private void translateStatement(Statement statement) {
+        switch (statement) {
+            case EmptyStatement ignored -> {}
             case ExpressionStatement stmt -> translateExpr(stmt.getExpression());
             case IfStatement stmt -> throw new UnsupportedOperationException();
             case LocalVariableDeclarationStatement stmt -> {
-                variableId.set(stmt, this.newVariableId());
-                yield null;
+                var statementId = this.newVariableId();
+                variableId.set(stmt, statementId);
+                if (stmt.getInitializer().isPresent()) {
+                    var node = translateExpr(stmt.getInitializer().get());
+                    construction.setVariable(statementId, node);
+                }
             }
             case ReturnStatement stmt -> {
                 Node[] rhs = stmt.getExpression().map(expr -> new Node[]{translateExpr(expr)}).orElse(new Node[0]);
                 var ret = construction.newReturn(construction.getCurrentMem(), rhs);
-                returns.add(ret);
-                yield ret;
+                this.returns.add(ret);
             }
             case WhileStatement stmt -> throw new UnsupportedOperationException();
             case compiler.ast.Block block -> throw new UnsupportedOperationException();
-        };
-        return res;
+        }
     }
 
     private Graph genGraphForMethod(DefinedMethod methodDef) {
@@ -242,7 +245,9 @@ public class Translation {
         }
 
         var numberLocalVars = this.localsVarsInMethod.get(methodDef.getAstMethod()).orElseThrow();
-        Graph graph = new Graph(methodEnt, numberLocalVars);
+        var numberParameters = methodDef.getParameterTy().size();
+        var numberFirmVars = numberLocalVars + numberParameters + 1; // +1 is implicit this argument
+        Graph graph = new Graph(methodEnt, numberFirmVars);
 
         construction = new Construction(graph);
 
@@ -259,18 +264,22 @@ public class Translation {
         Node arg;
         int index = 1;
         for (var param : method.getParameters()) {
-            Mode mode = switch (param.getType()) {
-                case IntType ignored -> Mode.getIs();
-                case BoolType ignored -> Mode.getBu();
-                default -> throw new UnsupportedOperationException(); // TODO: Other tys
+            var ty = (Ty) this.resolution.bindingTypes().get(param).orElseThrow();
+
+            Mode mode = switch (ty) {
+                case IntTy ignored -> Mode.getIs();
+                case BoolTy ignored -> Mode.getBu();
+                case ClassTy ignored -> Mode.getP();
+                case ArrayTy ignored -> Mode.getP();
+                case NullTy ignored -> throw new AssertionError("Invalid parameter type");
             };
+
             arg = construction.newProj(argsProj, mode, index);
             var paramVariableId = this.newVariableId();
             variableId.set(param, paramVariableId);
             construction.setVariable(paramVariableId, arg);
             index++;
         }
-
 
         var body = method.getBody();
 
