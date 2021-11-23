@@ -137,9 +137,12 @@ public class MainCommand implements Callable<Integer> {
         });
     }
 
-    @SuppressWarnings("unused")
-    @Command(name = "--check", description = "Performs semantic analysis of the input.")
-    public Integer check(@Parameters(paramLabel = "FILE", description = "The file to parse.") File file) {
+    @FunctionalInterface
+    private interface PostCheckOperation {
+        boolean run(CompilerMessageReporter r, Program program, NameResolution.NameResolutionResult resolution, ConstantFolding.ConstantFoldingResult constants, WellFormed.WellFormedResult wellformed);
+    }
+
+    private static Integer callWithChecked(File file, PostCheckOperation op) {
         return callWithParsed(file, (reporter, parser, ast) -> {
             var nameResolutionResult = NameResolution.performNameResolution(ast, reporter);
 
@@ -147,8 +150,16 @@ public class MainCommand implements Callable<Integer> {
 
             var wellFormed = WellFormed.checkWellFormdness(ast, nameResolutionResult, Optional.of(reporter));
 
-            return !(nameResolutionResult.successful() && wellFormed.correct() && constantFolding.successful());
+            var opResult = op.run(reporter, ast, nameResolutionResult, constantFolding, wellFormed);
+
+            return opResult;
         });
+    }
+
+    @SuppressWarnings("unused")
+    @Command(name = "--check", description = "Performs semantic analysis of the input.")
+    public Integer check(@Parameters(paramLabel = "FILE", description = "The file to parse.") File file) {
+        return callWithChecked(file, (reporter, ast, resolution, constants, wellformed) -> !(resolution.successful() && wellformed.correct() && constants.successful()));
     }
 
     @SuppressWarnings("unused")
@@ -161,10 +172,9 @@ public class MainCommand implements Callable<Integer> {
     @SuppressWarnings("unused")
     @Command(name = "--translate", description = "Translate to libFirm and dump.")
     public Integer translate(@Parameters(paramLabel = "FILE", description = "The file to parse.") File file) {
-        return callWithParsed(file, (reporter, parser, ast) -> {
-            var nr = NameResolution.performNameResolution(ast, reporter);
-            Translation translation = new Translation();
-            translation.translate(ast, nr);
+        return callWithChecked(file, (reporter, ast, resolution, constants, wellFormed) -> {
+            var translation = new Translation(resolution, constants, wellFormed);
+            translation.translate(ast);
             return false;
         });
     }

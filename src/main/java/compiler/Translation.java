@@ -2,6 +2,9 @@ package compiler;
 
 import compiler.ast.Program;
 import compiler.ast.*;
+import compiler.semantic.AstData;
+import compiler.semantic.ConstantFolding;
+import compiler.semantic.WellFormed;
 import compiler.semantic.resolution.DefinedMethod;
 import compiler.semantic.resolution.MethodDefinition;
 import compiler.semantic.resolution.NameResolution;
@@ -21,6 +24,10 @@ import java.util.stream.Stream;
 
 public class Translation {
 
+    private final NameResolution.NameResolutionResult resolution;
+    private final AstData<Integer> constants;
+    private final AstData<Integer> localsVarsInMethod;
+
     private final Map<Ty, Type> firmTypes;
     private final Map<String, Integer> variableId;
     private final List<Node> returns;
@@ -28,7 +35,11 @@ public class Translation {
     private int nextVariableId;
     private Construction construction;
 
-    public Translation() {
+    public Translation(NameResolution.NameResolutionResult resolution, ConstantFolding.ConstantFoldingResult constants, WellFormed.WellFormedResult wellFormed) {
+        this.resolution = resolution;
+        this.constants = constants.constants();
+        this.localsVarsInMethod = wellFormed.variableCounts();
+
         Firm.init();
         this.firmTypes = new HashMap<>();
         this.variableId = new HashMap<>();
@@ -98,9 +109,11 @@ public class Translation {
     private Node translateLiteral(AstNode literal) {
         var res = switch (literal) {
             case BoolLiteral lit -> construction.newConst(lit.getValue() ? 1 : 0, Mode.getBu());
-            // TODO: Why is IntLiteral::getValue() a String?
-            case IntLiteral lit -> construction.newConst(Integer.parseInt(lit.getValue()), Mode.getIs());
-            default -> throw new UnsupportedOperationException("translateLiteral called with " + literal);
+            case IntLiteral lit -> {
+                var value = this.constants.get(lit).orElseThrow();
+                yield construction.newConst(value, Mode.getIs());
+            }
+            default -> throw new AssertionError("translateLiteral called with " + literal);
         };
         return res;
     }
@@ -256,10 +269,10 @@ public class Translation {
         return graph;
     }
 
-    public void translate(Program ast, NameResolution.NameResolutionResult nres) {
+    public void translate(Program ast) {
         // TODO: Fill classTypes
 
-        for (var classTy : nres.classes()) {
+        for (var classTy : this.resolution.classes()) {
             CompoundType classType = (CompoundType) ((PointerType) getFirmType(classTy)).getPointsTo();
 
             for (var methodDef : classTy.getMethods().values()) {
@@ -267,7 +280,7 @@ public class Translation {
                 Dump.dumpGraph(graph, methodDef.getName());
             }
             for (var field : classTy.getFields().values()) {
-                Type fieldType = getFirmType((Ty) nres.bindingTypes().get(field).get());
+                Type fieldType = getFirmType((Ty) this.resolution.bindingTypes().get(field).orElseThrow());
                 Entity fieldEnt = new Entity(classType, field.getIdentifier().toString(), fieldType);
             }
         }
