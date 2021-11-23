@@ -173,9 +173,15 @@ public class MainCommand implements Callable<Integer> {
     @Command(name = "--translate", description = "Translate to libFirm and dump.")
     public Integer translate(@Parameters(paramLabel = "FILE", description = "The file to parse.") File file) {
         return callWithChecked(file, (reporter, ast, resolution, constants, wellFormed) -> {
-            var translation = new Translation(resolution, constants, wellFormed);
-            translation.translate(ast);
-            return false;
+
+            if (resolution.successful() && wellFormed.correct() && constants.successful()){
+                var translation = new Translation(resolution, constants, wellFormed);
+                translation.translate(ast);
+                return true;
+
+            } else {
+                return false;
+            }
         });
     }
 
