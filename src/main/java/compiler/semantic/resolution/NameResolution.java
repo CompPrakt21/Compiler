@@ -131,7 +131,6 @@ public class NameResolution {
                     assert maybeAlreadyUsed.get() instanceof DefinedMethod;
                     var firstUse = ((DefinedMethod) maybeAlreadyUsed.get()).getAstMethod();
                     reportError(new MultipleUseOfSameMemberName(firstUse, m));
-                    continue;
                 }
 
                 var returnType = m.getReturnType();
@@ -271,7 +270,7 @@ public class NameResolution {
                             reportError(new ReturnStatementErrors.MissingReturnExpr(this.currentMethod, retStmt, expectedReturnTy));
                         }
                     }
-                    case VoidTy ty -> {
+                    case VoidTy ignored -> {
                         assert returnType instanceof VoidTy;
 
                         if (retStmt.getExpression().isPresent()) {

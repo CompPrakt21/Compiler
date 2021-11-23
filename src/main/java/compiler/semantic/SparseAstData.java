@@ -6,7 +6,7 @@ import java.util.HashMap;
 import java.util.Optional;
 
 public class SparseAstData<T> extends AstData<T> {
-    private HashMap<Integer, T> data;
+    private final HashMap<Integer, T> data;
 
     public SparseAstData() {
         this.data = new HashMap<>();
