@@ -311,17 +311,18 @@ public class Translation {
     }
 
     private Graph genGraphForMethod(DefinedMethod methodDef) {
+        this.nextVariableId = 0;
+        this.returns.clear();
+        this.thisVariableId = -1;
+
         var name = methodDef.getName();
         var methodEnt = this.entities.get(methodDef.getAstMethod()).orElseThrow();
 
-        if ("main".equals(name)) {
-            Graph graph = new Graph(methodEnt, 10);
-            return graph;
-        }
+        var isMainMethod = name.equals("main");
 
         var numberLocalVars = this.localsVarsInMethod.get(methodDef.getAstMethod()).orElseThrow();
         var numberParameters = methodDef.getParameterTy().size();
-        var numberFirmVars = numberLocalVars + numberParameters + 1; // +1 is implicit this argument
+        var numberFirmVars = numberLocalVars + numberParameters + (isMainMethod ? 0 : 1); // +1 is implicit this argument
         Graph graph = new Graph(methodEnt, numberFirmVars);
 
         construction = new Construction(graph);
@@ -331,9 +332,11 @@ public class Translation {
         construction.setCurrentMem(memProj);
         Node argsProj = construction.newProj(startNode, Mode.getT(), 2);
 
-        Node thisArg = construction.newProj(argsProj, Mode.getP(), 0);
-        this.thisVariableId = this.newVariableId();
-        construction.setVariable(this.thisVariableId, thisArg);
+        if (!isMainMethod) {
+            Node thisArg = construction.newProj(argsProj, Mode.getP(), 0);
+            this.thisVariableId = this.newVariableId();
+            construction.setVariable(this.thisVariableId, thisArg);
+        }
 
         Method method = methodDef.getAstMethod();
         Node arg;
@@ -358,16 +361,22 @@ public class Translation {
 
         var body = method.getBody();
 
+        Statement lastStatement = null;
         for (var statement : body.getStatements()) {
+            lastStatement = statement;
             translateStatement(statement);
+        }
+
+        if (!(lastStatement instanceof ReturnStatement)) {
+            assert methodDef.getReturnTy() instanceof VoidTy;
+            var mem = construction.getCurrentMem();
+            returns.add(construction.newReturn(mem, new Node[]{}));
         }
 
         Block endBlock = construction.getGraph().getEndBlock();
         for (var ret : returns) {
             endBlock.addPred(ret);
         }
-
-        // TODO: handle void methods.
 
         construction.finish();
 
