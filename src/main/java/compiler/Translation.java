@@ -16,7 +16,9 @@ import firm.bindings.binding_ircons;
 import firm.nodes.Block;
 import firm.nodes.Node;
 
+import javax.swing.plaf.ComponentUI;
 import java.io.IOException;
+import java.sql.Ref;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -32,6 +34,7 @@ public class Translation {
 
     private final Map<Ty, Type> firmTypes;
     private final AstData<Integer> variableId; // maps variable definitions to their firm variable ids.
+    private final AstData<Entity> entities; // maps method and fields to their respective entity.
     private final List<Node> returns;
     private final CompoundType globalType;
     private int thisVariableId; // firm variable id for implicit this parameter
@@ -46,6 +49,7 @@ public class Translation {
         Firm.init();
         this.firmTypes = new HashMap<>();
         this.variableId = new SparseAstData<>();
+        this.entities = new SparseAstData<>();
         this.returns = new ArrayList<>();
         this.globalType = firm.Program.getGlobalType();
 
@@ -177,15 +181,62 @@ public class Translation {
         };
     }
 
+    private Node translateFieldExprToLValue(Node targetNode, Expression expr) {
+        assert targetNode.getMode().equals(Mode.getP());
+
+        Field field;
+        if (expr instanceof FieldAccessExpression fieldAccessExpression) {
+            field = this.resolution.definitions().getField(fieldAccessExpression).orElseThrow();
+        } else if (expr instanceof Reference ref) {
+            field = (Field) this.resolution.definitions().getReference(ref).orElseThrow();
+        } else {
+            throw new AssertionError("Unrecheable");
+        }
+
+        var memberEntity = this.entities.get(field).orElseThrow();
+        var member = construction.newMember(targetNode, memberEntity);
+
+        return member;
+    }
+
+    private Node translateFieldAccessExpr(Node targetNode, Expression expr) {
+        var fieldPtr = translateFieldExprToLValue(targetNode, expr);
+
+        var mem = construction.getCurrentMem();
+        var exprTy = (Ty)this.resolution.expressionTypes().get(expr).orElseThrow();
+        var exprFirmType = getFirmType(exprTy);
+
+        var load = construction.newLoad(mem, fieldPtr, exprFirmType.getMode());
+
+        var memProj = construction.newProj(load, Mode.getM(), 0);
+        construction.setCurrentMem(memProj);
+
+        return construction.newProj(load, exprFirmType.getMode(), 1);
+    }
+
+    private void translateFieldAssignment(Node target, Expression lValue, Node rValue) {
+        var fieldPtr = translateFieldExprToLValue(target, lValue);
+
+        var mem = construction.getCurrentMem();
+
+        var store = construction.newStore(mem, fieldPtr, rValue);
+        var memProj = construction.newProj(store, Mode.getM(), 0);
+
+        construction.setCurrentMem(memProj);
+    }
+
     private Node translateExpr(Expression root) {
         return switch (root) {
             case BinaryOpExpression expr -> translateBinOp(expr);
-            case FieldAccessExpression expr -> throw new UnsupportedOperationException();
+            case FieldAccessExpression expr -> {
+                var targetNode = translateExpr(expr.getTarget());
+                yield translateFieldAccessExpr(targetNode, expr);
+            }
             case AssignmentExpression expr -> {
+                var rhs = translateExpr(expr.getRvalue());
+
                 switch (expr.getLvalue()) {
                     case Reference var -> {
-                        var rhs = translateExpr(expr.getRvalue());
-
                         var definition = this.resolution.definitions().getReference(var).orElseThrow();
 
                         if (definition instanceof LocalVariableDeclarationStatement || definition instanceof Parameter) {
@@ -193,26 +244,28 @@ public class Translation {
                             construction.setVariable(firmVarId, rhs);
                         } else {
                             assert definition instanceof Field;
-                            throw new UnsupportedOperationException();
+                            var thisNode = construction.getVariable(this.thisVariableId, Mode.getP());
+                            translateFieldAssignment(thisNode, var, rhs);
                         }
-
-                        yield rhs;
                     }
                     case FieldAccessExpression fieldAccess -> {
-                        throw new UnsupportedOperationException();
+                        var targetNode = translateExpr(fieldAccess.getTarget());
+                        translateFieldAssignment(targetNode, fieldAccess, rhs);
                     }
                     case ArrayAccessExpression arrayAccess -> {
                         throw new UnsupportedOperationException();
                     }
                     default -> throw new AssertionError("Not an lvalue");
                 }
+
+                yield rhs;
             }
             case ArrayAccessExpression expr -> throw new UnsupportedOperationException();
             case MethodCallExpression expr -> throw new UnsupportedOperationException();
             case NewArrayExpression expr -> throw new UnsupportedOperationException();
             case NewObjectExpression expr -> throw new UnsupportedOperationException();
             case NullExpression expr -> throw new UnsupportedOperationException("null");
-            case ThisExpression expr -> throw new UnsupportedOperationException();
+            case ThisExpression expr -> construction.getVariable(this.thisVariableId, Mode.getP());
             case UnaryExpression expr -> translateUnaryOp(expr);
             case Reference expr -> {
                 var definition = this.resolution.definitions().getReference(expr).orElseThrow();
@@ -225,7 +278,8 @@ public class Translation {
                     yield construction.getVariable(variableId.get((AstNode) definition).orElseThrow(), mode);
                 } else {
                     assert definition instanceof Field;
-                    throw new UnsupportedOperationException();
+                    var thisNode = construction.getVariable(this.thisVariableId, Mode.getP());
+                    yield translateFieldAccessExpr(thisNode, expr);
                 }
             }
             case BoolLiteral expr -> translateLiteral(expr);
@@ -258,9 +312,8 @@ public class Translation {
 
     private Graph genGraphForMethod(DefinedMethod methodDef) {
         var name = methodDef.getName();
-        var type = getMethodType(methodDef);
+        var methodEnt = this.entities.get(methodDef.getAstMethod()).orElseThrow();
 
-        Entity methodEnt = new Entity(globalType, name, type);
         if ("main".equals(name)) {
             Graph graph = new Graph(methodEnt, 10);
             return graph;
@@ -314,6 +367,8 @@ public class Translation {
             endBlock.addPred(ret);
         }
 
+        // TODO: handle void methods.
+
         construction.finish();
 
         return graph;
@@ -323,16 +378,29 @@ public class Translation {
         for (var classTy : this.resolution.classes()) {
             CompoundType classType = (CompoundType) ((PointerType) getFirmType(classTy)).getPointsTo();
 
+            for (var field : classTy.getFields().values()) {
+                Type fieldType = getFirmType((Ty) this.resolution.bindingTypes().get(field).orElseThrow());
+                Entity fieldEnt = new Entity(classType, field.getIdentifier().toString(), fieldType);
+                this.entities.set(field, fieldEnt);
+            }
+
+            for (var m: classTy.getMethods().values()) {
+                if (m instanceof DefinedMethod method){
+                    var name = method.getName();
+                    var type = getMethodType(method);
+                    Entity methodEnt = new Entity(globalType, name, type);
+                    this.entities.set(method.getAstMethod(), methodEnt);
+                }
+            }
+        }
+
+        for (var classTy : this.resolution.classes()) {
             for (var methodDef : classTy.getMethods().values()) {
                 // We don't generate code for intrinsic methods.
                 if (methodDef instanceof DefinedMethod definedMethod) {
                     Graph graph = genGraphForMethod(definedMethod);
                     Dump.dumpGraph(graph, methodDef.getName());
                 }
-            }
-            for (var field : classTy.getFields().values()) {
-                Type fieldType = getFirmType((Ty) this.resolution.bindingTypes().get(field).orElseThrow());
-                Entity fieldEnt = new Entity(classType, field.getIdentifier().toString(), fieldType);
             }
         }
 
