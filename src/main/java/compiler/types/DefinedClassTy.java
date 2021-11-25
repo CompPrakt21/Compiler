@@ -61,4 +61,9 @@ public final class DefinedClassTy extends ClassTy {
     public int hashCode() {
         return System.identityHashCode(this.klass);
     }
+
+    @Override
+    public String toString() {
+        return this.getName();
+    }
 }

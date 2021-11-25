@@ -32,4 +32,9 @@ public final class IntrinsicClassTy extends ClassTy {
     public Map<String, MethodDefinition> getMethods() {
         return Map.of();
     }
+
+    @Override
+    public String toString() {
+        return this.getName();
+    }
 }

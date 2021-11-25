@@ -419,7 +419,7 @@ public class Translation {
                 var returnValueProj = construction.newProj(returnValuesProj, Mode.getP(), 0);
                 yield returnValueProj;
             }
-            case NullExpression expr -> throw new UnsupportedOperationException("null");
+            case NullExpression expr -> construction.newConst(0, Mode.getP());
             case ThisExpression expr -> construction.getVariable(this.thisVariableId, Mode.getP());
             case UnaryExpression expr -> translateUnaryOp(expr);
             case Reference expr -> {
@@ -456,9 +456,15 @@ public class Translation {
             case LocalVariableDeclarationStatement stmt -> {
                 var statementId = this.newVariableId();
                 variableId.set(stmt, statementId);
+
                 if (stmt.getInitializer().isPresent()) {
                     var node = translateExpr(stmt.getInitializer().get());
                     construction.setVariable(statementId, node);
+                } else {
+                    var ty = (Ty)this.resolution.bindingTypes().get(stmt).orElseThrow();
+                    var firmType = getFirmType(ty);
+                    var defaultValue = construction.newConst(0, firmType.getMode());
+                    construction.setVariable(statementId, defaultValue);
                 }
             }
             case ReturnStatement stmt -> {
