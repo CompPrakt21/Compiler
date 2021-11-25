@@ -28,6 +28,7 @@ public class Translation {
     private final NameResolution.NameResolutionResult resolution;
     private final AstData<Integer> constants;
     private final AstData<Integer> localsVarsInMethod;
+    private final AstData<Boolean> isDeadStatement;
 
     private final String srcFilename;
     private final String runtimeFilename;
@@ -43,6 +44,7 @@ public class Translation {
     private final CompoundType globalType;
     private int thisVariableId; // firm variable id for implicit this parameter
     private int nextVariableId;
+    private boolean emitJump;
     private Construction construction;
 
     public Translation(String srcFilename, String runtimeFilename, NameResolution.NameResolutionResult resolution, ConstantFolding.ConstantFoldingResult constants, WellFormed.WellFormedResult wellFormed) {
@@ -51,6 +53,7 @@ public class Translation {
         this.localsVarsInMethod = wellFormed.variableCounts();
         this.srcFilename = srcFilename;
         this.runtimeFilename = runtimeFilename;
+        this.isDeadStatement = wellFormed.isDeadStatement();
 
         Firm.init();
         this.firmTypes = new HashMap<>();
@@ -64,6 +67,8 @@ public class Translation {
         this.allocFunctionEntity = createAllocFunctionEntity();
 
         this.nextVariableId = 0;
+
+        this.emitJump = true;
     }
 
     private int newVariableId() {
@@ -525,6 +530,7 @@ public class Translation {
     }
 
     private void translateStatement(Statement statement) {
+        this.emitJump = true;
         switch (statement) {
             case EmptyStatement ignored -> {}
             case ExpressionStatement stmt -> {
@@ -545,26 +551,39 @@ public class Translation {
                 falseBlock.mature();
                 construction.setCurrentBlock(trueBlock);
                 translateStatement(stmt.getThenBody());
+                var trueNeedsJmp = emitJump;
                 Node trueJmp = construction.newJmp();
 
                 if (!stmt.getElseBody().isPresent()) {
                     // Simple if
                     construction.setCurrentBlock(falseBlock);
-                    falseBlock.addPred(trueJmp);
-
+                    if (trueNeedsJmp) {
+                        falseBlock.addPred(trueJmp);
+                    } else {
+                        this.emitJump = false;
+                    }
 
                 } else {
                     // We have an else part
                     construction.setCurrentBlock(falseBlock);
 
                     translateStatement(stmt.getElseBody().get());
+                    boolean falseNeedsJmp = emitJump;
                     Node falseJmp = construction.newJmp();
 
                     Block followingBlock = construction.newBlock();
-                    followingBlock.addPred(trueJmp);
-                    followingBlock.addPred(falseJmp);
+                    if (trueNeedsJmp) {
+                        followingBlock.addPred(trueJmp);
+                    }
+                    if (falseNeedsJmp) {
+                        followingBlock.addPred(falseJmp);
+                    }
                     followingBlock.mature();
                     construction.setCurrentBlock(followingBlock);
+                    if (!trueNeedsJmp && !falseNeedsJmp) {
+                        // This is a dead end
+                        this.emitJump = false;
+                    }
                 }
             }
             case LocalVariableDeclarationStatement stmt -> {
@@ -585,6 +604,7 @@ public class Translation {
                 Node[] rhs = stmt.getExpression().map(expr -> new Node[]{translateExpr(expr)}).orElse(new Node[0]);
                 var ret = construction.newReturn(construction.getCurrentMem(), rhs);
                 this.returns.add(ret);
+                this.emitJump = false;
             }
             case WhileStatement stmt -> {
                 // TODO: Don't place jmp if there is a return
@@ -614,7 +634,9 @@ public class Translation {
             }
             case compiler.ast.Block block -> {
                 for (var stmt : block.getStatements()) {
-                    translateStatement(stmt);
+                    if (!isDeadStatement.get(stmt).orElse(false)) {
+                        translateStatement(stmt);
+                    }
                 }
             }
         }
@@ -671,13 +693,9 @@ public class Translation {
 
         var body = method.getBody();
 
-        Statement lastStatement = null;
-        for (var statement : body.getStatements()) {
-            lastStatement = statement;
-            translateStatement(statement);
-        }
+       translateStatement(body);
 
-        if (!(lastStatement instanceof ReturnStatement)) {
+        if (!this.emitJump) {
             assert methodDef.getReturnTy() instanceof VoidTy;
             var mem = construction.getCurrentMem();
             returns.add(construction.newReturn(mem, new Node[]{}));

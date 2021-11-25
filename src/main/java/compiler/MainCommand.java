@@ -122,6 +122,7 @@ public class MainCommand implements Callable<Integer> {
                     .addNodeAttribute("ty", resolution.expressionTypes())
                     .addNodeAttribute("const", constantFolding.constants())
                     .addNodeAttribute("local_vars", wellFormed.variableCounts())
+                    .addNodeAttribute("dead", wellFormed.isDeadStatement())
                     .dump(ast);
 
             return !(resolution.successful() && wellFormed.correct() && constantFolding.successful());

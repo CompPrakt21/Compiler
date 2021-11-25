@@ -25,6 +25,7 @@ public class WellFormed {
     private final NameResolution.NameResolutionResult nameResolution;
 
     private AstData<Integer> countedLocalVariables; // Maps method definitions to the number of local variables they contain.
+    private AstData<Boolean> isDeadStatement;
     boolean correct;
 
     private final Optional<CompilerMessageReporter> reporter;
@@ -35,6 +36,7 @@ public class WellFormed {
         this.inMainMethod = false;
         this.correct = true;
         this.countedLocalVariables = new SparseAstData<>();
+        this.isDeadStatement = new SparseAstData<>();
 
         this.reporter = reporter;
         mainMethod = Optional.empty();
@@ -49,7 +51,7 @@ public class WellFormed {
         correct = false;
     }
 
-    public record WellFormedResult(boolean correct, AstData<Integer> variableCounts) {
+    public record WellFormedResult(boolean correct, AstData<Integer> variableCounts, AstData<Boolean> isDeadStatement) {
     }
 
     public static WellFormedResult checkWellFormdness(Program program, NameResolution.NameResolutionResult nameResolution, Optional<CompilerMessageReporter> reporter) {
@@ -57,7 +59,7 @@ public class WellFormed {
 
         analysis.checkProgram(program);
 
-        return new WellFormedResult(analysis.correct, analysis.countedLocalVariables);
+        return new WellFormedResult(analysis.correct, analysis.countedLocalVariables, analysis.isDeadStatement);
     }
 
     private boolean checkProgram(Program program) {
@@ -98,8 +100,9 @@ public class WellFormed {
             reportError(new MainMethodProblems.StaticNonMainMethod(method));
         }
 
-        if (!(method.getReturnType() instanceof VoidType)) {
-            if (checkReturnPathsInStatements(method.getBody().getStatements()).isEmpty()) {
+
+        if (checkReturnPathsInStatements(method.getBody().getStatements()).isEmpty()) {
+            if (!(method.getReturnType() instanceof VoidType)) {
                 reportError(new ReturnStatementErrors.MissingReturnOnPath(method));
             }
         }
@@ -113,6 +116,7 @@ public class WellFormed {
         for (Statement statement : statements) {
             if (!hasReturn.isEmpty()) {
                 deadCode.add(statement);
+                isDeadStatement.set(statement, true);
 
             } else {
                 switch (statement) {
