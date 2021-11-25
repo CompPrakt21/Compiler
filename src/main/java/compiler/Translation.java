@@ -340,7 +340,27 @@ public class Translation {
 
                 yield node.orElseThrow(() -> new AssertionError("MethodCallExpression of void methods can only be directly after ExpressionStatements."));
             }
-            case NewArrayExpression expr -> throw new UnsupportedOperationException();
+            case NewArrayExpression expr -> {
+                var exprTy = (Ty)this.resolution.expressionTypes().get(expr).orElseThrow();
+                var firmTy = getFirmType(exprTy);
+                assert firmTy.getMode().equals(Mode.getP());
+                var childType = ((PointerType) firmTy).getPointsTo();
+
+                var typeSize = construction.newSize(Mode.getIs(), childType);
+                var arrayLength = translateExpr(expr.getFirstDimensionSize());
+
+                var mem = construction.getCurrentMem();
+                var addr = construction.newAddress(this.allocFunctionEntity);
+                var callNode = construction.newCall(mem, addr, new Node[]{typeSize, arrayLength}, this.allocFunctionEntity.getType());
+
+                var memProj = construction.newProj(callNode, Mode.getM(), 0);
+                construction.setCurrentMem(memProj);
+
+                var returnValuesProj = construction.newProj(callNode, Mode.getT(), 1);
+
+                var returnValueProj = construction.newProj(returnValuesProj, Mode.getP(), 0);
+                yield returnValueProj;
+            }
             case NewObjectExpression expr -> {
                 var exprTy = (Ty)this.resolution.expressionTypes().get(expr).orElseThrow();
                 var firmTy = getFirmType(exprTy);
