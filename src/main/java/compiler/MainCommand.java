@@ -171,11 +171,14 @@ public class MainCommand implements Callable<Integer> {
 
     @SuppressWarnings("unused")
     @Command(name = "--translate", description = "Translate to libFirm and dump.")
-    public Integer translate(@Parameters(paramLabel = "FILE", description = "The file to parse.") File file) {
-        return callWithChecked(file, (reporter, ast, resolution, constants, wellFormed) -> {
+    public Integer translate(
+            @Parameters(paramLabel = "SRC_FILE", description = "The file to parse.") File srcFile,
+            @Parameters(paramLabel = "RUNTIME_OBJ_FILE", description = "Runtime library source.") File runtimeFile
+    ) {
+        return callWithChecked(srcFile, (reporter, ast, resolution, constants, wellFormed) -> {
 
             if (resolution.successful() && wellFormed.correct() && constants.successful()){
-                var translation = new Translation(resolution, constants, wellFormed);
+                var translation = new Translation(srcFile.getName(), runtimeFile.getName(), resolution, constants, wellFormed);
                 translation.translate(ast);
                 return true;
 

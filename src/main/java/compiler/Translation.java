@@ -8,7 +8,6 @@ import compiler.semantic.SparseAstData;
 import compiler.semantic.WellFormed;
 import compiler.semantic.resolution.DefinedMethod;
 import compiler.semantic.resolution.IntrinsicMethod;
-import compiler.semantic.resolution.MethodDefinition;
 import compiler.semantic.resolution.NameResolution;
 import compiler.types.*;
 import firm.Type;
@@ -17,11 +16,8 @@ import firm.bindings.binding_ircons;
 import firm.nodes.Block;
 import firm.nodes.Node;
 
-import javax.swing.plaf.ComponentUI;
 import java.io.IOException;
-import java.sql.Ref;
 import java.util.*;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @SuppressWarnings("DuplicateBranchesInSwitch")
@@ -31,20 +27,26 @@ public class Translation {
     private final AstData<Integer> constants;
     private final AstData<Integer> localsVarsInMethod;
 
+    private final String srcFilename;
+    private final String runtimeFilename;
+
     private final Map<Ty, Type> firmTypes;
     private final AstData<Integer> variableId; // maps variable definitions to their firm variable ids.
     private final AstData<Entity> entities; // maps method and fields to their respective entity.
     private final Map<IntrinsicMethod, Entity> intrinsicEntities;
+    private final Entity allocFunctionEntity;
     private final List<Node> returns;
     private final CompoundType globalType;
     private int thisVariableId; // firm variable id for implicit this parameter
     private int nextVariableId;
     private Construction construction;
 
-    public Translation(NameResolution.NameResolutionResult resolution, ConstantFolding.ConstantFoldingResult constants, WellFormed.WellFormedResult wellFormed) {
+    public Translation(String srcFilename, String runtimeFilename, NameResolution.NameResolutionResult resolution, ConstantFolding.ConstantFoldingResult constants, WellFormed.WellFormedResult wellFormed) {
         this.resolution = resolution;
         this.constants = constants.constants();
         this.localsVarsInMethod = wellFormed.variableCounts();
+        this.srcFilename = srcFilename;
+        this.runtimeFilename = runtimeFilename;
 
         Firm.init();
         this.firmTypes = new HashMap<>();
@@ -53,6 +55,8 @@ public class Translation {
         this.intrinsicEntities = new HashMap<>();
         this.returns = new ArrayList<>();
         this.globalType = firm.Program.getGlobalType();
+
+        this.allocFunctionEntity = createAllocFunctionEntity();
 
         this.nextVariableId = 0;
     }
@@ -81,6 +85,13 @@ public class Translation {
         var returnType = method.getReturnTy();
         returnTypes = returnType instanceof VoidTy ? new Type[0] : new Type[]{getFirmType((Ty) returnType)};
         return new MethodType(paramTypes, returnTypes);
+    }
+
+    private Entity createAllocFunctionEntity() {
+        var argType = new PrimitiveType(Mode.getIs());
+        var retType = new PrimitiveType(Mode.getP());
+        var type = new MethodType(new Type[]{argType, argType}, new Type[]{retType});
+        return new Entity(this.globalType, "__builtin_alloc_function__", type);
     }
 
     private Type getFirmType(Ty type) {
@@ -465,7 +476,7 @@ public class Translation {
                 if (m instanceof DefinedMethod method){
                     var name = method.getName();
                     var type = getMethodType(method);
-                    Entity methodEnt = new Entity(globalType, m.getLinkerName(), type);
+                    Entity methodEnt = new Entity(globalType, name.equals("main") ? "main" : m.getLinkerName(), type);
                     this.entities.set(method.getAstMethod(), methodEnt);
                 }
             }
@@ -489,6 +500,17 @@ public class Translation {
 
         try {
             Dump.dumpTypeGraph("types.vcg");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        try {
+            var asmFilenameName = this.srcFilename + ".s";
+            var execFilename = "a.out";
+
+            Backend.lowerForTarget();
+            Backend.createAssembler(asmFilenameName, this.srcFilename);
+            Runtime.getRuntime().exec(String.format("gcc -o %s %s %s", execFilename, asmFilenameName, this.runtimeFilename));
         } catch (IOException e) {
             e.printStackTrace();
         }
