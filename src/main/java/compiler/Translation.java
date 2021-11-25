@@ -7,6 +7,7 @@ import compiler.semantic.ConstantFolding;
 import compiler.semantic.SparseAstData;
 import compiler.semantic.WellFormed;
 import compiler.semantic.resolution.DefinedMethod;
+import compiler.semantic.resolution.IntrinsicMethod;
 import compiler.semantic.resolution.MethodDefinition;
 import compiler.semantic.resolution.NameResolution;
 import compiler.types.*;
@@ -19,10 +20,8 @@ import firm.nodes.Node;
 import javax.swing.plaf.ComponentUI;
 import java.io.IOException;
 import java.sql.Ref;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @SuppressWarnings("DuplicateBranchesInSwitch")
@@ -35,6 +34,7 @@ public class Translation {
     private final Map<Ty, Type> firmTypes;
     private final AstData<Integer> variableId; // maps variable definitions to their firm variable ids.
     private final AstData<Entity> entities; // maps method and fields to their respective entity.
+    private final Map<IntrinsicMethod, Entity> intrinsicEntities;
     private final List<Node> returns;
     private final CompoundType globalType;
     private int thisVariableId; // firm variable id for implicit this parameter
@@ -50,6 +50,7 @@ public class Translation {
         this.firmTypes = new HashMap<>();
         this.variableId = new SparseAstData<>();
         this.entities = new SparseAstData<>();
+        this.intrinsicEntities = new HashMap<>();
         this.returns = new ArrayList<>();
         this.globalType = firm.Program.getGlobalType();
 
@@ -62,12 +63,20 @@ public class Translation {
         return varId;
     }
 
-    private MethodType getMethodType(MethodDefinition method) {
+    private MethodType getMethodType(DefinedMethod method) {
         var paramTypes = Stream.concat(
                 Stream.of(getFirmType(method.getContainingClass().orElseThrow())),
                 method.getParameterTy().stream().map(ty -> getFirmType((Ty) ty))
         ).toArray(Type[]::new);
 
+        Type[] returnTypes;
+        var returnType = method.getReturnTy();
+        returnTypes = returnType instanceof VoidTy ? new Type[0] : new Type[]{getFirmType((Ty) returnType)};
+        return new MethodType(paramTypes, returnTypes);
+    }
+
+    private MethodType getIntrinsicMethodType(IntrinsicMethod method) {
+        var paramTypes = method.getParameterTy().stream().map(ty -> getFirmType((Ty) ty)).toArray(Type[]::new);
         Type[] returnTypes;
         var returnType = method.getReturnTy();
         returnTypes = returnType instanceof VoidTy ? new Type[0] : new Type[]{getFirmType((Ty) returnType)};
@@ -225,6 +234,53 @@ public class Translation {
         construction.setCurrentMem(memProj);
     }
 
+    private Optional<Node> translateMethodCallExpression(MethodCallExpression expr) {
+        var methodDef = this.resolution.definitions().getMethod(expr).orElseThrow();
+
+        var methodEntity = switch (methodDef) {
+            case DefinedMethod definedMethod -> this.entities.get(definedMethod.getAstMethod()).orElseThrow();
+            case IntrinsicMethod intrinsicMethod -> this.intrinsicEntities.get(intrinsicMethod);
+        };
+
+        Optional<Node> targetNode = switch (methodDef) {
+            case DefinedMethod ignored -> Optional.of(
+                    expr.getTarget()
+                        .map(this::translateExpr)
+                        .orElseGet(() -> construction.getVariable(this.thisVariableId, Mode.getP()))
+            );
+            case IntrinsicMethod ignored -> Optional.empty();
+        };
+
+        var addrNode = construction.newAddress(methodEntity);
+        var methodType = methodEntity.getType();
+
+        var arguments = Stream.concat(
+                targetNode.stream(),
+                expr.getArguments().stream().map(this::translateExpr)
+        ).toArray(Node[]::new);
+
+        var mem = construction.getCurrentMem();
+
+        var callNode = construction.newCall(mem, addrNode, arguments, methodType);
+
+        var memProj = construction.newProj(callNode, Mode.getM(), 0);
+        construction.setCurrentMem(memProj);
+
+        var returnTy = methodDef.getReturnTy();
+        if (returnTy instanceof VoidTy) {
+            return Optional.empty();
+        } else {
+            assert returnTy instanceof Ty;
+            var returnValuesProj = construction.newProj(callNode, Mode.getT(), 1);
+
+            var firmReturnType = getFirmType((Ty)returnTy);
+
+            var returnValueProj = construction.newProj(returnValuesProj, firmReturnType.getMode(), 0);
+
+            return Optional.of(returnValueProj);
+        }
+    }
+
     private Node translateExpr(Expression root) {
         return switch (root) {
             case BinaryOpExpression expr -> translateBinOp(expr);
@@ -261,7 +317,13 @@ public class Translation {
                 yield rhs;
             }
             case ArrayAccessExpression expr -> throw new UnsupportedOperationException();
-            case MethodCallExpression expr -> throw new UnsupportedOperationException();
+            case MethodCallExpression expr -> {
+                var definition = this.resolution.definitions().getMethod(expr).orElseThrow();
+
+                var node = translateMethodCallExpression(expr);
+
+                yield node.orElseThrow(() -> new AssertionError("MethodCallExpression of void methods can only be directly after ExpressionStatements."));
+            }
             case NewArrayExpression expr -> throw new UnsupportedOperationException();
             case NewObjectExpression expr -> throw new UnsupportedOperationException();
             case NullExpression expr -> throw new UnsupportedOperationException("null");
@@ -290,7 +352,13 @@ public class Translation {
     private void translateStatement(Statement statement) {
         switch (statement) {
             case EmptyStatement ignored -> {}
-            case ExpressionStatement stmt -> translateExpr(stmt.getExpression());
+            case ExpressionStatement stmt -> {
+                if (stmt.getExpression() instanceof MethodCallExpression methodCall) {
+                    translateMethodCallExpression(methodCall);
+                } else {
+                    translateExpr(stmt.getExpression());
+                }
+            }
             case IfStatement stmt -> throw new UnsupportedOperationException();
             case LocalVariableDeclarationStatement stmt -> {
                 var statementId = this.newVariableId();
@@ -397,10 +465,16 @@ public class Translation {
                 if (m instanceof DefinedMethod method){
                     var name = method.getName();
                     var type = getMethodType(method);
-                    Entity methodEnt = new Entity(globalType, name, type);
+                    Entity methodEnt = new Entity(globalType, m.getLinkerName(), type);
                     this.entities.set(method.getAstMethod(), methodEnt);
                 }
             }
+        }
+
+        for (var intrinsicMethod : IntrinsicMethod.ALL_INTRINSIC_METHODS) {
+            var methodType = getIntrinsicMethodType(intrinsicMethod);
+            var entity = new Entity(globalType, intrinsicMethod.getLinkerName(), methodType);
+            this.intrinsicEntities.put(intrinsicMethod, entity);
         }
 
         for (var classTy : this.resolution.classes()) {

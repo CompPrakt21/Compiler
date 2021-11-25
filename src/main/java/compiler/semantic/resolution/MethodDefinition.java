@@ -14,4 +14,6 @@ public sealed abstract class MethodDefinition permits DefinedMethod, IntrinsicMe
     public abstract TyResult getReturnTy();
 
     public abstract List<TyResult> getParameterTy();
+
+    public abstract String getLinkerName();
 }

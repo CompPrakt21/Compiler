@@ -8,12 +8,12 @@ import java.util.List;
 import java.util.Optional;
 
 public final class DefinedMethod extends MethodDefinition {
-    private Method method;
-    private ClassTy containingClass;
+    private final Method method;
+    private final ClassTy containingClass;
 
-    private TyResult returnTy;
+    private final TyResult returnTy;
 
-    private List<TyResult> parameterTy;
+    private final List<TyResult> parameterTy;
 
     public DefinedMethod(Method method, ClassTy containingClass, TyResult returnTy, List<TyResult> parameterTy) {
         this.method = method;
@@ -44,5 +44,11 @@ public final class DefinedMethod extends MethodDefinition {
     @Override
     public List<TyResult> getParameterTy() {
         return this.parameterTy;
+    }
+
+    @Override
+    public String getLinkerName() {
+        var containingClassName = this.containingClass.getName();
+        return String.format("_%s_%s", containingClassName, this.getName());
     }
 }
