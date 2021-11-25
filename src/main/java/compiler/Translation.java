@@ -18,6 +18,7 @@ import firm.nodes.Node;
 
 import java.io.IOException;
 import java.io.PrintStream;
+import java.lang.reflect.Array;
 import java.util.*;
 import java.util.stream.Stream;
 
@@ -250,6 +251,24 @@ public class Translation {
         construction.setCurrentMem(memProj);
     }
 
+    private Node translateArrayAccessExprLValue(ArrayAccessExpression expr) {
+        var targetNode = translateExpr(expr.getTarget());
+        assert targetNode.getMode().equals(Mode.getP());
+
+        var indexNode = translateExpr(expr.getIndexExpression());
+
+        var exprTy = (ArrayTy)this.resolution.expressionTypes().get(expr.getTarget()).orElseThrow();
+        var childTy = exprTy.getChildTy();
+        var childFirmType = getFirmType(childTy);
+
+        var objectSize = construction.newSize(Mode.getIs(), childFirmType);
+
+        var byteIndexNode = construction.newConv(construction.newMul(indexNode, objectSize), Mode.getLs());
+
+        var selectNode = construction.newAdd(targetNode, byteIndexNode);
+        return selectNode;
+    }
+
     private Optional<Node> translateMethodCallExpression(MethodCallExpression expr) {
         var methodDef = this.resolution.definitions().getMethod(expr).orElseThrow();
 
@@ -325,14 +344,32 @@ public class Translation {
                         translateFieldAssignment(targetNode, fieldAccess, rhs);
                     }
                     case ArrayAccessExpression arrayAccess -> {
-                        throw new UnsupportedOperationException();
+                        var arrayFieldPtr = translateArrayAccessExprLValue(arrayAccess);
+
+                        var mem = construction.getCurrentMem();
+                        var store = construction.newStore(mem, arrayFieldPtr, rhs);
+                        var memProj = construction.newProj(store, Mode.getM(), 0);
+                        construction.setCurrentMem(memProj);
                     }
                     default -> throw new AssertionError("Not an lvalue");
                 }
 
                 yield rhs;
             }
-            case ArrayAccessExpression expr -> throw new UnsupportedOperationException();
+            case ArrayAccessExpression expr -> {
+                var arrayFieldPtr = translateArrayAccessExprLValue(expr);
+
+                var childFirmType = getFirmType((Ty)this.resolution.expressionTypes().get(expr).orElseThrow());
+
+                var mem = construction.getCurrentMem();
+                var loadNode = construction.newLoad(mem, arrayFieldPtr, childFirmType.getMode());
+
+                var memProj = construction.newProj(loadNode, Mode.getM(), 0);
+                construction.setCurrentMem(memProj);
+
+                var result = construction.newProj(loadNode, childFirmType.getMode(), 1);
+                yield result;
+            }
             case MethodCallExpression expr -> {
                 var definition = this.resolution.definitions().getMethod(expr).orElseThrow();
 
