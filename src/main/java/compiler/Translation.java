@@ -17,6 +17,7 @@ import firm.nodes.Block;
 import firm.nodes.Node;
 
 import java.io.IOException;
+import java.io.PrintStream;
 import java.util.*;
 import java.util.stream.Stream;
 
@@ -31,6 +32,8 @@ public class Translation {
     private final String runtimeFilename;
 
     private final Map<Ty, Type> firmTypes;
+    private final List<StructType> allCreatedStructFirmTypes;
+
     private final AstData<Integer> variableId; // maps variable definitions to their firm variable ids.
     private final AstData<Entity> entities; // maps method and fields to their respective entity.
     private final Map<IntrinsicMethod, Entity> intrinsicEntities;
@@ -50,6 +53,7 @@ public class Translation {
 
         Firm.init();
         this.firmTypes = new HashMap<>();
+        this.allCreatedStructFirmTypes = new ArrayList<>();
         this.variableId = new SparseAstData<>();
         this.entities = new SparseAstData<>();
         this.intrinsicEntities = new HashMap<>();
@@ -130,6 +134,7 @@ public class Translation {
                     yield this.firmTypes.get(clsTy);
                 } else {
                     var firmType = new StructType(clsTy.getName());
+                    this.allCreatedStructFirmTypes.add(firmType);
                     var clsPtr = new PointerType(firmType);
                     this.firmTypes.put(clsTy, clsPtr);
                     yield clsPtr;
@@ -336,7 +341,27 @@ public class Translation {
                 yield node.orElseThrow(() -> new AssertionError("MethodCallExpression of void methods can only be directly after ExpressionStatements."));
             }
             case NewArrayExpression expr -> throw new UnsupportedOperationException();
-            case NewObjectExpression expr -> throw new UnsupportedOperationException();
+            case NewObjectExpression expr -> {
+                var exprTy = (Ty)this.resolution.expressionTypes().get(expr).orElseThrow();
+                var firmTy = getFirmType(exprTy);
+                assert firmTy.getMode().equals(Mode.getP());
+                var classType = ((PointerType) firmTy).getPointsTo();
+
+                var size = construction.newSize(Mode.getIs(), classType);
+                var constantOne = construction.newConst(1, Mode.getIs());
+
+                var mem = construction.getCurrentMem();
+                var addr = construction.newAddress(this.allocFunctionEntity);
+                var callNode = construction.newCall(mem, addr, new Node[]{size, constantOne}, this.allocFunctionEntity.getType());
+
+                var memProj = construction.newProj(callNode, Mode.getM(), 0);
+                construction.setCurrentMem(memProj);
+
+                var returnValuesProj = construction.newProj(callNode, Mode.getT(), 1);
+
+                var returnValueProj = construction.newProj(returnValuesProj, Mode.getP(), 0);
+                yield returnValueProj;
+            }
             case NullExpression expr -> throw new UnsupportedOperationException("null");
             case ThisExpression expr -> construction.getVariable(this.thisVariableId, Mode.getP());
             case UnaryExpression expr -> translateUnaryOp(expr);
@@ -488,14 +513,28 @@ public class Translation {
             this.intrinsicEntities.put(intrinsicMethod, entity);
         }
 
+        List<Graph> graphs = new ArrayList<>();
+
         for (var classTy : this.resolution.classes()) {
             for (var methodDef : classTy.getMethods().values()) {
                 // We don't generate code for intrinsic methods.
                 if (methodDef instanceof DefinedMethod definedMethod) {
                     Graph graph = genGraphForMethod(definedMethod);
+                    graphs.add(graph);
                     Dump.dumpGraph(graph, methodDef.getName());
                 }
             }
+        }
+
+        for (firm.Type firmType : allCreatedStructFirmTypes) {
+            if (firmType instanceof StructType st) {
+                st.layoutFields();
+                st.finishLayout();
+            }
+        }
+
+        for (var graph : graphs) {
+            Util.lowerSels(graph);
         }
 
         try {
@@ -510,7 +549,10 @@ public class Translation {
 
             Backend.lowerForTarget();
             Backend.createAssembler(asmFilenameName, this.srcFilename);
-            Runtime.getRuntime().exec(String.format("gcc -o %s %s %s", execFilename, asmFilenameName, this.runtimeFilename));
+
+            ProcessBuilder pb = new ProcessBuilder("gcc", "-o", execFilename, asmFilenameName, this.runtimeFilename);
+            pb.inheritIO();
+            pb.start();
         } catch (IOException e) {
             e.printStackTrace();
         }

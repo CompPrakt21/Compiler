@@ -178,7 +178,7 @@ public class MainCommand implements Callable<Integer> {
         return callWithChecked(srcFile, (reporter, ast, resolution, constants, wellFormed) -> {
 
             if (resolution.successful() && wellFormed.correct() && constants.successful()){
-                var translation = new Translation(srcFile.getName(), runtimeFile.getName(), resolution, constants, wellFormed);
+                var translation = new Translation(srcFile.getName(), runtimeFile.getAbsolutePath(), resolution, constants, wellFormed);
                 translation.translate(ast);
                 return true;
 
