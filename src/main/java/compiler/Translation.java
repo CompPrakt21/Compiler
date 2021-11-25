@@ -199,6 +199,88 @@ public class Translation {
         return ret;
     }
 
+    private void translateCondCmp (BinaryOpExpression expr, Block trueBlock, Block falseBlock) {
+        Node cmp = translateBinOp(expr);
+        Node ifN = construction.newCond(cmp);
+
+        Node trueProj = construction.newProj(ifN, Mode.getX(), 1);
+        trueBlock.addPred(trueProj);
+
+
+        Node falseProj = construction.newProj(ifN, Mode.getX(), 0);
+        falseBlock.addPred(falseProj);
+
+    }
+
+    private void translateCondBinOp(BinaryOpExpression expr, Block trueBlock, Block falseBlock) {
+        switch (expr.getOperator()) {
+            case And -> {
+                Block rightBlock = construction.newBlock();
+                translateCondExpr(expr.getLhs(), rightBlock, falseBlock);
+                rightBlock.mature();
+                construction.setCurrentBlock(rightBlock);
+                translateCondExpr(expr.getRhs(), trueBlock, falseBlock);
+            }
+            case Or -> {
+                Block rightBlock = construction.newBlock();
+                translateCondExpr(expr.getLhs(), trueBlock, rightBlock);
+                rightBlock.mature();
+                construction.setCurrentBlock(rightBlock);
+                translateCondExpr(expr.getRhs(), trueBlock, falseBlock);
+            }
+            case Equal -> translateCondCmp(expr, trueBlock, falseBlock);
+            case NotEqual -> translateCondCmp(expr, trueBlock, falseBlock);
+            case Less -> translateCondCmp(expr, trueBlock, falseBlock);
+            case LessEqual -> translateCondCmp(expr, trueBlock, falseBlock);
+            case Greater -> translateCondCmp(expr, trueBlock, falseBlock);
+            case GreaterEqual -> translateCondCmp(expr, trueBlock, falseBlock);
+            default -> throw new AssertionError("untranslatable op");
+        }
+    }
+
+    private void translateCondBool(Expression input, Block trueBlock, Block falseBlock) {
+        Node constOne = construction.newConst(1, Mode.getBu());
+        Node cmp = construction.newCmp(translateLiteral(input), constOne, Relation.Equal);
+        Node ifN = construction.newCond(cmp);
+
+        Node trueProj = construction.newProj(ifN, Mode.getX(), 1);
+        trueBlock.addPred(trueProj);
+
+
+        Node falseProj = construction.newProj(ifN, Mode.getX(), 0);
+        falseBlock.addPred(falseProj);
+
+    }
+
+    private void translateCondExpr(Expression root, Block trueBlock, Block falseBlock) {
+        switch (root) {
+            case BinaryOpExpression expr -> translateCondBinOp(expr, trueBlock, falseBlock);
+            case UnaryExpression expr -> {
+                assert expr.getOperator() == UnaryExpression.UnaryOp.LogicalNot;
+                translateCondExpr(expr.getExpression(), falseBlock, trueBlock);
+            }
+            case Reference expr -> {
+                translateCondBool(expr, trueBlock, falseBlock);
+            }
+            case BoolLiteral expr -> {
+                translateCondBool(expr, trueBlock, falseBlock);
+            }
+            case AssignmentExpression expr -> {
+                translateCondBool(expr, trueBlock, falseBlock);
+            }
+            case FieldAccessExpression expr -> {
+                translateCondBool(expr, trueBlock, falseBlock);
+            }
+            case ArrayAccessExpression expr -> {
+                translateCondBool(expr, trueBlock, falseBlock);
+            }
+            case MethodCallExpression expr -> {
+                translateCondBool(expr, trueBlock, falseBlock);
+            }
+            default -> throw new AssertionError("translateCond with non-cond expr");
+        }
+    }
+
     private Node translateUnaryOp(UnaryExpression expr) {
         Node rhs = translateExpr(expr.getExpression());
         return switch (expr.getOperator()) {
@@ -452,7 +534,39 @@ public class Translation {
                     translateExpr(stmt.getExpression());
                 }
             }
-            case IfStatement stmt -> throw new UnsupportedOperationException();
+            case IfStatement stmt -> {
+                // TODO: Don't place jmp if there is a return
+                Block trueBlock = construction.newBlock();
+                Block falseBlock = construction.newBlock();
+
+                translateCondExpr(stmt.getCondition(), trueBlock, falseBlock);
+
+                trueBlock.mature();
+                falseBlock.mature();
+                construction.setCurrentBlock(trueBlock);
+                translateStatement(stmt.getThenBody());
+                Node trueJmp = construction.newJmp();
+
+                if (!stmt.getElseBody().isPresent()) {
+                    // Simple if
+                    construction.setCurrentBlock(falseBlock);
+                    falseBlock.addPred(trueJmp);
+
+
+                } else {
+                    // We have an else part
+                    construction.setCurrentBlock(falseBlock);
+
+                    translateStatement(stmt.getElseBody().get());
+                    Node falseJmp = construction.newJmp();
+
+                    Block followingBlock = construction.newBlock();
+                    followingBlock.addPred(trueJmp);
+                    followingBlock.addPred(falseJmp);
+                    followingBlock.mature();
+                    construction.setCurrentBlock(followingBlock);
+                }
+            }
             case LocalVariableDeclarationStatement stmt -> {
                 var statementId = this.newVariableId();
                 variableId.set(stmt, statementId);
@@ -472,8 +586,37 @@ public class Translation {
                 var ret = construction.newReturn(construction.getCurrentMem(), rhs);
                 this.returns.add(ret);
             }
-            case WhileStatement stmt -> throw new UnsupportedOperationException();
-            case compiler.ast.Block block -> throw new UnsupportedOperationException();
+            case WhileStatement stmt -> {
+                // TODO: Don't place jmp if there is a return
+                Block headerBlock = construction.newBlock();
+                Block bodyBlock = construction.newBlock();
+                Block followingBlock = construction.newBlock();
+
+                Node jmpToHead = construction.newJmp();
+                construction.setCurrentBlock(headerBlock);
+                headerBlock.addPred(jmpToHead);
+                // Handle infinite loops: Force mem node creation, keep alive
+                Node mem = construction.getCurrentMem();
+                construction.getGraph().keepAlive(headerBlock);
+
+                translateCondExpr(stmt.getCondition(), bodyBlock, followingBlock);
+
+                bodyBlock.mature();
+                followingBlock.mature();
+                construction.setCurrentBlock(bodyBlock);
+                translateStatement(stmt.getBody());
+
+                Node loopJmp = construction.newJmp();
+                headerBlock.addPred(loopJmp);
+                headerBlock.mature();
+
+                construction.setCurrentBlock(followingBlock);
+            }
+            case compiler.ast.Block block -> {
+                for (var stmt : block.getStatements()) {
+                    translateStatement(stmt);
+                }
+            }
         }
     }
 
