@@ -196,9 +196,10 @@ public class Translation {
             }
             case Modulo -> {
                 Node div = construction.newMod(construction.getCurrentMem(), lhs, rhs, binding_ircons.op_pin_state.op_pin_state_pinned);
-                Node proj = construction.newProj(div, Mode.getM(), 0);
-                construction.setCurrentMem(proj);
-                yield div;
+                Node memProj = construction.newProj(div, Mode.getM(), 0);
+                Node resProj = construction.newProj(div, Mode.getIs(), 1);
+                construction.setCurrentMem(memProj);
+                yield resProj;
             }
         };
         return ret;
@@ -245,7 +246,7 @@ public class Translation {
 
     private void translateCondBool(Expression input, Block trueBlock, Block falseBlock) {
         Node constOne = construction.newConst(1, Mode.getBu());
-        Node cmp = construction.newCmp(translateLiteral(input), constOne, Relation.Equal);
+        Node cmp = construction.newCmp(translateExpr(input), constOne, Relation.Equal);
         Node ifN = construction.newCond(cmp);
 
         Node trueProj = construction.newProj(ifN, Mode.getX(), 1);
@@ -548,7 +549,6 @@ public class Translation {
                 translateCondExpr(stmt.getCondition(), trueBlock, falseBlock);
 
                 trueBlock.mature();
-                falseBlock.mature();
                 construction.setCurrentBlock(trueBlock);
                 translateStatement(stmt.getThenBody());
                 var trueNeedsJmp = emitJump;
@@ -559,12 +559,15 @@ public class Translation {
                     construction.setCurrentBlock(falseBlock);
                     if (trueNeedsJmp) {
                         falseBlock.addPred(trueJmp);
+                        falseBlock.mature();
                     } else {
-                        this.emitJump = false;
+                        falseBlock.mature();
+                        this.emitJump = true;
                     }
 
                 } else {
                     // We have an else part
+                    falseBlock.mature();
                     construction.setCurrentBlock(falseBlock);
 
                     translateStatement(stmt.getElseBody().get());
@@ -695,7 +698,7 @@ public class Translation {
 
        translateStatement(body);
 
-        if (!this.emitJump) {
+        if (this.emitJump) {
             assert methodDef.getReturnTy() instanceof VoidTy;
             var mem = construction.getCurrentMem();
             returns.add(construction.newReturn(mem, new Node[]{}));

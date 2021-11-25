@@ -101,3 +101,10 @@ gradle-app.setting
 
 # Cache of project
 .gradletasknamecache
+
+*.mj
+*.java
+*.s
+*.vcg
+*.dot
+a.out
