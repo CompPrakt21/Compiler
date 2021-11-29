@@ -17,8 +17,6 @@ import firm.nodes.Block;
 import firm.nodes.Node;
 
 import java.io.IOException;
-import java.io.PrintStream;
-import java.lang.reflect.Array;
 import java.util.*;
 import java.util.stream.Stream;
 
@@ -169,21 +167,10 @@ public class Translation {
         return res;
     }
 
-    private Node translateBinOp(BinaryOpExpression expr) {
+    private Node translateArithBinOp(BinaryOpExpression expr) {
         Node lhs = translateExpr(expr.getLhs());
         Node rhs = translateExpr(expr.getRhs());
         var ret = switch (expr.getOperator()) {
-            case And -> construction.newAnd(lhs, rhs);
-            case Or -> construction.newOr(lhs, rhs);
-            case Equal -> construction.newCmp(lhs, rhs, Relation.Equal);
-            case NotEqual -> {
-                var equalNode = construction.newCmp(lhs, rhs, Relation.Equal);
-                yield construction.newNot(equalNode);
-            }
-            case Less -> construction.newCmp(lhs, rhs, Relation.Less);
-            case LessEqual -> construction.newCmp(lhs, rhs, Relation.LessEqual);
-            case Greater -> construction.newCmp(lhs, rhs, Relation.Greater);
-            case GreaterEqual -> construction.newCmp(lhs, rhs, Relation.GreaterEqual);
             case Addition -> construction.newAdd(lhs, rhs);
             case Subtraction -> construction.newSub(lhs, rhs);
             case Multiplication -> construction.newMul(lhs, rhs);
@@ -201,12 +188,53 @@ public class Translation {
                 construction.setCurrentMem(memProj);
                 yield resProj;
             }
+            default -> throw new AssertionError("not an arith bitop");
+        };
+        return ret;
+    }
+
+    private Node translateBoolBinOp(BinaryOpExpression expr) {
+        Node trueConst = construction.newConst(1, Mode.getBu());
+        Node falseConst = construction.newConst(0, Mode.getBu());
+        Block nextBlock = construction.newBlock();
+
+        translateCondCmp(expr, nextBlock, nextBlock);
+        nextBlock.mature();
+
+        construction.setCurrentBlock(nextBlock);
+        return construction.newPhi(new Node[]{trueConst, falseConst}, Mode.getBu());
+    }
+
+    private Node getBoolBinOpNode(BinaryOpExpression expr) {
+        Node lhs = translateExpr(expr.getLhs());
+        Node rhs = translateExpr(expr.getRhs());
+        var ret = switch (expr.getOperator()) {
+            case And -> construction.newAnd(lhs, rhs);
+            case Or -> construction.newOr(lhs, rhs);
+            case Equal -> construction.newCmp(lhs, rhs, Relation.Equal);
+            case NotEqual -> {
+                var equalNode = construction.newCmp(lhs, rhs, Relation.Equal);
+                yield construction.newNot(equalNode);
+            }
+            case Less -> construction.newCmp(lhs, rhs, Relation.Less);
+            case LessEqual -> construction.newCmp(lhs, rhs, Relation.LessEqual);
+            case Greater -> construction.newCmp(lhs, rhs, Relation.Greater);
+            case GreaterEqual -> construction.newCmp(lhs, rhs, Relation.GreaterEqual);
+            default -> throw new AssertionError("invalid boolean op");
+        };
+        return ret;
+    }
+
+    private Node translateBinOp(BinaryOpExpression expr) {
+        var ret = switch (expr.getOperator()) {
+            case Addition, Subtraction, Multiplication, Division, Modulo -> translateArithBinOp(expr);
+            case And, Or, Equal, NotEqual, Less, LessEqual, Greater, GreaterEqual -> translateBoolBinOp(expr);
         };
         return ret;
     }
 
     private void translateCondCmp (BinaryOpExpression expr, Block trueBlock, Block falseBlock) {
-        Node cmp = translateBinOp(expr);
+        Node cmp = getBoolBinOpNode(expr);
         Node ifN = construction.newCond(cmp);
 
         Node trueProj = construction.newProj(ifN, Mode.getX(), 1);
