@@ -17,7 +17,7 @@ void _System_out_flush() {
 
 int32_t _System_in_read() {
 	int32_t buf = 0;
-	if (read(STDOUT_FILENO, &buf, 1) != 1) {
+	if (read(STDIN_FILENO, &buf, 1) != 1) {
 		return -1;
 	}
 
