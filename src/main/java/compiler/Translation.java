@@ -773,7 +773,7 @@ public class Translation {
         return graph;
     }
 
-    public void translate() {
+    public void translate(boolean dumpGraphs) {
         for (var classTy : this.resolution.classes()) {
             CompoundType classType = (CompoundType) ((PointerType) getFirmType(classTy)).getPointsTo();
 
@@ -807,7 +807,9 @@ public class Translation {
                 if (methodDef instanceof DefinedMethod definedMethod) {
                     Graph graph = genGraphForMethod(definedMethod);
                     graphs.add(graph);
-                    Dump.dumpGraph(graph, methodDef.getName());
+                    if (dumpGraphs) {
+                        Dump.dumpGraph(graph, methodDef.getName());
+                    }
                 }
             }
         }
@@ -823,10 +825,12 @@ public class Translation {
             Util.lowerSels(graph);
         }
 
-        try {
-            Dump.dumpTypeGraph("types.vcg");
-        } catch (IOException e) {
-            e.printStackTrace();
+        if (dumpGraphs) {
+            try {
+                Dump.dumpTypeGraph("types.vcg");
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
 
         try {
