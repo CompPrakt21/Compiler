@@ -1,6 +1,5 @@
 package compiler;
 
-import compiler.ast.Program;
 import compiler.ast.*;
 import compiler.semantic.AstData;
 import compiler.semantic.ConstantFolding;
@@ -103,7 +102,7 @@ public class Translation {
     }
 
     private Type getFirmType(Ty type) {
-        var result = switch (type) {
+        return switch (type) {
             case BoolTy ignored -> {
                 if (this.firmTypes.containsKey(type)) {
                     yield this.firmTypes.get(type);
@@ -152,11 +151,10 @@ public class Translation {
                 }
             }
         };
-        return result;
     }
 
     private Node translateLiteral(AstNode literal) {
-        var res = switch (literal) {
+        return switch (literal) {
             case BoolLiteral lit -> construction.newConst(lit.getValue() ? 1 : 0, Mode.getBu());
             case IntLiteral lit -> {
                 var value = this.constants.get(lit).orElseThrow();
@@ -164,13 +162,12 @@ public class Translation {
             }
             default -> throw new AssertionError("translateLiteral called with " + literal);
         };
-        return res;
     }
 
     private Node translateArithBinOp(BinaryOpExpression expr) {
         Node lhs = translateExpr(expr.getLhs());
         Node rhs = translateExpr(expr.getRhs());
-        var ret = switch (expr.getOperator()) {
+        return switch (expr.getOperator()) {
             case Addition -> construction.newAdd(lhs, rhs);
             case Subtraction -> construction.newSub(lhs, rhs);
             case Multiplication -> construction.newMul(lhs, rhs);
@@ -190,27 +187,13 @@ public class Translation {
             }
             default -> throw new AssertionError("not an arith bitop");
         };
-        return ret;
     }
 
-    private Node translateBoolBinOp(BinaryOpExpression expr) {
-        Node trueConst = construction.newConst(1, Mode.getBu());
-        Node falseConst = construction.newConst(0, Mode.getBu());
-        Block nextBlock = construction.newBlock();
-
-        translateCondCmp(expr, nextBlock, nextBlock);
-        nextBlock.mature();
-
-        construction.setCurrentBlock(nextBlock);
-        return construction.newPhi(new Node[]{trueConst, falseConst}, Mode.getBu());
-    }
-
-    private Node getBoolBinOpNode(BinaryOpExpression expr) {
+    /* returns node with mode B */
+    private Node createCompareBinOpNode(BinaryOpExpression expr) {
         Node lhs = translateExpr(expr.getLhs());
         Node rhs = translateExpr(expr.getRhs());
-        var ret = switch (expr.getOperator()) {
-            case And -> construction.newAnd(lhs, rhs);
-            case Or -> construction.newOr(lhs, rhs);
+        return switch (expr.getOperator()) {
             case Equal -> construction.newCmp(lhs, rhs, Relation.Equal);
             case NotEqual -> {
                 var equalNode = construction.newCmp(lhs, rhs, Relation.Equal);
@@ -222,59 +205,110 @@ public class Translation {
             case GreaterEqual -> construction.newCmp(lhs, rhs, Relation.GreaterEqual);
             default -> throw new AssertionError("invalid boolean op");
         };
-        return ret;
     }
 
-    private Node translateBinOp(BinaryOpExpression expr) {
-        var ret = switch (expr.getOperator()) {
+    private Node translateBinOpExpr(BinaryOpExpression expr) {
+        return switch (expr.getOperator()) {
             case Addition, Subtraction, Multiplication, Division, Modulo -> translateArithBinOp(expr);
-            case And, Or, Equal, NotEqual, Less, LessEqual, Greater, GreaterEqual -> translateBoolBinOp(expr);
+            case Equal, NotEqual, Less, LessEqual, Greater, GreaterEqual -> {
+                var node = createCompareBinOpNode(expr);
+                yield translateCondBoolToByteBool(node);
+            }
+            case And, Or -> {
+                Block trueBlock = construction.newBlock();
+                Block falseBlock = construction.newBlock();
+
+                translateExprWithShortcircuit(expr, trueBlock, falseBlock);
+
+                trueBlock.mature();
+                falseBlock.mature();
+
+                construction.setCurrentBlock(trueBlock);
+                var trueJmp = construction.newJmp();
+
+                construction.setCurrentBlock(falseBlock);
+                var falseJmp = construction.newJmp();
+
+                Block phiBlock = construction.newBlock();
+
+                phiBlock.addPred(trueJmp);
+                phiBlock.addPred(falseJmp);
+                phiBlock.mature();
+
+                construction.setCurrentBlock(phiBlock);
+                var constOne = construction.newConst(1, Mode.getBu());
+                var constZero = construction.newConst(0, Mode.getBu());
+                yield construction.newPhi(new Node[] { constOne, constZero }, Mode.getBu());
+            }
         };
-        return ret;
     }
 
-    private void translateCondCmp (BinaryOpExpression expr, Block trueBlock, Block falseBlock) {
-        Node cmp = getBoolBinOpNode(expr);
+    private void translateCondBoolCmp(Node cmp, Block trueBlock, Block falseBlock) {
         Node ifN = construction.newCond(cmp);
 
         Node trueProj = construction.newProj(ifN, Mode.getX(), 1);
         trueBlock.addPred(trueProj);
-
 
         Node falseProj = construction.newProj(ifN, Mode.getX(), 0);
         falseBlock.addPred(falseProj);
 
     }
 
-    private void translateCondBinOp(BinaryOpExpression expr, Block trueBlock, Block falseBlock) {
+    private void translateCompareWithShortcircuit(BinaryOpExpression expr, Block trueBlock, Block falseBlock) {
+        var cmpNode = createCompareBinOpNode(expr);
+        translateCondBoolCmp(cmpNode, trueBlock, falseBlock);
+    }
+
+    private void translateBinOpWithShortcircuit(BinaryOpExpression expr, Block trueBlock, Block falseBlock) {
         switch (expr.getOperator()) {
             case And -> {
                 Block rightBlock = construction.newBlock();
-                translateCondExpr(expr.getLhs(), rightBlock, falseBlock);
+                translateExprWithShortcircuit(expr.getLhs(), rightBlock, falseBlock);
                 rightBlock.mature();
                 construction.setCurrentBlock(rightBlock);
-                translateCondExpr(expr.getRhs(), trueBlock, falseBlock);
+                translateExprWithShortcircuit(expr.getRhs(), trueBlock, falseBlock);
             }
             case Or -> {
                 Block rightBlock = construction.newBlock();
-                translateCondExpr(expr.getLhs(), trueBlock, rightBlock);
+                translateExprWithShortcircuit(expr.getLhs(), trueBlock, rightBlock);
                 rightBlock.mature();
                 construction.setCurrentBlock(rightBlock);
-                translateCondExpr(expr.getRhs(), trueBlock, falseBlock);
+                translateExprWithShortcircuit(expr.getRhs(), trueBlock, falseBlock);
             }
-            case Equal -> translateCondCmp(expr, trueBlock, falseBlock);
-            case NotEqual -> translateCondCmp(expr, trueBlock, falseBlock);
-            case Less -> translateCondCmp(expr, trueBlock, falseBlock);
-            case LessEqual -> translateCondCmp(expr, trueBlock, falseBlock);
-            case Greater -> translateCondCmp(expr, trueBlock, falseBlock);
-            case GreaterEqual -> translateCondCmp(expr, trueBlock, falseBlock);
+            case Equal -> translateCompareWithShortcircuit(expr, trueBlock, falseBlock);
+            case NotEqual -> translateCompareWithShortcircuit(expr, trueBlock, falseBlock);
+            case Less -> translateCompareWithShortcircuit(expr, trueBlock, falseBlock);
+            case LessEqual -> translateCompareWithShortcircuit(expr, trueBlock, falseBlock);
+            case Greater -> translateCompareWithShortcircuit(expr, trueBlock, falseBlock);
+            case GreaterEqual -> translateCompareWithShortcircuit(expr, trueBlock, falseBlock);
             default -> throw new AssertionError("untranslatable op");
         }
     }
 
-    private void translateCondBool(Expression input, Block trueBlock, Block falseBlock) {
+
+
+    private Node translateCondBoolToByteBool(Node node) {
+        assert node.getMode().equals(Mode.getb());
+
+        Node trueConst = construction.newConst(1, Mode.getBu());
+        Node falseConst = construction.newConst(0, Mode.getBu());
+
+        Node condNode = construction.newCond(node);
+        Node trueProj = construction.newProj(condNode, Mode.getX(), 1);
+        Node falseProj = construction.newProj(condNode, Mode.getX(), 0);
+
+        Block nextBlock = construction.newBlock();
+        nextBlock.addPred(trueProj);
+        nextBlock.addPred(falseProj);
+        nextBlock.mature();
+
+        construction.setCurrentBlock(nextBlock);
+        return construction.newPhi(new Node[]{trueConst, falseConst}, Mode.getBu());
+    }
+
+    private void translateByteBoolToShortcircuit(Node input, Block trueBlock, Block falseBlock) {
         Node constOne = construction.newConst(1, Mode.getBu());
-        Node cmp = construction.newCmp(translateExpr(input), constOne, Relation.Equal);
+        Node cmp = construction.newCmp(input, constOne, Relation.Equal);
         Node ifN = construction.newCond(cmp);
 
         Node trueProj = construction.newProj(ifN, Mode.getX(), 1);
@@ -283,33 +317,38 @@ public class Translation {
 
         Node falseProj = construction.newProj(ifN, Mode.getX(), 0);
         falseBlock.addPred(falseProj);
-
     }
 
-    private void translateCondExpr(Expression root, Block trueBlock, Block falseBlock) {
+    private void translateExprWithShortcircuit(Expression root, Block trueBlock, Block falseBlock) {
         switch (root) {
-            case BinaryOpExpression expr -> translateCondBinOp(expr, trueBlock, falseBlock);
+            case BinaryOpExpression expr -> translateBinOpWithShortcircuit(expr, trueBlock, falseBlock);
             case UnaryExpression expr -> {
                 assert expr.getOperator() == UnaryExpression.UnaryOp.LogicalNot;
-                translateCondExpr(expr.getExpression(), falseBlock, trueBlock);
+                translateExprWithShortcircuit(expr.getExpression(), falseBlock, trueBlock);
             }
             case Reference expr -> {
-                translateCondBool(expr, trueBlock, falseBlock);
+                Node n = translateExpr(expr);
+                translateByteBoolToShortcircuit(n, trueBlock, falseBlock);
             }
             case BoolLiteral expr -> {
-                translateCondBool(expr, trueBlock, falseBlock);
+                Node n = translateExpr(expr);
+                translateByteBoolToShortcircuit(n, trueBlock, falseBlock);
             }
             case AssignmentExpression expr -> {
-                translateCondBool(expr, trueBlock, falseBlock);
+                Node n = translateExpr(expr);
+                translateByteBoolToShortcircuit(n, trueBlock, falseBlock);
             }
             case FieldAccessExpression expr -> {
-                translateCondBool(expr, trueBlock, falseBlock);
+                Node n = translateExpr(expr);
+                translateByteBoolToShortcircuit(n, trueBlock, falseBlock);
             }
             case ArrayAccessExpression expr -> {
-                translateCondBool(expr, trueBlock, falseBlock);
+                Node n = translateExpr(expr);
+                translateByteBoolToShortcircuit(n, trueBlock, falseBlock);
             }
             case MethodCallExpression expr -> {
-                translateCondBool(expr, trueBlock, falseBlock);
+                Node n = translateExpr(expr);
+                translateByteBoolToShortcircuit(n, trueBlock, falseBlock);
             }
             default -> throw new AssertionError("translateCond with non-cond expr");
         }
@@ -336,9 +375,8 @@ public class Translation {
         }
 
         var memberEntity = this.entities.get(field).orElseThrow();
-        var member = construction.newMember(targetNode, memberEntity);
 
-        return member;
+        return construction.newMember(targetNode, memberEntity);
     }
 
     private Node translateFieldAccessExpr(Node targetNode, Expression expr) {
@@ -381,8 +419,7 @@ public class Translation {
 
         var byteIndexNode = construction.newConv(construction.newMul(indexNode, objectSize), Mode.getLs());
 
-        var selectNode = construction.newAdd(targetNode, byteIndexNode);
-        return selectNode;
+        return construction.newAdd(targetNode, byteIndexNode);
     }
 
     private Optional<Node> translateMethodCallExpression(MethodCallExpression expr) {
@@ -434,7 +471,7 @@ public class Translation {
 
     private Node translateExpr(Expression root) {
         return switch (root) {
-            case BinaryOpExpression expr -> translateBinOp(expr);
+            case BinaryOpExpression expr -> translateBinOpExpr(expr);
             case FieldAccessExpression expr -> {
                 var targetNode = translateExpr(expr.getTarget());
                 yield translateFieldAccessExpr(targetNode, expr);
@@ -483,12 +520,9 @@ public class Translation {
                 var memProj = construction.newProj(loadNode, Mode.getM(), 0);
                 construction.setCurrentMem(memProj);
 
-                var result = construction.newProj(loadNode, childFirmType.getMode(), 1);
-                yield result;
+                yield construction.newProj(loadNode, childFirmType.getMode(), 1);
             }
             case MethodCallExpression expr -> {
-                var definition = this.resolution.definitions().getMethod(expr).orElseThrow();
-
                 var node = translateMethodCallExpression(expr);
 
                 yield node.orElseThrow(() -> new AssertionError("MethodCallExpression of void methods can only be directly after ExpressionStatements."));
@@ -511,8 +545,7 @@ public class Translation {
 
                 var returnValuesProj = construction.newProj(callNode, Mode.getT(), 1);
 
-                var returnValueProj = construction.newProj(returnValuesProj, Mode.getP(), 0);
-                yield returnValueProj;
+                yield construction.newProj(returnValuesProj, Mode.getP(), 0);
             }
             case NewObjectExpression expr -> {
                 var exprTy = (Ty)this.resolution.expressionTypes().get(expr).orElseThrow();
@@ -532,11 +565,10 @@ public class Translation {
 
                 var returnValuesProj = construction.newProj(callNode, Mode.getT(), 1);
 
-                var returnValueProj = construction.newProj(returnValuesProj, Mode.getP(), 0);
-                yield returnValueProj;
+                yield construction.newProj(returnValuesProj, Mode.getP(), 0);
             }
-            case NullExpression expr -> construction.newConst(0, Mode.getP());
-            case ThisExpression expr -> construction.getVariable(this.thisVariableId, Mode.getP());
+            case NullExpression ignored -> construction.newConst(0, Mode.getP());
+            case ThisExpression ignored -> construction.getVariable(this.thisVariableId, Mode.getP());
             case UnaryExpression expr -> translateUnaryOp(expr);
             case Reference expr -> {
                 var definition = this.resolution.definitions().getReference(expr).orElseThrow();
@@ -574,7 +606,7 @@ public class Translation {
                 Block trueBlock = construction.newBlock();
                 Block falseBlock = construction.newBlock();
 
-                translateCondExpr(stmt.getCondition(), trueBlock, falseBlock);
+                translateExprWithShortcircuit(stmt.getCondition(), trueBlock, falseBlock);
 
                 trueBlock.mature();
                 construction.setCurrentBlock(trueBlock);
@@ -582,7 +614,7 @@ public class Translation {
                 var trueNeedsJmp = emitJump;
                 Node trueJmp = construction.newJmp();
 
-                if (!stmt.getElseBody().isPresent()) {
+                if (stmt.getElseBody().isEmpty()) {
                     // Simple if
                     construction.setCurrentBlock(falseBlock);
                     if (trueNeedsJmp) {
@@ -647,10 +679,9 @@ public class Translation {
                 construction.setCurrentBlock(headerBlock);
                 headerBlock.addPred(jmpToHead);
                 // Handle infinite loops: Force mem node creation, keep alive
-                Node mem = construction.getCurrentMem();
                 construction.getGraph().keepAlive(headerBlock);
 
-                translateCondExpr(stmt.getCondition(), bodyBlock, followingBlock);
+                translateExprWithShortcircuit(stmt.getCondition(), bodyBlock, followingBlock);
 
                 bodyBlock.mature();
                 followingBlock.mature();
@@ -742,7 +773,7 @@ public class Translation {
         return graph;
     }
 
-    public void translate(Program ast) {
+    public void translate() {
         for (var classTy : this.resolution.classes()) {
             CompoundType classType = (CompoundType) ((PointerType) getFirmType(classTy)).getPointsTo();
 

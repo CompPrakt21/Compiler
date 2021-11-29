@@ -151,9 +151,7 @@ public class MainCommand implements Callable<Integer> {
 
             var wellFormed = WellFormed.checkWellFormdness(ast, nameResolutionResult, Optional.of(reporter));
 
-            var opResult = op.run(reporter, ast, nameResolutionResult, constantFolding, wellFormed);
-
-            return opResult;
+            return op.run(reporter, ast, nameResolutionResult, constantFolding, wellFormed);
         });
     }
 
@@ -178,7 +176,7 @@ public class MainCommand implements Callable<Integer> {
 
             if (resolution.successful() && wellFormed.correct() && constants.successful()){
                 var translation = new Translation(srcFile.getName(), runtimePath, resolution, constants, wellFormed);
-                translation.translate(ast);
+                translation.translate();
                 return true;
 
             } else {
