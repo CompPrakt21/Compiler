@@ -13,12 +13,14 @@ import picocli.CommandLine.Command;
 import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.ParameterException;
 import picocli.CommandLine.Parameters;
+import picocli.CommandLine.Option;
 import picocli.CommandLine.Spec;
 
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.util.Optional;
@@ -169,14 +171,23 @@ public class MainCommand implements Callable<Integer> {
     }
 
     @SuppressWarnings("unused")
-    @Command(name = "--translate", description = "Translate to libFirm and dump.")
-    public Integer translate(@Parameters(paramLabel = "SRC_FILE", description = "The file to parse.") File srcFile) {
+    @Command(name = "--compile-firm", description = "Compile to binary.")
+    public Integer translate(
+            @Parameters(paramLabel = "SRC_FILE", description = "The file to compile.") File srcFile,
+            @Option(names = "--dump", description = "Dump the resulting FIRM graphs.") boolean dumpGraphs) {
         return callWithChecked(srcFile, (reporter, ast, resolution, constants, wellFormed) -> {
-            var runtimePath = "src/main/resources/libruntime.c";
+            var runtimePath = "";
+            try {
+                var jarFile = new File(MainCommand.class.getProtectionDomain().getCodeSource().getLocation().toURI());
+                var baseDir = jarFile.getParentFile().getParentFile();
+                runtimePath = new File(baseDir, "libruntime.c").getAbsolutePath();
+            } catch (URISyntaxException e) {
+                e.printStackTrace();
+            }
 
             if (resolution.successful() && wellFormed.correct() && constants.successful()){
                 var translation = new Translation(srcFile.getName(), runtimePath, resolution, constants, wellFormed);
-                translation.translate();
+                translation.translate(dumpGraphs);
                 return true;
 
             } else {
