@@ -31,6 +31,9 @@ import java.util.function.Function;
         description = "MiniJava to x86 compiler")
 public class MainCommand implements Callable<Integer> {
 
+    @Parameters(paramLabel = "FILE", scope = CommandLine.ScopeType.INHERIT, description = "The file to operate on.")
+    File file;
+
     @Spec
     CommandSpec spec;
 
@@ -50,7 +53,7 @@ public class MainCommand implements Callable<Integer> {
 
     @SuppressWarnings("unused")
     @Command(name = "--echo", description = "Echos back the input file.")
-    public Integer callEcho(@Parameters(paramLabel = "FILE", description = "The file to echo.") File file) {
+    public Integer callEcho() {
         return callWithFileContent(file, content -> {
             System.out.print(content);
             return false;
@@ -59,7 +62,7 @@ public class MainCommand implements Callable<Integer> {
 
     @SuppressWarnings("unused")
     @Command(name = "--lextest", description = "Outputs lexed tokens for the input file")
-    public Integer callLextest(@Parameters(paramLabel = "FILE", description = "The file to lxe.") File file) {
+    public Integer callLextest() {
         return callWithFileContent(file, content -> {
             Lexer l = new Lexer(content);
             boolean error = false;
@@ -106,13 +109,13 @@ public class MainCommand implements Callable<Integer> {
 
     @SuppressWarnings("unused")
     @Command(name = "--parsetest", description = "Checks whether the input file parses.")
-    public Integer callParseTest(@Parameters(paramLabel = "FILE", description = "The file to parse.") File file) {
+    public Integer callParseTest() {
         return callWithParsed(file, (reporter, parser, ast) -> false);
     }
 
     @SuppressWarnings("unused")
     @Command(name = "--dump-dot-ast", description = "Generates a dot file with the ast.")
-    public Integer callDumpAst(@Parameters(paramLabel = "FILE", description = "The file to parse.") File file) {
+    public Integer callDumpAst() {
         return callWithParsed(file, (reporter, parser, ast) -> {
             var resolution = NameResolution.performNameResolution(ast, reporter);
 
@@ -133,7 +136,7 @@ public class MainCommand implements Callable<Integer> {
 
     @SuppressWarnings("unused")
     @Command(name = "--print-ast", description = "Prett-prints the parsed AST.")
-    public Integer printAst(@Parameters(paramLabel = "FILE", description = "The file to parse.") File file) {
+    public Integer printAst() {
         return callWithParsed(file, (reporter, parser, ast) -> {
             System.out.println(AstPrinter.program(ast));
             return false;
@@ -159,7 +162,7 @@ public class MainCommand implements Callable<Integer> {
 
     @SuppressWarnings("unused")
     @Command(name = "--check", description = "Performs semantic analysis of the input.")
-    public Integer check(@Parameters(paramLabel = "FILE", description = "The file to parse.") File file) {
+    public Integer check() {
         return callWithChecked(file, (reporter, ast, resolution, constants, wellformed) -> !(resolution.successful() && wellformed.correct() && constants.successful()));
     }
 
@@ -172,10 +175,8 @@ public class MainCommand implements Callable<Integer> {
 
     @SuppressWarnings("unused")
     @Command(name = "--compile-firm", description = "Compile to binary.")
-    public Integer translate(
-            @Parameters(paramLabel = "SRC_FILE", description = "The file to compile.") File srcFile,
-            @Option(names = "--dump", description = "Dump the resulting FIRM graphs.") boolean dumpGraphs) {
-        return callWithChecked(srcFile, (reporter, ast, resolution, constants, wellFormed) -> {
+    public Integer translate(@Option(names = "--dump", description = "Dump the resulting FIRM graphs.") boolean dumpGraphs) {
+        return callWithChecked(file, (reporter, ast, resolution, constants, wellFormed) -> {
             var runtimePath = "";
             try {
                 var jarFile = new File(MainCommand.class.getProtectionDomain().getCodeSource().getLocation().toURI());
@@ -183,24 +184,23 @@ public class MainCommand implements Callable<Integer> {
                 runtimePath = new File(baseDir, "libruntime.c").getAbsolutePath();
             } catch (URISyntaxException e) {
                 e.printStackTrace();
+                return true;
             }
 
             if (resolution.successful() && wellFormed.correct() && constants.successful()){
-                var translation = new Translation(srcFile.getName(), runtimePath, resolution, constants, wellFormed);
+                var translation = new Translation(file.getName(), runtimePath, resolution, constants, wellFormed);
                 translation.translate(dumpGraphs);
-                return true;
+                return false;
 
             } else {
-                return false;
+                return true;
             }
         });
     }
 
     @Override
     public Integer call() {
-        // For now, a subcommand is required.
-        // Once compiling is implemented, that will be the default instead,
-        throw new ParameterException(spec.commandLine(), "Specify a subcommand");
+        return translate(false);
     }
 
     public static void main(String[] args) {
