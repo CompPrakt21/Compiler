@@ -144,7 +144,8 @@ public class ConstantFolding {
                 methodCall.getTarget().ifPresent(this::constantFoldExpression);
                 methodCall.getArguments().forEach(this::constantFoldExpression);
             }
-            case FieldAccessExpression ignored -> {
+            case FieldAccessExpression fieldAccess -> {
+                constantFoldExpression(fieldAccess.getTarget());
             }
             case ArrayAccessExpression arrayAccess -> {
                 constantFoldExpression(arrayAccess.getTarget());

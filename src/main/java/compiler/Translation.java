@@ -17,6 +17,7 @@ import firm.nodes.Node;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 @SuppressWarnings("DuplicateBranchesInSwitch")
@@ -477,10 +478,9 @@ public class Translation {
                 yield translateFieldAccessExpr(targetNode, expr);
             }
             case AssignmentExpression expr -> {
-                var rhs = translateExpr(expr.getRvalue());
-
                 switch (expr.getLvalue()) {
                     case Reference var -> {
+                        var rhs = translateExpr(expr.getRvalue());
                         var definition = this.resolution.definitions().getReference(var).orElseThrow();
 
                         if (definition instanceof LocalVariableDeclarationStatement || definition instanceof Parameter) {
@@ -491,23 +491,31 @@ public class Translation {
                             var thisNode = construction.getVariable(this.thisVariableId, Mode.getP());
                             translateFieldAssignment(thisNode, var, rhs);
                         }
+
+                        yield rhs;
                     }
                     case FieldAccessExpression fieldAccess -> {
                         var targetNode = translateExpr(fieldAccess.getTarget());
+                        var rhs = translateExpr(expr.getRvalue());
+
                         translateFieldAssignment(targetNode, fieldAccess, rhs);
+
+                        yield rhs;
                     }
                     case ArrayAccessExpression arrayAccess -> {
                         var arrayFieldPtr = translateArrayAccessExprLValue(arrayAccess);
+                        // Important: rvalue has to be executed before lvalue.
+                        var rhs = translateExpr(expr.getRvalue());
 
                         var mem = construction.getCurrentMem();
                         var store = construction.newStore(mem, arrayFieldPtr, rhs);
                         var memProj = construction.newProj(store, Mode.getM(), 0);
                         construction.setCurrentMem(memProj);
+
+                        yield rhs;
                     }
                     default -> throw new AssertionError("Not an lvalue");
                 }
-
-                yield rhs;
             }
             case ArrayAccessExpression expr -> {
                 var arrayFieldPtr = translateArrayAccessExprLValue(expr);
