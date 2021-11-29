@@ -787,7 +787,7 @@ public class Translation {
                 if (m instanceof DefinedMethod method){
                     var name = method.getName();
                     var type = getMethodType(method);
-                    Entity methodEnt = new Entity(globalType, name.equals("main") ? "main" : m.getLinkerName(), type);
+                    Entity methodEnt = new Entity(globalType, name.equals("main") ? "__MiniJava_Main__" : m.getLinkerName(), type);
                     this.entities.set(method.getAstMethod(), methodEnt);
                 }
             }

@@ -27,3 +27,10 @@ int32_t _System_in_read() {
 void *__builtin_alloc_function__(uint32_t obj_size, uint32_t size) {
 	return calloc(obj_size, size);
 }
+
+extern void __MiniJava_Main__();
+
+int main() {
+    __MiniJava_Main__();
+    return 0;
+}
