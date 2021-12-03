@@ -86,7 +86,10 @@ public class AstPrinter {
         return switch (e) {
             case AssignmentExpression a -> fmt("%s = %s", a.getLvalue(), a.getRvalue());
             case BinaryOpExpression b -> fmt("%s %s %s", b.getLhs(), b.getOperatorRepr(), b.getRhs());
-            case UnaryExpression u -> fmt("%s%s", u.getOperatorRepr(), u.getExpression());
+            case UnaryExpression u -> {
+                String gap = u.getExpression() instanceof IntLiteral i && i.getMinusToken().isPresent() ? " " : "";
+                yield fmt("%s%s%s", u.getOperatorRepr(), gap, u.getExpression());
+            }
             case MethodCallExpression m -> {
                 String targetPrefix = m.getTarget().map(t -> fmt("%s.", t)).orElse("");
                 String args = m.getArguments().stream()
