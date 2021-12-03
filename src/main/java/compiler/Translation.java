@@ -654,6 +654,12 @@ public class Translation {
                     if (!trueNeedsJmp && !falseNeedsJmp) {
                         // This is a dead end
                         this.emitJump = false;
+                    } else {
+                        // This is absolutely necessary. Otherwise emitJump is set implicitly by
+                        // the content of the else block. If its last statment changing the flag
+                        // is a return, there may exist a path not covered by an early return,
+                        // but the flag wrongly tells us not to create a jump.
+                        this.emitJump = true;
                     }
                 }
             }
