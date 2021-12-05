@@ -8,7 +8,7 @@ void _System_out_println(int32_t i) {
 }
 
 void _System_out_write(int32_t i) {
-	write(STDOUT_FILENO, &i, 1);
+	putchar(i);
 }
 
 void _System_out_flush() {
