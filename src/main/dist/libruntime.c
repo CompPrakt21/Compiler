@@ -25,7 +25,11 @@ int32_t _System_in_read() {
 }
 
 void *__builtin_alloc_function__(uint32_t obj_size, uint32_t size) {
-	return calloc(obj_size, size);
+    if (obj_size == 0 || size == 0) {
+        return (void*) 1;
+    } else {
+	    return calloc(obj_size, size);
+	}
 }
 
 extern void __MiniJava_Main__();
