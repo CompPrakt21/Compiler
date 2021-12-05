@@ -45,6 +45,10 @@ public class Translation {
     private boolean emitJump;
     private Construction construction;
 
+    static {
+        Firm.VERSION = Firm.FirmVersion.DEBUG;
+    }
+
     public Translation(String srcFilename, String runtimeFilename, NameResolution.NameResolutionResult resolution, ConstantFolding.ConstantFoldingResult constants, WellFormed.WellFormedResult wellFormed) {
         this.resolution = resolution;
         this.constants = constants.constants();
