@@ -23,13 +23,7 @@ import java.util.stream.Stream;
 @SuppressWarnings("DuplicateBranchesInSwitch")
 public class Translation {
 
-    private final NameResolution.NameResolutionResult resolution;
-    private final AstData<Integer> constants;
-    private final AstData<Integer> localsVarsInMethod;
-    private final AstData<Boolean> isDeadStatement;
-
-    private final String srcFilename;
-    private final String runtimeFilename;
+    private final FrontendResult frontend;
 
     private final Map<Ty, Type> firmTypes;
     private final List<StructType> allCreatedStructFirmTypes;
@@ -43,19 +37,15 @@ public class Translation {
     private int thisVariableId; // firm variable id for implicit this parameter
     private int nextVariableId;
     private boolean emitJump;
+
     private Construction construction;
 
     static {
         Firm.VERSION = Firm.FirmVersion.DEBUG;
     }
 
-    public Translation(String srcFilename, String runtimeFilename, NameResolution.NameResolutionResult resolution, ConstantFolding.ConstantFoldingResult constants, WellFormed.WellFormedResult wellFormed) {
-        this.resolution = resolution;
-        this.constants = constants.constants();
-        this.localsVarsInMethod = wellFormed.variableCounts();
-        this.srcFilename = srcFilename;
-        this.runtimeFilename = runtimeFilename;
-        this.isDeadStatement = wellFormed.isDeadStatement();
+    public Translation(FrontendResult frontend) {
+        this.frontend = frontend;
 
         Backend.option("dump=all");
 
@@ -164,7 +154,7 @@ public class Translation {
         return switch (literal) {
             case BoolLiteral lit -> construction.newConst(lit.getValue() ? 1 : 0, Mode.getBu());
             case IntLiteral lit -> {
-                var value = this.constants.get(lit).orElseThrow();
+                var value = frontend.constants().get(lit).orElseThrow();
                 yield construction.newConst(value, Mode.getIs());
             }
             default -> throw new AssertionError("translateLiteral called with " + literal);
@@ -377,9 +367,9 @@ public class Translation {
 
         Field field;
         if (expr instanceof FieldAccessExpression fieldAccessExpression) {
-            field = this.resolution.definitions().getField(fieldAccessExpression).orElseThrow();
+            field = frontend.definitions().getField(fieldAccessExpression).orElseThrow();
         } else if (expr instanceof Reference ref) {
-            field = (Field) this.resolution.definitions().getReference(ref).orElseThrow();
+            field = (Field) frontend.definitions().getReference(ref).orElseThrow();
         } else {
             throw new AssertionError("Unrecheable");
         }
@@ -393,7 +383,7 @@ public class Translation {
         var fieldPtr = translateFieldExprToLValue(targetNode, expr);
 
         var mem = construction.getCurrentMem();
-        var exprTy = (Ty)this.resolution.expressionTypes().get(expr).orElseThrow();
+        var exprTy = (Ty)frontend.expressionTypes().get(expr).orElseThrow();
         var exprFirmType = getFirmType(exprTy);
 
         var load = construction.newLoad(mem, fieldPtr, exprFirmType.getMode());
@@ -421,7 +411,7 @@ public class Translation {
 
         var indexNode = translateExpr(expr.getIndexExpression());
 
-        var exprTy = (ArrayTy)this.resolution.expressionTypes().get(expr.getTarget()).orElseThrow();
+        var exprTy = (ArrayTy)frontend.expressionTypes().get(expr.getTarget()).orElseThrow();
         var childTy = exprTy.getChildTy();
         var childFirmType = getFirmType(childTy);
 
@@ -433,7 +423,7 @@ public class Translation {
     }
 
     private Optional<Node> translateMethodCallExpression(MethodCallExpression expr) {
-        var methodDef = this.resolution.definitions().getMethod(expr).orElseThrow();
+        var methodDef = frontend.definitions().getMethod(expr).orElseThrow();
 
         var methodEntity = switch (methodDef) {
             case DefinedMethod definedMethod -> this.entities.get(definedMethod.getAstMethod()).orElseThrow();
@@ -490,7 +480,7 @@ public class Translation {
                 switch (expr.getLvalue()) {
                     case Reference var -> {
                         var rhs = translateExpr(expr.getRvalue());
-                        var definition = this.resolution.definitions().getReference(var).orElseThrow();
+                        var definition = frontend.definitions().getReference(var).orElseThrow();
 
                         if (definition instanceof LocalVariableDeclarationStatement || definition instanceof Parameter) {
                             var firmVarId = variableId.get((AstNode) definition).orElseThrow();
@@ -529,7 +519,7 @@ public class Translation {
             case ArrayAccessExpression expr -> {
                 var arrayFieldPtr = translateArrayAccessExprLValue(expr);
 
-                var childFirmType = getFirmType((Ty)this.resolution.expressionTypes().get(expr).orElseThrow());
+                var childFirmType = getFirmType((Ty)frontend.expressionTypes().get(expr).orElseThrow());
 
                 var mem = construction.getCurrentMem();
                 var loadNode = construction.newLoad(mem, arrayFieldPtr, childFirmType.getMode());
@@ -545,7 +535,7 @@ public class Translation {
                 yield node.orElseThrow(() -> new AssertionError("MethodCallExpression of void methods can only be directly after ExpressionStatements."));
             }
             case NewArrayExpression expr -> {
-                var exprTy = (Ty)this.resolution.expressionTypes().get(expr).orElseThrow();
+                var exprTy = (Ty)frontend.expressionTypes().get(expr).orElseThrow();
                 var firmTy = getFirmType(exprTy);
                 assert firmTy.getMode().equals(Mode.getP());
                 var childType = ((PointerType) firmTy).getPointsTo();
@@ -565,7 +555,7 @@ public class Translation {
                 yield construction.newProj(returnValuesProj, Mode.getP(), 0);
             }
             case NewObjectExpression expr -> {
-                var exprTy = (Ty)this.resolution.expressionTypes().get(expr).orElseThrow();
+                var exprTy = (Ty)frontend.expressionTypes().get(expr).orElseThrow();
                 var firmTy = getFirmType(exprTy);
                 assert firmTy.getMode().equals(Mode.getP());
                 var classType = ((PointerType) firmTy).getPointsTo();
@@ -588,10 +578,10 @@ public class Translation {
             case ThisExpression ignored -> construction.getVariable(this.thisVariableId, Mode.getP());
             case UnaryExpression expr -> translateUnaryOp(expr);
             case Reference expr -> {
-                var definition = this.resolution.definitions().getReference(expr).orElseThrow();
+                var definition = frontend.definitions().getReference(expr).orElseThrow();
 
                 if (definition instanceof LocalVariableDeclarationStatement || definition instanceof Parameter) {
-                    var defType = (Ty) this.resolution.expressionTypes().get(expr).orElseThrow();
+                    var defType = (Ty) frontend.expressionTypes().get(expr).orElseThrow();
                     var firmType = this.getFirmType(defType);
                     var mode = firmType.getMode();
 
@@ -680,7 +670,7 @@ public class Translation {
                     var node = translateExpr(stmt.getInitializer().get());
                     construction.setVariable(statementId, node);
                 } else {
-                    var ty = (Ty)this.resolution.bindingTypes().get(stmt).orElseThrow();
+                    var ty = (Ty)frontend.bindingTypes().get(stmt).orElseThrow();
                     var firmType = getFirmType(ty);
                     var defaultValue = construction.newConst(0, firmType.getMode());
                     construction.setVariable(statementId, defaultValue);
@@ -721,7 +711,7 @@ public class Translation {
             }
             case compiler.ast.Block block -> {
                 for (var stmt : block.getStatements()) {
-                    if (!isDeadStatement.get(stmt).orElse(false)) {
+                    if (!frontend.isDeadStatement().get(stmt).orElse(false)) {
                         translateStatement(stmt);
                     }
                 }
@@ -739,7 +729,7 @@ public class Translation {
 
         var isMainMethod = name.equals("main");
 
-        var numberLocalVars = this.localsVarsInMethod.get(methodDef.getAstMethod()).orElseThrow();
+        var numberLocalVars = frontend.variableCounts().get(methodDef.getAstMethod()).orElseThrow();
         var numberParameters = methodDef.getParameterTy().size();
         var numberFirmVars = numberLocalVars + numberParameters + (isMainMethod ? 0 : 1); // +1 is implicit this argument
         Graph graph = new Graph(methodEnt, numberFirmVars);
@@ -761,7 +751,7 @@ public class Translation {
         Node arg;
         int index = 1;
         for (var param : method.getParameters()) {
-            var ty = (Ty) this.resolution.bindingTypes().get(param).orElseThrow();
+            var ty = (Ty) frontend.bindingTypes().get(param).orElseThrow();
 
             Mode mode = switch (ty) {
                 case IntTy ignored -> Mode.getIs();
@@ -799,11 +789,11 @@ public class Translation {
     }
 
     public void translate(boolean dumpGraphs) {
-        for (var classTy : this.resolution.classes()) {
+        for (var classTy : frontend.classes()) {
             CompoundType classType = (CompoundType) ((PointerType) getFirmType(classTy)).getPointsTo();
 
             for (var field : classTy.getFields().values()) {
-                Type fieldType = getFirmType((Ty) this.resolution.bindingTypes().get(field).orElseThrow());
+                Type fieldType = getFirmType((Ty) frontend.bindingTypes().get(field).orElseThrow());
                 Entity fieldEnt = new Entity(classType, field.getIdentifier().toString(), fieldType);
                 this.entities.set(field, fieldEnt);
             }
@@ -824,30 +814,16 @@ public class Translation {
             this.intrinsicEntities.put(intrinsicMethod, entity);
         }
 
-        List<Graph> graphs = new ArrayList<>();
-
-        for (var classTy : this.resolution.classes()) {
+        for (var classTy : frontend.classes()) {
             for (var methodDef : classTy.getMethods().values()) {
                 // We don't generate code for intrinsic methods.
                 if (methodDef instanceof DefinedMethod definedMethod) {
                     Graph graph = genGraphForMethod(definedMethod);
-                    graphs.add(graph);
                     if (dumpGraphs) {
                         Dump.dumpGraph(graph, methodDef.getName());
                     }
                 }
             }
-        }
-
-        for (firm.Type firmType : allCreatedStructFirmTypes) {
-            if (firmType instanceof StructType st) {
-                st.layoutFields();
-                st.finishLayout();
-            }
-        }
-
-        for (var graph : graphs) {
-            Util.lowerSels(graph);
         }
 
         if (dumpGraphs) {
@@ -858,18 +834,11 @@ public class Translation {
             }
         }
 
-        try {
-            var asmFilenameName = this.srcFilename + ".s";
-            var execFilename = "a.out";
-
-            Backend.lowerForTarget();
-            Backend.createAssembler(asmFilenameName, this.srcFilename);
-
-            ProcessBuilder pb = new ProcessBuilder("gcc", "-o", execFilename, asmFilenameName, this.runtimeFilename);
-            pb.inheritIO();
-            pb.start();
-        } catch (IOException e) {
-            e.printStackTrace();
+        for (firm.Type firmType : allCreatedStructFirmTypes) {
+            if (firmType instanceof StructType st) {
+                st.layoutFields();
+                st.finishLayout();
+            }
         }
     }
 }
