@@ -145,7 +145,7 @@ public class MainCommand implements Callable<Integer> {
 
     @FunctionalInterface
     private interface PostCheckOperation {
-        boolean run(CompilerMessageReporter r, Program program, NameResolution.NameResolutionResult resolution, ConstantFolding.ConstantFoldingResult constants, WellFormed.WellFormedResult wellformed);
+        boolean run(CompilerMessageReporter r, FrontendResult result);
     }
 
     private static Integer callWithChecked(File file, PostCheckOperation op) {
@@ -156,14 +156,30 @@ public class MainCommand implements Callable<Integer> {
 
             var wellFormed = WellFormed.checkWellFormdness(ast, nameResolutionResult, Optional.of(reporter));
 
-            return op.run(reporter, ast, nameResolutionResult, constantFolding, wellFormed);
+            var result = new FrontendResult(
+                    file,
+                    ast,
+                    nameResolutionResult.definitions(),
+                    nameResolutionResult.expressionTypes(),
+                    nameResolutionResult.bindingTypes(),
+                    nameResolutionResult.classes(),
+                    constantFolding.constants(),
+                    wellFormed.variableCounts(),
+                    wellFormed.isDeadStatement()
+            );
+
+            if (nameResolutionResult.successful() && wellFormed.correct() && constantFolding.successful()) {
+                return op.run(reporter, result);
+            } else {
+                return true;
+            }
         });
     }
 
     @SuppressWarnings("unused")
     @Command(name = "--check", description = "Performs semantic analysis of the input.")
     public Integer check() {
-        return callWithChecked(file, (reporter, ast, resolution, constants, wellformed) -> !(resolution.successful() && wellformed.correct() && constants.successful()));
+        return callWithChecked(file, (reporter, result) -> false);
     }
 
     @SuppressWarnings("unused")
@@ -176,25 +192,22 @@ public class MainCommand implements Callable<Integer> {
     @SuppressWarnings("unused")
     @Command(name = "--compile-firm", description = "Compile to binary.")
     public Integer translate(@Option(names = "--dump", description = "Dump the resulting FIRM graphs.") boolean dumpGraphs) {
-        return callWithChecked(file, (reporter, ast, resolution, constants, wellFormed) -> {
-            var runtimePath = "";
+        return callWithChecked(file, (reporter, frontend) -> {
+            File runtimePath = null;
             try {
                 var jarFile = new File(MainCommand.class.getProtectionDomain().getCodeSource().getLocation().toURI());
                 var baseDir = jarFile.getParentFile().getParentFile();
-                runtimePath = new File(baseDir, "libruntime.c").getAbsolutePath();
+                runtimePath = new File(baseDir, "libruntime.c");
             } catch (URISyntaxException e) {
                 e.printStackTrace();
                 return true;
             }
 
-            if (resolution.successful() && wellFormed.correct() && constants.successful()){
-                var translation = new Translation(file.getName(), runtimePath, resolution, constants, wellFormed);
-                translation.translate(dumpGraphs);
-                return false;
+            var asmOutput = new File(file.getName() + ".s");
+            FirmBackend backend = new FirmBackend(asmOutput, runtimePath, frontend);
+            backend.generateASM(dumpGraphs);
 
-            } else {
-                return true;
-            }
+            return false;
         });
     }
 
