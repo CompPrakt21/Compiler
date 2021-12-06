@@ -2,6 +2,8 @@ package compiler;
 
 import firm.BackEdges;
 import firm.Graph;
+import firm.Mode;
+import firm.TargetValue;
 import firm.nodes.*;
 
 import java.util.ArrayDeque;
@@ -92,6 +94,18 @@ public class DataFlow {
             this.intEval(args -> eval.apply(args.get(0), args.get(1)), parent, children);
         }
 
+        private void boolEval(Function<List<Boolean>, Boolean> eval, Node parent, Node... children) {
+            Function<List<ConstantValue>, ConstantValue> boolEval = args -> {
+                List<Boolean> boolArgs = args.stream().map(v -> ((BoolConstant) v).value).collect(Collectors.toList());
+                return new BoolConstant(eval.apply(boolArgs));
+            };
+            this.eval(boolEval, parent, children);
+        }
+
+        private void unaryBoolEval(Function<Boolean, Boolean> eval, Node parent, Node... children) {
+            this.boolEval(args -> eval.apply(args.get(0)), parent, children);
+        }
+
         @Override
         public void visit(Add add) {
             biIntEval((a, b) -> a + b, add, add.getLeft(), add.getRight());
@@ -124,7 +138,14 @@ public class DataFlow {
 
         @Override
         public void visit(Const aConst) {
-            values.put(aConst, new IntConstant(aConst.getTarval().asInt()));
+            TargetValue v = aConst.getTarval();
+            Mode m = v.getMode();
+            if (m.equals(Mode.getBu())) {
+                values.put(aConst, new BoolConstant(v.asInt() == 1));
+            } else {
+                values.put(aConst, new IntConstant(v.asInt()));
+            }
+
         }
 
         @Override
@@ -179,8 +200,7 @@ public class DataFlow {
 
         @Override
         public void visit(Not not) {
-
-        }
+            unaryBoolEval(a -> !a, not.getOp()); }
 
         @Override
         public void visit(Phi phi) {
