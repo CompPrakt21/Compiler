@@ -706,8 +706,10 @@ public class Translation {
                 construction.setCurrentBlock(bodyBlock);
                 translateStatement(stmt.getBody());
 
-                Node loopJmp = construction.newJmp();
-                headerBlock.addPred(loopJmp);
+                if (this.emitJump) {
+                    Node loopJmp = construction.newJmp();
+                    headerBlock.addPred(loopJmp);
+                }
                 headerBlock.mature();
 
                 construction.setCurrentBlock(followingBlock);
