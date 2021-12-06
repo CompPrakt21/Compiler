@@ -13,229 +13,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class DataFlow {
-    public interface MiniJavaNodeVisitor extends NodeVisitor {
-        @Override
-        default void visit(Align align) { }
-
-        @Override
-        default void visit(Alloc alloc) { }
-
-        @Override
-        default void visit(Anchor anchor) { }
-
-        @Override
-        default void visit(And and) { }
-
-        @Override
-        default void visit(Bad bad) { }
-
-        @Override
-        default void visit(Bitcast bitcast) { }
-
-        @Override
-        default void visit(Builtin builtin) { }
-
-        @Override
-        default void visit(Confirm confirm) { }
-
-        @Override
-        default void visit(CopyB copyB) { }
-
-        @Override
-        default void visit(Deleted deleted) { }
-
-        @Override
-        default void visit(Dummy dummy) { }
-
-        @Override
-        default void visit(Eor eor) { }
-
-        @Override
-        default void visit(Free free) { }
-
-        @Override
-        default void visit(IJmp iJmp) { }
-
-        @Override
-        default void visit(Id id) { }
-
-        @Override
-        default void visit(Mulh mulh) { }
-
-        @Override
-        default void visit(Mux mux) { }
-
-        @Override
-        default void visit(NoMem noMem) { }
-
-        @Override
-        default void visit(Offset offset) { }
-
-        @Override
-        default void visit(Or or) { }
-
-        @Override
-        default void visit(Pin pin) { }
-
-        @Override
-        default void visit(Raise raise) { }
-
-        @Override
-        default void visit(Sel sel) { }
-
-        @Override
-        default void visit(Shl shl) { }
-
-        @Override
-        default void visit(Shr shr) { }
-
-        @Override
-        default void visit(Shrs shrs) { }
-
-        @Override
-        default void visit(Switch aSwitch) { }
-
-        @Override
-        default void visit(Sync sync) { }
-
-        @Override
-        default void visit(Tuple tuple) { }
-
-        @Override
-        default void visit(firm.nodes.Unknown unknown) { }
-
-        @Override
-        default void visitUnknown(Node node) { }
-    }
-
-    public static class NodeCollector implements MiniJavaNodeVisitor {
-
-        private ArrayDeque<Node> worklist;
-
-        public NodeCollector(ArrayDeque<Node> worklist) {
-            this.worklist = worklist;
-        }
-
-        @Override
-        public void visit(Add add) {
-            worklist.addLast(add);
-        }
-
-        @Override
-        public void visit(Address address) {
-            worklist.addLast(address);
-        }
-
-        @Override
-        public void visit(Block block) {
-            worklist.addLast(block);
-        }
-
-        @Override
-        public void visit(Call call) {
-            worklist.addLast(call);
-        }
-
-        @Override
-        public void visit(Cmp cmp) {
-            worklist.addLast(cmp);
-        }
-
-        @Override
-        public void visit(Cond cond) {
-            worklist.addLast(cond);
-        }
-
-        @Override
-        public void visit(Const aConst) {
-            worklist.addLast(aConst);
-        }
-
-        @Override
-        public void visit(Conv conv) {
-            worklist.addLast(conv);
-        }
-
-        @Override
-        public void visit(Div div) {
-            worklist.addLast(div);
-        }
-
-        @Override
-        public void visit(End end) {
-            worklist.addLast(end);
-        }
-
-        @Override
-        public void visit(Jmp jmp) {
-            worklist.addLast(jmp);
-        }
-
-        @Override
-        public void visit(Load load) {
-            worklist.addLast(load);
-        }
-
-        @Override
-        public void visit(Member member) {
-            worklist.addLast(member);
-        }
-
-        @Override
-        public void visit(Minus minus) {
-            worklist.addLast(minus);
-        }
-
-        @Override
-        public void visit(Mod mod) {
-            worklist.addLast(mod);
-        }
-
-        @Override
-        public void visit(Mul mul) {
-            worklist.addLast(mul);
-        }
-
-        @Override
-        public void visit(Not not) {
-            worklist.addLast(not);
-        }
-
-        @Override
-        public void visit(Phi phi) {
-            worklist.addLast(phi);
-        }
-
-        @Override
-        public void visit(Proj proj) {
-            worklist.addLast(proj);
-        }
-
-        @Override
-        public void visit(Return aReturn) {
-            worklist.addLast(aReturn);
-        }
-
-        @Override
-        public void visit(Size size) {
-            worklist.addLast(size);
-        }
-
-        @Override
-        public void visit(Start start) {
-            worklist.addLast(start);
-        }
-
-        @Override
-        public void visit(Store store) {
-            worklist.addLast(store);
-        }
-
-        @Override
-        public void visit(Sub sub) {
-            worklist.addLast(sub);
-        }
-    }
 
     public static sealed class ConstantValue permits Unknown, IntConstant, BoolConstant, Variable { }
 
@@ -366,6 +143,11 @@ public class DataFlow {
         }
 
         @Override
+        public void visit(Eor eor) {
+
+        }
+
+        @Override
         public void visit(Jmp jmp) {
 
         }
@@ -433,6 +215,11 @@ public class DataFlow {
         @Override
         public void visit(Sub sub) {
             biIntEval((a, b) -> a - b, sub.getLeft(), sub.getRight());
+        }
+
+        @Override
+        public void visit(firm.nodes.Unknown unknown) {
+
         }
 
     }
