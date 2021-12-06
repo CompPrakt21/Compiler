@@ -47,9 +47,9 @@ public class Translation {
     public Translation(FrontendResult frontend) {
         this.frontend = frontend;
 
-        Backend.option("dump=all");
+        //Backend.option("dump=all");
 
-        Firm.init("x86_64-linux-gnu", new String[]{"pic=0"});
+        Firm.init("x86_64-linux-gnu", new String[]{"pic=1"});
         this.firmTypes = new HashMap<>();
         this.allCreatedStructFirmTypes = new ArrayList<>();
         this.variableId = new SparseAstData<>();
