@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
 
 public class DataFlow {
 
-    public static sealed class ConstantValue permits Unknown, IntConstant, BoolConstant, Variable { }
+    public static sealed class ConstantValue permits Unknown, Constant, Variable { }
 
     public static final class Variable extends ConstantValue {
         public static final Variable value = new Variable();
@@ -34,25 +34,14 @@ public class DataFlow {
         }
     }
 
-    public static final class IntConstant extends ConstantValue {
-        public int value;
-        public IntConstant(int value) {
+    public static final class Constant extends ConstantValue {
+        public TargetValue value;
+        public Constant(TargetValue value) {
             this.value = value;
         }
         @Override
         public boolean equals(Object obj) {
-            return obj instanceof IntConstant v && value == v.value;
-        }
-    }
-
-    public static final class BoolConstant extends ConstantValue {
-        public boolean value;
-        public BoolConstant(boolean value) {
-            this.value = value;
-        }
-        @Override
-        public boolean equals(Object obj) {
-            return obj instanceof BoolConstant v && value == v.value;
+            return obj instanceof Constant v && value == v.value;
         }
     }
 
@@ -64,147 +53,131 @@ public class DataFlow {
             this.values = values;
         }
 
-        private void eval(Function<List<ConstantValue>, ConstantValue> eval, Node parent, Node... children) {
+        private void eval(Function<List<TargetValue>, TargetValue> eval, Node parent, Node... children) {
             if (Arrays.stream(children).anyMatch(n -> values.get(n) instanceof Unknown)) {
                 values.put(parent, Unknown.value);
                 return;
             }
             List<ConstantValue> args = Arrays.stream(children).map(values::get).collect(Collectors.toList());
-            if (args.stream().allMatch(a -> a instanceof IntConstant || a instanceof BoolConstant)) {
-                ConstantValue result = eval.apply(args);
-                values.put(parent, result);
+            if (args.stream().allMatch(a -> a instanceof Constant)) {
+                TargetValue result = eval.apply(args.stream().map(a -> ((Constant) a).value).collect(Collectors.toList()));
+                values.put(parent, new Constant(result));
                 return;
             }
             values.put(parent, Variable.value);
         }
 
-        private void intEval(Function<List<Integer>, Integer> eval, Node parent, Node... children) {
-            Function<List<ConstantValue>, ConstantValue> intEval = args -> {
-                List<Integer> intArgs = args.stream().map(v -> ((IntConstant) v).value).collect(Collectors.toList());
-                return new IntConstant(eval.apply(intArgs));
-            };
-            this.eval(intEval, parent, children);
+        private void unaryEval(Function<TargetValue, TargetValue> eval, Node parent, Node... children) {
+            this.eval(args -> eval.apply(args.get(0)), parent, children);
         }
 
-        private void unaryIntEval(Function<Integer, Integer> eval, Node parent, Node... children) {
-            this.intEval(args -> eval.apply(args.get(0)), parent, children);
+        private void biEval(BiFunction<TargetValue, TargetValue, TargetValue> eval, Node parent, Node... children) {
+            this.eval(args -> eval.apply(args.get(0), args.get(1)), parent, children);
         }
 
-        private void biIntEval(BiFunction<Integer, Integer, Integer> eval, Node parent, Node... children) {
-            this.intEval(args -> eval.apply(args.get(0), args.get(1)), parent, children);
-        }
-
-        private void boolEval(Function<List<Boolean>, Boolean> eval, Node parent, Node... children) {
-            Function<List<ConstantValue>, ConstantValue> boolEval = args -> {
-                List<Boolean> boolArgs = args.stream().map(v -> ((BoolConstant) v).value).collect(Collectors.toList());
-                return new BoolConstant(eval.apply(boolArgs));
-            };
-            this.eval(boolEval, parent, children);
-        }
-
-        private void unaryBoolEval(Function<Boolean, Boolean> eval, Node parent, Node... children) {
-            this.boolEval(args -> eval.apply(args.get(0)), parent, children);
+        // `block` ensures that this node will not get optimized away.
+        private void block(Node n) {
+            values.put(n, Variable.value);
         }
 
         @Override
         public void visit(Add add) {
-            biIntEval((a, b) -> a + b, add, add.getLeft(), add.getRight());
+            biEval(TargetValue::add, add, add.getLeft(), add.getRight());
         }
 
         @Override
         public void visit(Address address) {
-
+            block(address);
         }
 
         @Override
         public void visit(Block block) {
-
+            block(block);
         }
 
         @Override
         public void visit(Call call) {
-
+            block(call);
         }
 
         @Override
         public void visit(Cmp cmp) {
-
+            // TODO: Consider constant folding for boolean operations,
+            // which involves reducing the graph
+            block(cmp);
         }
 
         @Override
         public void visit(Cond cond) {
-
+            block(cond);
         }
 
         @Override
         public void visit(Const aConst) {
-            TargetValue v = aConst.getTarval();
-            Mode m = v.getMode();
-            if (m.equals(Mode.getBu())) {
-                values.put(aConst, new BoolConstant(v.asInt() == 1));
-            } else {
-                values.put(aConst, new IntConstant(v.asInt()));
-            }
-
+            values.put(aConst, new Constant(aConst.getTarval()));
         }
 
         @Override
         public void visit(Conv conv) {
-
+            block(conv);
         }
 
         @Override
         public void visit(Div div) {
-            biIntEval((a, b) -> a / b, div, div.getLeft(), div.getRight());
+            // Subtlety: If we divide by a constant 0, we optimize this side effect away.
+            // TODO: Test what TargetValue.div does on 0
+            biEval(TargetValue::div, div, div.getLeft(), div.getRight());
         }
 
         @Override
         public void visit(End end) {
-
+            block(end);
         }
 
         @Override
         public void visit(Eor eor) {
-
+            biEval(TargetValue::eor, eor, eor.getLeft(), eor.getRight());
         }
 
         @Override
         public void visit(Jmp jmp) {
-
+            block(jmp);
         }
 
         @Override
         public void visit(Load load) {
-
+            block(load);
         }
 
         @Override
         public void visit(Member member) {
-
+            block(member);
         }
 
         @Override
         public void visit(Minus minus) {
-            unaryIntEval(a -> -a, minus.getOp());
+            unaryEval(TargetValue::neg, minus, minus.getOp());
         }
 
         @Override
         public void visit(Mod mod) {
-            biIntEval((a, b) -> a % b, mod.getLeft(), mod.getRight());
+            biEval(TargetValue::mod, mod, mod.getLeft(), mod.getRight());
         }
 
         @Override
         public void visit(Mul mul) {
-            biIntEval((a, b) -> a * b, mul.getLeft(), mul.getRight());
+            biEval(TargetValue::mul, mul, mul.getLeft(), mul.getRight());
         }
 
         @Override
         public void visit(Not not) {
-            unaryBoolEval(a -> !a, not.getOp()); }
+            // TODO: Constant folding for FIRM-internal booleans
+            block(not);
+        }
 
         @Override
         public void visit(Phi phi) {
-
+            eval(args -> null, phi, null);
         }
 
         @Override
@@ -224,22 +197,22 @@ public class DataFlow {
 
         @Override
         public void visit(Start start) {
-
+            block(start);
         }
 
         @Override
         public void visit(Store store) {
-
+            block(store);
         }
 
         @Override
         public void visit(Sub sub) {
-            biIntEval((a, b) -> a - b, sub.getLeft(), sub.getRight());
+            biEval(TargetValue::sub, sub, sub.getLeft(), sub.getRight());
         }
 
         @Override
         public void visit(firm.nodes.Unknown unknown) {
-
+            // By default, nodes are marked with Unknown, so we don't need to insert it here.
         }
 
     }
