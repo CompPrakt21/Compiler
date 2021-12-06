@@ -846,6 +846,7 @@ public class Translation {
                 // We don't generate code for intrinsic methods.
                 if (methodDef instanceof DefinedMethod definedMethod) {
                     Graph graph = genGraphForMethod(definedMethod);
+                    graph = Optimization.constantFolding(graph);
                     if (dumpGraphs) {
                         Dump.dumpGraph(graph, methodDef.getName());
                     }
