@@ -282,8 +282,6 @@ public class Translation {
         }
     }
 
-
-
     private Node translateCondBoolToByteBool(Node node) {
         assert node.getMode().equals(Mode.getb());
 
@@ -310,7 +308,6 @@ public class Translation {
 
         Node trueProj = construction.newProj(ifN, Mode.getX(), 1);
         trueBlock.addPred(trueProj);
-
 
         Node falseProj = construction.newProj(ifN, Mode.getX(), 0);
         falseBlock.addPred(falseProj);
@@ -727,7 +724,7 @@ public class Translation {
         var name = methodDef.getName();
         var methodEnt = this.entities.get(methodDef.getAstMethod()).orElseThrow();
 
-        var isMainMethod = name.equals("main");
+        var isMainMethod = methodDef == frontend.mainMethod();
 
         var numberLocalVars = frontend.variableCounts().get(methodDef.getAstMethod()).orElseThrow();
         var numberParameters = methodDef.getParameterTy().size();
@@ -800,9 +797,8 @@ public class Translation {
 
             for (var m: classTy.getMethods().values()) {
                 if (m instanceof DefinedMethod method){
-                    var name = method.getName();
                     var type = getMethodType(method);
-                    Entity methodEnt = new Entity(globalType, name.equals("main") ? "__MiniJava_Main__" : m.getLinkerName(), type);
+                    Entity methodEnt = new Entity(globalType, method == frontend.mainMethod() ? "__MiniJava_Main__" : m.getLinkerName(), type);
                     this.entities.set(method.getAstMethod(), methodEnt);
                 }
             }

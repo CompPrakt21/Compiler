@@ -165,7 +165,8 @@ public class MainCommand implements Callable<Integer> {
                     nameResolutionResult.classes(),
                     constantFolding.constants(),
                     wellFormed.variableCounts(),
-                    wellFormed.isDeadStatement()
+                    wellFormed.isDeadStatement(),
+                    wellFormed.mainMethod()
             );
 
             if (nameResolutionResult.successful() && wellFormed.correct() && constantFolding.successful()) {
