@@ -103,7 +103,7 @@ gradle-app.setting
 .gradletasknamecache
 
 *.mj
-*.java
+/*.java
 *.s
 *.vcg
 *.dot

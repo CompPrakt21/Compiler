@@ -57,7 +57,9 @@ public class Translation {
         this.runtimeFilename = runtimeFilename;
         this.isDeadStatement = wellFormed.isDeadStatement();
 
-        Firm.init();
+        Backend.option("dump=all");
+
+        Firm.init("x86_64-linux-gnu", new String[]{"pic=0"});
         this.firmTypes = new HashMap<>();
         this.allCreatedStructFirmTypes = new ArrayList<>();
         this.variableId = new SparseAstData<>();
@@ -362,7 +364,10 @@ public class Translation {
     private Node translateUnaryOp(UnaryExpression expr) {
         Node rhs = translateExpr(expr.getExpression());
         return switch (expr.getOperator()) {
-            case LogicalNot -> construction.newNot(rhs);
+            case LogicalNot -> {
+                Node oneConst = construction.newConst(1, Mode.getBu());
+                yield construction.newEor(oneConst, rhs);
+            }
             case Negate -> construction.newMinus(rhs);
         };
     }
