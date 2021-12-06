@@ -18,7 +18,7 @@ import java.util.stream.Stream;
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class WellFormed {
 
-    private Optional<Method> mainMethod;
+    private Optional<DefinedMethod> mainMethod;
     private boolean inMainMethod;
     private int countedLocalVariablesInCurrentMethod;
 
@@ -51,21 +51,30 @@ public class WellFormed {
         correct = false;
     }
 
-    public record WellFormedResult(boolean correct, AstData<Integer> variableCounts, AstData<Boolean> isDeadStatement) {
-    }
+    public record WellFormedResult(
+            boolean correct,
+            AstData<Integer> variableCounts,
+            AstData<Boolean> isDeadStatement,
+            DefinedMethod mainMethod
+    ) {}
 
     public static WellFormedResult checkWellFormdness(Program program, NameResolution.NameResolutionResult nameResolution, Optional<CompilerMessageReporter> reporter) {
         var analysis = new WellFormed(reporter, nameResolution);
 
         analysis.checkProgram(program);
 
-        return new WellFormedResult(analysis.correct, analysis.countedLocalVariables, analysis.isDeadStatement);
+        var mainMethod = analysis.mainMethod.orElse(null);
+
+        return new WellFormedResult(analysis.correct, analysis.countedLocalVariables, analysis.isDeadStatement, mainMethod);
     }
 
     private boolean checkProgram(Program program) {
-        for (var klass : program.getClasses()) {
-            for (var method : klass.getMethods()) {
-                checkMethod(method);
+        for (var klass : this.nameResolution.classes()) {
+            for (var method : klass.getMethods().values()) {
+                if (!(method instanceof DefinedMethod m)) {
+                    continue;
+                }
+                checkMethod(m);
             }
         }
 
@@ -73,14 +82,18 @@ public class WellFormed {
             reportError(new MainMethodProblems.MainMethodMissing());
         }
 
-        for (var klass : program.getClasses()) {
-            for (var method : klass.getMethods()) {
+        for (var klass : this.nameResolution.classes()) {
+            for (var m : klass.getMethods().values()) {
+                if (!(m instanceof DefinedMethod method)) {
+                    continue;
+                }
+
                 inMainMethod = mainMethod.map(main -> method == main).orElse(false);
                 countedLocalVariablesInCurrentMethod = 0;
 
-                checkStatement(method.getBody());
+                checkStatement(method.getAstMethod().getBody());
 
-                this.countedLocalVariables.set(method, countedLocalVariablesInCurrentMethod);
+                this.countedLocalVariables.set(method.getAstMethod(), countedLocalVariablesInCurrentMethod);
                 inMainMethod = false;
             }
         }
@@ -88,22 +101,23 @@ public class WellFormed {
         return correct;
     }
 
-    private void checkMethod(Method method) {
-        if (isMainMethod(method)) {
+    private void checkMethod(DefinedMethod method) {
+        var astMethod = method.getAstMethod();
+        if (isMainMethod(method.getAstMethod())) {
             if (mainMethod.isEmpty()) {
                 mainMethod = Optional.of(method);
                 inMainMethod = true;
             } else {
-                reportError(new MainMethodProblems.MultipleMainMethods(mainMethod.get(), method));
+                reportError(new MainMethodProblems.MultipleMainMethods(mainMethod.get().getAstMethod(), astMethod));
             }
-        } else if (method.isStatic()) {
-            reportError(new MainMethodProblems.StaticNonMainMethod(method));
+        } else if (astMethod.isStatic()) {
+            reportError(new MainMethodProblems.StaticNonMainMethod(astMethod));
         }
 
 
-        if (checkReturnPathsInStatements(method.getBody().getStatements()).isEmpty()) {
-            if (!(method.getReturnType() instanceof VoidType)) {
-                reportError(new ReturnStatementErrors.MissingReturnOnPath(method));
+        if (checkReturnPathsInStatements(astMethod.getBody().getStatements()).isEmpty()) {
+            if (!(astMethod.getReturnType() instanceof VoidType)) {
+                reportError(new ReturnStatementErrors.MissingReturnOnPath(astMethod));
             }
         }
     }
@@ -154,7 +168,7 @@ public class WellFormed {
 
     private void checkIfMainMethodParameter(Reference reference) {
         Optional<VariableDefinition> tempReference = nameResolution.definitions().getReference(reference);
-        var mainMethodParameter = mainMethod.orElseThrow().getParameters().get(0);
+        var mainMethodParameter = mainMethod.orElseThrow().getAstMethod().getParameters().get(0);
         if (tempReference.isPresent() && tempReference.get() == mainMethodParameter)
             reportError(new MainMethodProblems.UsingArgs(reference));
     }
