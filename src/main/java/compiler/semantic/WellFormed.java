@@ -180,7 +180,7 @@ public class WellFormed {
                 //Checks if the main Method is called.
                 var methodDef = nameResolution.definitions()
                         .getMethod(methodCallExpression)
-                        .flatMap(m -> m instanceof DefinedMethod def ? Optional.of(def.getAstMethod()) : Optional.empty());
+                        .flatMap(m -> m instanceof DefinedMethod def ? Optional.of(def) : Optional.empty());
 
                 if (methodDef.equals(mainMethod)) {
                     reportError(new MainMethodProblems.MainMethodCalled(methodCallExpression));
