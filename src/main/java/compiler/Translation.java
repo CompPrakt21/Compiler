@@ -161,6 +161,39 @@ public class Translation {
         };
     }
 
+    private Node translateDiv(Node lhs, Node rhs) {
+        Node negConst = construction.newConst(-2147483648, Mode.getIs());
+        Node cmp = createCompareBinOpNode(BinaryOpExpression.BinaryOp.Equal, lhs, negConst);
+
+        Block isMinBlock = construction.newBlock();
+        Block divBlock = construction.newBlock();
+        Block nextBlock = construction.newBlock();
+
+        translateCondBoolCmp(cmp, isMinBlock, divBlock);
+
+        isMinBlock.mature();
+        construction.setCurrentBlock(isMinBlock);
+        Node minusOne = construction.newConst(-1, Mode.getIs());
+        cmp = createCompareBinOpNode(BinaryOpExpression.BinaryOp.Equal, rhs, minusOne);
+        translateCondBoolCmp(cmp, nextBlock, divBlock);
+
+        divBlock.mature();
+        construction.setCurrentBlock(divBlock);
+
+        Node div = construction.newDiv(construction.getCurrentMem(), lhs, rhs, binding_ircons.op_pin_state.op_pin_state_pinned);
+        Node memProj = construction.newProj(div, Mode.getM(), 0);
+        Node divRes = construction.newProj(div, Mode.getIs(), 1);
+        construction.setCurrentMem(memProj);
+        Node divJmp = construction.newJmp();
+
+        nextBlock.addPred(divJmp);
+        nextBlock.mature();
+        construction.setCurrentBlock(nextBlock);
+        Node resPhi = construction.newPhi(new Node[]{negConst, divRes}, Mode.getIs());
+
+        return resPhi;
+    }
+
     private Node translateArithBinOp(BinaryOpExpression expr) {
         Node lhs = translateExpr(expr.getLhs());
         Node rhs = translateExpr(expr.getRhs());
@@ -168,13 +201,7 @@ public class Translation {
             case Addition -> construction.newAdd(lhs, rhs);
             case Subtraction -> construction.newSub(lhs, rhs);
             case Multiplication -> construction.newMul(lhs, rhs);
-            case Division -> {
-                Node div = construction.newDiv(construction.getCurrentMem(), lhs, rhs, binding_ircons.op_pin_state.op_pin_state_pinned);
-                Node memProj = construction.newProj(div, Mode.getM(), 0);
-                Node resProj = construction.newProj(div, Mode.getIs(), 1);
-                construction.setCurrentMem(memProj);
-                yield resProj;
-            }
+            case Division -> translateDiv(lhs, rhs);
             case Modulo -> {
                 Node div = construction.newMod(construction.getCurrentMem(), lhs, rhs, binding_ircons.op_pin_state.op_pin_state_pinned);
                 Node memProj = construction.newProj(div, Mode.getM(), 0);
@@ -190,7 +217,11 @@ public class Translation {
     private Node createCompareBinOpNode(BinaryOpExpression expr) {
         Node lhs = translateExpr(expr.getLhs());
         Node rhs = translateExpr(expr.getRhs());
-        return switch (expr.getOperator()) {
+        return createCompareBinOpNode(expr.getOperator(), lhs, rhs);
+    }
+
+    private Node createCompareBinOpNode(BinaryOpExpression.BinaryOp op, Node lhs, Node rhs) {
+        return switch (op) {
             case Equal -> construction.newCmp(lhs, rhs, Relation.Equal);
             case NotEqual -> {
                 var equalNode = construction.newCmp(lhs, rhs, Relation.Equal);
