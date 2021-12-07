@@ -17,13 +17,32 @@ import java.util.stream.StreamSupport;
 
 public class DataFlow {
 
-    public static sealed class ConstantValue permits Unknown, Constant, Variable { }
+    public static sealed class ConstantValue permits Unknown, Constant, Variable {
+        public ConstantValue sup(ConstantValue other) {
+            return switch (this) {
+                case Unknown u -> other;
+                case Constant c ->
+                        switch (other) {
+                            case Unknown u -> c;
+                            case Constant c2 -> c.value.compare(c2.value).value() == 1 ? c : Variable.value;
+                            case Variable v -> v;
+                            default -> throw new AssertionError("Impossible case");
+                        };
+                case Variable v -> v;
+                default -> throw new AssertionError("Impossible case");
+            };
+        }
+    }
 
     public static final class Variable extends ConstantValue {
         public static final Variable value = new Variable();
         @Override
         public boolean equals(Object obj) {
             return obj instanceof Variable;
+        }
+        @Override
+        public String toString() {
+            return "Variable / Top";
         }
     }
 
@@ -32,6 +51,10 @@ public class DataFlow {
         @Override
         public boolean equals(Object obj) {
             return obj instanceof Unknown;
+        }
+        @Override
+        public String toString() {
+            return "Unknown / Bot";
         }
     }
 
@@ -43,6 +66,10 @@ public class DataFlow {
         @Override
         public boolean equals(Object obj) {
             return obj instanceof Constant v && value == v.value;
+        }
+        @Override
+        public String toString() {
+            return "Constant " + value.toString();
         }
     }
 
@@ -135,7 +162,7 @@ public class DataFlow {
         public void visit(Div div) {
             // Subtlety: If we divide by a constant 0, we optimize this side effect away.
             // TODO: Test what TargetValue.div does on 0
-            biEval(TargetValue::div, div, div.getLeft(), div.getRight());
+            biEval((a, b) -> b.asInt() == 0 ? new TargetValue(0, b.getMode()) : a.div(b), div, div.getLeft(), div.getRight());
         }
 
         @Override
@@ -170,7 +197,7 @@ public class DataFlow {
 
         @Override
         public void visit(Mod mod) {
-            biEval(TargetValue::mod, mod, mod.getLeft(), mod.getRight());
+            biEval((a, b) -> b.asInt() == 0 ? new TargetValue(0, b.getMode()) : a.mod(b), mod, mod.getLeft(), mod.getRight());
         }
 
         @Override
@@ -186,23 +213,19 @@ public class DataFlow {
 
         @Override
         public void visit(Phi phi) {
-            // Is this Java 17 or Java 4???
-            Node[] preds = StreamSupport
-                    .stream(phi.getPreds().spliterator(), false)
-                    .toArray(n -> new Node[n]);
-            Function<List<TargetValue>, ConstantValue> eval = args -> {
-                assert args.size() > 0; // 0-ary Phi-Nodes shouldn't exist
-                TargetValue v = args.get(0);
-                if (args.stream().allMatch(a -> a.compare(v).value() == 0)) {
-                    return new Constant(v);
-                }
-                return Variable.value;
-            };
-            this.evalAux(eval, phi, preds);
+            ConstantValue result = Unknown.value;
+            for (Node pred : phi.getPreds()) {
+                result = result.sup(values.get(pred));
+            }
+            values.put(phi, result);
         }
 
         @Override
         public void visit(Proj proj) {
+            if (proj.getMode().equals(Mode.getM())) {
+                block(proj);
+                return;
+            }
             // At least for constant folding, Proj is meaningless.
             // The value of a proj node is always defined by a node preceeding it
             // (e.g. a division node, or a start node).
@@ -241,7 +264,7 @@ public class DataFlow {
 
     }
 
-    public static void analyzeConstantFolding(Graph g) {
+    public static Map<Node, ConstantValue> analyzeConstantFolding(Graph g) {
         BackEdges.enable(g);
         ArrayDeque<Node> worklist = new ArrayDeque<>();
         NodeCollector c = new NodeCollector(worklist);
@@ -252,13 +275,18 @@ public class DataFlow {
         while (!worklist.isEmpty()) {
             Node n = worklist.removeFirst();
             ConstantValue oldValue = values.get(n);
+            if (oldValue == null) {
+                // This node wasn't picked up by our traversal at the start and is hence dead.
+                continue;
+            }
             n.accept(f);
-            if (oldValue.equals(values.get(n))) {
+            if (!oldValue.equals(values.get(n))) {
                 for (BackEdges.Edge e : BackEdges.getOuts(n)) {
                     worklist.addLast(e.node);
                 }
             }
         }
         BackEdges.disable(g);
+        return values;
     }
 }

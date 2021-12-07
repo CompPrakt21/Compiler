@@ -3,91 +3,93 @@ package compiler;
 import firm.nodes.*;
 
 public interface MiniJavaNodeVisitor extends NodeVisitor {
-    AssertionError err = new AssertionError("Encountered unexpected node");
+    private static void err(Node n) {
+        throw new AssertionError("Encountered unexpected node: " + n);
+    }
 
     @Override
-    default void visit(Align align) { throw err; }
+    default void visit(Align align) { err(align); }
 
     @Override
-    default void visit(Alloc alloc) { throw err; }
+    default void visit(Alloc alloc) { err(alloc); }
 
     @Override
-    default void visit(Anchor anchor) { throw err; }
+    default void visit(Anchor anchor) { err(anchor); }
 
     @Override
-    default void visit(And and) { throw err; }
+    default void visit(And and) { err(and); }
 
     @Override
-    default void visit(Bad bad) { throw err; }
+    default void visit(Bad bad) { err(bad); }
 
     @Override
-    default void visit(Bitcast bitcast) { throw err; }
+    default void visit(Bitcast bitcast) { err(bitcast); }
 
     @Override
-    default void visit(Builtin builtin) { throw err; }
+    default void visit(Builtin builtin) { err(builtin); }
 
     @Override
-    default void visit(Confirm confirm) { throw err; }
+    default void visit(Confirm confirm) { err(confirm); }
 
     @Override
-    default void visit(CopyB copyB) { throw err; }
+    default void visit(CopyB copyB) { err(copyB); }
 
     @Override
-    default void visit(Deleted deleted) { throw err; }
+    default void visit(Deleted deleted) { err(deleted); }
 
     @Override
-    default void visit(Dummy dummy) { throw err; }
+    default void visit(Dummy dummy) { err(dummy); }
 
     @Override
-    default void visit(Free free) { throw err; }
+    default void visit(Free free) { err(free); }
 
     @Override
-    default void visit(IJmp iJmp) { throw err; }
+    default void visit(IJmp iJmp) { err(iJmp); }
 
     @Override
-    default void visit(Id id) { throw err; }
+    default void visit(Id id) { err(id); }
 
     @Override
-    default void visit(Mulh mulh) { throw err; }
+    default void visit(Mulh mulh) { err(mulh); }
 
     @Override
-    default void visit(Mux mux) { throw err; }
+    default void visit(Mux mux) { err(mux); }
 
     @Override
-    default void visit(NoMem noMem) { throw err; }
+    default void visit(NoMem noMem) { err(noMem); }
 
     @Override
-    default void visit(Offset offset) { throw err; }
+    default void visit(Offset offset) { err(offset); }
 
     @Override
-    default void visit(Or or) { throw err; }
+    default void visit(Or or) { err(or); }
 
     @Override
-    default void visit(Pin pin) { throw err; }
+    default void visit(Pin pin) { err(pin); }
 
     @Override
-    default void visit(Raise raise) { throw err; }
+    default void visit(Raise raise) { err(raise); }
 
     @Override
-    default void visit(Sel sel) { throw err; }
+    default void visit(Sel sel) { err(sel); }
 
     @Override
-    default void visit(Shl shl) { throw err; }
+    default void visit(Shl shl) { err(shl); }
 
     @Override
-    default void visit(Shr shr) { throw err; }
+    default void visit(Shr shr) { err(shr); }
 
     @Override
-    default void visit(Shrs shrs) { throw err; }
+    default void visit(Shrs shrs) { err(shrs); }
 
     @Override
-    default void visit(Switch aSwitch) { throw err; }
+    default void visit(Switch aSwitch) { err(aSwitch); }
 
     @Override
-    default void visit(Sync sync) { throw err; }
+    default void visit(Sync sync) { err(sync); }
 
     @Override
-    default void visit(Tuple tuple) { throw err; }
+    default void visit(Tuple tuple) { err(tuple); }
 
     @Override
     default void visitUnknown(Node node) { throw new AssertionError("visitUnknown was called"); }
