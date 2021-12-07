@@ -775,21 +775,21 @@ public class Parser {
             var expectResult = expectNoConsume(anchors, UnaryExpression.first());
             var error = expectResult.isError;
 
-            if (token.type == TokenType.IntLiteral) {
-                var intLit = assertExpect(TokenType.IntLiteral);
+            Optional<Token> nextTokenIsIntLit = token.type == IntLiteral ? Optional.of(token) : Optional.empty();
 
-                Expression expr = new IntLiteral(Optional.of(minusToken), intLit);
+            var parseExpressionResult = parseUnaryExpression(anchors);
+            var child = parseExpressionResult.expression;
+            var parentError = parseExpressionResult.parentError;
 
-                return new ParseExpressionResult(expr, error);
+            Expression expr;
+
+            if (nextTokenIsIntLit.isPresent() && child instanceof IntLiteral) {
+                expr = new IntLiteral(Optional.of(minusToken), nextTokenIsIntLit.get());
             } else {
-                var parseExpressionResult = parseUnaryExpression(anchors);
-                var child = parseExpressionResult.expression;
-                var parentError = parseExpressionResult.parentError;
-
-                Expression expr = new UnaryExpression(child, minusToken).makeError(error);
-
-                return new ParseExpressionResult(expr, parentError);
+                expr = new UnaryExpression(child, minusToken).makeError(error);
             }
+
+            return new ParseExpressionResult(expr, parentError);
         } else {
             var expectResult = expectNoConsume(anchors, PostfixExpression.first());
             var error = expectResult.isError;
