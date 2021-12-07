@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 public class DataFlow {
 
@@ -53,26 +54,34 @@ public class DataFlow {
             this.values = values;
         }
 
-        private void eval(Function<List<TargetValue>, TargetValue> eval, Node parent, Node... children) {
+        private void evalAux(Function<List<TargetValue>, ConstantValue> eval, Node parent, Node... children) {
             if (Arrays.stream(children).anyMatch(n -> values.get(n) instanceof Unknown)) {
                 values.put(parent, Unknown.value);
                 return;
             }
             List<ConstantValue> args = Arrays.stream(children).map(values::get).collect(Collectors.toList());
             if (args.stream().allMatch(a -> a instanceof Constant)) {
-                TargetValue result = eval.apply(args.stream().map(a -> ((Constant) a).value).collect(Collectors.toList()));
-                values.put(parent, new Constant(result));
+                List<TargetValue> argValues = args.stream().map(a -> ((Constant) a).value).collect(Collectors.toList());
+                values.put(parent, eval.apply(argValues));
                 return;
             }
             values.put(parent, Variable.value);
         }
 
-        private void unaryEval(Function<TargetValue, TargetValue> eval, Node parent, Node... children) {
-            this.eval(args -> eval.apply(args.get(0)), parent, children);
+        private void eval(Function<List<TargetValue>, TargetValue> eval, Node parent, Node... children) {
+            evalAux(args -> new Constant(eval.apply(args)), parent, children);
         }
 
-        private void biEval(BiFunction<TargetValue, TargetValue, TargetValue> eval, Node parent, Node... children) {
-            this.eval(args -> eval.apply(args.get(0), args.get(1)), parent, children);
+        private void unaryEval(Function<TargetValue, TargetValue> eval, Node parent, Node child) {
+            this.eval(args -> eval.apply(args.get(0)), parent, child);
+        }
+
+        private void biEval(BiFunction<TargetValue, TargetValue, TargetValue> eval, Node parent, Node child1, Node child2) {
+            this.eval(args -> eval.apply(args.get(0), args.get(1)), parent, child1, child2);
+        }
+
+        private void forward(Node parent, Node child) {
+            this.unaryEval(arg -> arg, parent, child);
         }
 
         // `block` ensures that this node will not get optimized away.
@@ -177,22 +186,37 @@ public class DataFlow {
 
         @Override
         public void visit(Phi phi) {
-            eval(args -> null, phi, null);
+            // Is this Java 17 or Java 4???
+            Node[] preds = StreamSupport
+                    .stream(phi.getPreds().spliterator(), false)
+                    .toArray(n -> new Node[n]);
+            Function<List<TargetValue>, ConstantValue> eval = args -> {
+                assert args.size() > 0; // 0-ary Phi-Nodes shouldn't exist
+                TargetValue v = args.get(0);
+                if (args.stream().allMatch(a -> a.compare(v).value() == 0)) {
+                    return new Constant(v);
+                }
+                return Variable.value;
+            };
+            this.evalAux(eval, phi, preds);
         }
 
         @Override
         public void visit(Proj proj) {
-
+            // At least for constant folding, Proj is meaningless.
+            // The value of a proj node is always defined by a node preceeding it
+            // (e.g. a division node, or a start node).
+            forward(proj, proj.getPred());
         }
 
         @Override
         public void visit(Return aReturn) {
-
+            block(aReturn);
         }
 
         @Override
         public void visit(Size size) {
-
+            block(size);
         }
 
         @Override
