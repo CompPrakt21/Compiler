@@ -733,7 +733,7 @@ public class Translation {
 
         construction = new Construction(graph);
 
-        Node startNode = construction.newStart();
+        Node startNode = construction.getGraph().getStart();
         Node memProj = construction.newProj(startNode, Mode.getM(), 0);
         construction.setCurrentMem(memProj);
         Node argsProj = construction.newProj(startNode, Mode.getT(), 2);
