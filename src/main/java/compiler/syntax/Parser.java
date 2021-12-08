@@ -35,6 +35,7 @@ import static compiler.syntax.TokenType.Class;
 import static compiler.syntax.TokenType.Void;
 import static compiler.syntax.TokenType.*;
 
+@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class Parser {
 
     private final Lexer lexer;
@@ -775,21 +776,20 @@ public class Parser {
             var expectResult = expectNoConsume(anchors, UnaryExpression.first());
             var error = expectResult.isError;
 
-            Optional<Token> nextTokenIsIntLit = token.type == IntLiteral ? Optional.of(token) : Optional.empty();
+            if (token.type == IntLiteral){
+                // Parse as negative int literal in parsePrimaryExpression
+                addToLexer(minusToken);
 
-            var parseExpressionResult = parseUnaryExpression(anchors);
-            var child = parseExpressionResult.expression;
-            var parentError = parseExpressionResult.parentError;
-
-            Expression expr;
-
-            if (nextTokenIsIntLit.isPresent() && child instanceof IntLiteral) {
-                expr = new IntLiteral(Optional.of(minusToken), nextTokenIsIntLit.get());
+                return parsePostfixExpression(anchors);
             } else {
-                expr = new UnaryExpression(child, minusToken).makeError(error);
-            }
+                var parseExpressionResult = parseUnaryExpression(anchors);
+                var child = parseExpressionResult.expression;
+                var parentError = parseExpressionResult.parentError;
 
-            return new ParseExpressionResult(expr, parentError);
+                Expression expr = new UnaryExpression(child, minusToken).makeError(error);
+
+                return new ParseExpressionResult(expr, parentError);
+            }
         } else {
             var expectResult = expectNoConsume(anchors, PostfixExpression.first());
             var error = expectResult.isError;
@@ -899,6 +899,15 @@ public class Parser {
             case True, False -> {
                 var boolToken = assertExpect(True, False);
                 return new ParseExpressionResult(new BoolLiteral(boolToken), false);
+            }
+            case Subtract -> {
+                var minusToken = assertExpect(Subtract);
+
+                // parseUnaryExpression ensures that if this method encounters a minus token, that the following token
+                // will be an integer literal.
+                var literal = assertExpect(IntLiteral);
+
+                return new ParseExpressionResult(new IntLiteral(Optional.of(minusToken), literal), false);
             }
             case IntLiteral -> {
                 var token = assertExpect(IntLiteral);
