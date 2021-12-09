@@ -2,13 +2,13 @@ package compiler.codegen;
 
 import java.util.stream.Stream;
 
-public class AddInstruction extends RegisterNode {
+public final class AddInstruction extends RegisterNode {
 
     private RegisterNode lhs;
     private RegisterNode rhs;
 
-    public AddInstruction(Register target, RegisterNode lhs, RegisterNode rhs) {
-        super(target);
+    public AddInstruction(BasicBlock bb, Register target, RegisterNode lhs, RegisterNode rhs) {
+        super(bb, target);
         this.lhs = lhs;
         this.rhs = rhs;
     }

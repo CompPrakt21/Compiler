@@ -4,8 +4,8 @@ import java.util.stream.Stream;
 
 public final class InputNode extends RegisterNode {
 
-    public InputNode(Register register) {
-        super(register);
+    public InputNode(BasicBlock bb, Register register) {
+        super(bb, register);
     }
 
     @Override

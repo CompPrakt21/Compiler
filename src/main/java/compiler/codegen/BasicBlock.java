@@ -25,6 +25,10 @@ public class BasicBlock {
     }
 
     public void finish(ControlFlowNode endNode) {
+        if (this.finishedConstruction) {
+            throw new IllegalStateException("Construction of BasicBlock is already finished.");
+        }
+
         this.finishedConstruction = true;
         this.endNode = endNode;
     }
@@ -49,8 +53,10 @@ public class BasicBlock {
         return this.inputNodes;
     }
 
-    public void addInput(Register register) {
-        this.inputNodes.add(new InputNode(register));
+    public InputNode addInput(Register register) {
+        var input = new InputNode(this, register);
+        this.inputNodes.add(input);
+        return input;
     }
 
     public List<RegisterNode> getOutputNodes() {
