@@ -1,8 +1,6 @@
 package compiler.codegen;
 
-import java.io.PrintWriter;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 
 public class BasicBlock {
@@ -16,12 +14,15 @@ public class BasicBlock {
 
     private boolean finishedConstruction;
 
-    public BasicBlock(String label) {
+    private final LlirGraph graph;
+
+    public BasicBlock(LlirGraph graph, String label) {
         this.label = label;
         this.inputNodes = new ArrayList<>();
         this.outputNodes = new ArrayList<>();
         this.finishedConstruction = false;
         this.endNode = null;
+        this.graph = graph;
     }
 
     public void finish(ControlFlowNode endNode) {
@@ -39,6 +40,10 @@ public class BasicBlock {
 
     public String getLabel() {
         return this.label;
+    }
+
+    public LlirGraph getGraph() {
+        return this.graph;
     }
 
     public ControlFlowNode getEndNode() {

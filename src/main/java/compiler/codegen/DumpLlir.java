@@ -56,8 +56,10 @@ public class DumpLlir {
             throw new IllegalCallerException("Can't dump basic block during construction.");
         }
 
+        var isStartBlock = bb.getGraph().getStartBlock() == bb;
+
         out.format("subgraph cluster%s {\n", bb.getLabel());
-        out.format("\tlabel=\"%s\"\n", bb.getLabel());
+        out.format("\tlabel=\"%s%s\"\n", bb.getLabel(), isStartBlock ? "<start>" : "");
 
         this.dumpNodeRecursive(bb.getEndNode());
 
@@ -97,7 +99,6 @@ public class DumpLlir {
     }
 
     private void dumpNode(LlirNode node) {
-
         var isOutput = node instanceof RegisterNode regNode && regNode.getBasicBlock().getOutputNodes().contains(regNode);
         var isInput = node instanceof InputNode;
 
@@ -110,7 +111,6 @@ public class DumpLlir {
         };
 
         this.out.format("\t%s[label=\"%s\", shape=%s]\n", node.getID(), label, shape);
-
     }
 
     private static String getNodeLabel(LlirNode node) {

@@ -12,14 +12,38 @@ public abstract sealed class LlirNode permits RegisterNode, EffectNode, ControlF
 
     protected Optional<LlirNode> scheduleNext;
 
-    private final BasicBlock basicBlock;
+    protected BasicBlock basicBlock;
 
-    public LlirNode(BasicBlock basicBlock) {
+    public LlirNode() {
         this.id = nextId;
         nextId += 1;
 
         this.scheduleNext = Optional.empty();
-        this.basicBlock = basicBlock;
+    }
+
+    protected void inferBasicBlock() {
+        if (this.basicBlock != null) {
+            return;
+        }
+
+        Optional<BasicBlock> bb = Optional.empty();
+
+        for (LlirNode pred : this.getPreds().toArray(LlirNode[]::new)) {
+            var predBB = pred.getBasicBlock();
+            if (bb.isPresent()) {
+                if (predBB != bb.get()) {
+                    throw new IllegalArgumentException("Predecessors are in different basic blocks.");
+                }
+            } else {
+                bb = Optional.of(predBB);
+            }
+        }
+
+        if (bb.isPresent()) {
+            this.basicBlock = bb.get();
+        } else {
+            throw new IllegalArgumentException("Node doesn't have any predecessory and needs to set its basic block.");
+        }
     }
 
     public long getID() {

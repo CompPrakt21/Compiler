@@ -1,7 +1,6 @@
 package compiler;
 
 import compiler.codegen.*;
-import firm.nodes.Add;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
@@ -14,26 +13,30 @@ public class BackendTest {
     public void backendTest() throws FileNotFoundException {
         var generator = new VirtualRegister.Generator();
         var l = List.of(generator.nextRegister());
-        var ir = new LlirGraph(l);
+        var ir = new LlirGraph(l, generator);
 
         var startBlock = ir.getStartBlock();
 
-        var c = new MovImmediateInstruction(startBlock, generator.nextRegister(), 123);
-        var add = new AddInstruction(startBlock, generator.nextRegister(), startBlock.getInputNodes().get(0), c);
+        var c1 = new MovImmediateInstruction(startBlock, 10);
+        var c2 = new MovImmediateInstruction(startBlock, 20);
+        var c3 = new MovImmediateInstruction(startBlock, 30);
+        var a1 = new AddInstruction(c1, c2);
+        var a2 = new AddInstruction(a1, c3);
+        var add = new AddInstruction(startBlock.getInputNodes().get(0), a2);
 
         var outReg = generator.nextRegister();
-        var add2 = new AddInstruction(startBlock, outReg, add, c);
+        var add2 = new AddInstruction(add, a1);
         startBlock.addOutput(add2);
 
 
-        var bb1 = new BasicBlock("bb0");
+        var bb1 = ir.newBasicBlock();
         var jmp = new JumpInstruction(startBlock, bb1);
         startBlock.finish(jmp);
 
         var in = bb1.addInput(outReg);
-        var add3 = new AddInstruction(bb1, generator.nextRegister(), in, in);
+        var add3 = new AddInstruction(in, in);
 
-        var ret = new ReturnInstruction(bb1, add3);
+        var ret = new ReturnInstruction(add3);
 
         add3.setScheduleNext(ret);
 

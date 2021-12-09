@@ -5,7 +5,9 @@ import java.util.stream.Stream;
 public final class InputNode extends RegisterNode {
 
     public InputNode(BasicBlock bb, Register register) {
-        super(bb, register);
+        super();
+        this.basicBlock = bb;
+        this.targetRegister = register;
     }
 
     @Override

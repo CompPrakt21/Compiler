@@ -6,9 +6,9 @@ public final class ReturnInstruction extends ControlFlowNode {
 
     private RegisterNode returnValue;
 
-    public ReturnInstruction(BasicBlock bb, RegisterNode returnValue) {
-        super(bb);
+    public ReturnInstruction(RegisterNode returnValue) {
         this.returnValue = returnValue;
+        this.inferBasicBlock();
     }
 
     public RegisterNode getReturnValue() {

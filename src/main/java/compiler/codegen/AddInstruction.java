@@ -7,10 +7,14 @@ public final class AddInstruction extends RegisterNode {
     private RegisterNode lhs;
     private RegisterNode rhs;
 
-    public AddInstruction(BasicBlock bb, Register target, RegisterNode lhs, RegisterNode rhs) {
-        super(bb, target);
+    public AddInstruction(RegisterNode lhs, RegisterNode rhs) {
+        super();
+
         this.lhs = lhs;
         this.rhs = rhs;
+
+        this.inferBasicBlock();
+        this.initTargetRegister();
     }
 
     public RegisterNode getLhs() {
