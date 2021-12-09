@@ -1,9 +1,10 @@
 package compiler.codegen;
 
-public non-sealed abstract class RegisterNode extends LlirNode {
+public sealed abstract class RegisterNode extends LlirNode permits AddInstruction, MovImmediateInstruction, InputNode {
     protected Register targetRegister;
 
-    public RegisterNode(Register target) {
+    public RegisterNode(BasicBlock bb, Register target) {
+        super(bb);
         this.targetRegister = target;
     }
 

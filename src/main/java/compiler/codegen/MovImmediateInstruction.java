@@ -2,12 +2,12 @@ package compiler.codegen;
 
 import java.util.stream.Stream;
 
-public class MovImmediateInstruction extends RegisterNode {
+public final class MovImmediateInstruction extends RegisterNode {
 
     private int immediateValue;
 
-    public MovImmediateInstruction(Register target, int immediateValue) {
-        super(target);
+    public MovImmediateInstruction(BasicBlock bb, Register target, int immediateValue) {
+        super(bb, target);
         this.immediateValue = immediateValue;
     }
 
@@ -17,7 +17,7 @@ public class MovImmediateInstruction extends RegisterNode {
 
     @Override
     public Stream<LlirNode> getPreds() {
-        return null;
+        return Stream.empty();
     }
 
     @Override

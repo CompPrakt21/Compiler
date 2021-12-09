@@ -23,6 +23,7 @@ public final class HardwareRegister extends Register {
         this.name = name;
     }
 
+    @Override
     public String getName() {
         return this.name;
     }

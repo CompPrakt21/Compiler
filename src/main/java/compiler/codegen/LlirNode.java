@@ -10,25 +10,36 @@ public abstract sealed class LlirNode permits RegisterNode, EffectNode, ControlF
 
     private final long id;
 
-    protected Optional<LlirNode> schedulePredecessor;
+    protected Optional<LlirNode> scheduleNext;
 
-    public LlirNode() {
+    private final BasicBlock basicBlock;
+
+    public LlirNode(BasicBlock basicBlock) {
         this.id = nextId;
         nextId += 1;
 
-        this.schedulePredecessor = Optional.empty();
+        this.scheduleNext = Optional.empty();
+        this.basicBlock = basicBlock;
     }
 
     public long getID() {
         return this.id;
     }
 
+    public BasicBlock getBasicBlock() {
+        return this.basicBlock;
+    }
+
     public abstract Stream<LlirNode> getPreds();
 
     public abstract int getPredSize();
 
-    public Optional<LlirNode> getSchedulePredecessor() {
-        return this.schedulePredecessor;
+    public Optional<LlirNode> getScheduleNext() {
+        return this.scheduleNext;
+    }
+
+    public void setScheduleNext(LlirNode next) {
+        this.scheduleNext = Optional.of(next);
     }
 
     @Override

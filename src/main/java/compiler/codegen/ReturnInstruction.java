@@ -1,18 +1,28 @@
 package compiler.codegen;
 
-import java.util.List;
+import java.util.stream.Stream;
 
-public class ReturnInstruction extends ControlFlowNode {
+public final class ReturnInstruction extends ControlFlowNode {
 
     private RegisterNode returnValue;
 
-    public ReturnInstruction(RegisterNode returnValue) {
-        super(List.of());
+    public ReturnInstruction(BasicBlock bb, RegisterNode returnValue) {
+        super(bb);
         this.returnValue = returnValue;
     }
 
     public RegisterNode getReturnValue() {
         return this.returnValue;
+    }
+
+    @Override
+    public Stream<LlirNode> getPreds() {
+        return Stream.of(this.returnValue);
+    }
+
+    @Override
+    public int getPredSize() {
+        return 1;
     }
 
     @Override

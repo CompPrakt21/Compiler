@@ -26,6 +26,11 @@ public final class VirtualRegister extends Register {
         return Objects.hash(id);
     }
 
+    @Override
+    public String getName() {
+        return String.format("v%s", getId());
+    }
+
     public static class Generator {
         private int nextId;
 
