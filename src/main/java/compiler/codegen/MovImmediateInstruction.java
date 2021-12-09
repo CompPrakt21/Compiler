@@ -6,9 +6,11 @@ public final class MovImmediateInstruction extends RegisterNode {
 
     private int immediateValue;
 
-    public MovImmediateInstruction(BasicBlock bb, Register target, int immediateValue) {
-        super(bb, target);
+    public MovImmediateInstruction(BasicBlock bb, int immediateValue) {
+        super();
+        this.basicBlock = bb;
         this.immediateValue = immediateValue;
+        this.initTargetRegister();
     }
 
     public int getImmediateValue() {

@@ -6,7 +6,7 @@ import java.util.stream.Stream;
 public final class JumpInstruction extends ControlFlowNode {
 
     public JumpInstruction(BasicBlock bb, BasicBlock target) {
-        super(bb);
+        this.basicBlock = bb;
         this.targets.add(0, target);
     }
 

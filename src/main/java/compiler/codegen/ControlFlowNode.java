@@ -6,8 +6,7 @@ import java.util.List;
 public sealed abstract class ControlFlowNode extends LlirNode permits JumpInstruction, ReturnInstruction {
     protected List<BasicBlock> targets;
 
-    public ControlFlowNode(BasicBlock bb) {
-        super(bb);
+    public ControlFlowNode() {
         this.targets = new ArrayList<>();
     }
 
