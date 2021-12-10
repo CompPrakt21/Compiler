@@ -1,4 +1,4 @@
-package compiler.codegen;
+package compiler.codegen.llir;
 
 import java.util.Objects;
 

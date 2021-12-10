@@ -1,4 +1,4 @@
-package compiler.codegen;
+package compiler.codegen.llir;
 
 import java.util.stream.Stream;
 
@@ -7,8 +7,7 @@ public final class MovImmediateInstruction extends RegisterNode {
     private int immediateValue;
 
     public MovImmediateInstruction(BasicBlock bb, int immediateValue) {
-        super();
-        this.basicBlock = bb;
+        super(bb);
         this.immediateValue = immediateValue;
         this.initTargetRegister();
     }

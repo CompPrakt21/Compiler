@@ -1,8 +1,10 @@
-package compiler.codegen;
+package compiler.codegen.llir;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
+@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class BasicBlock {
     private String label;
 
@@ -70,5 +72,29 @@ public class BasicBlock {
 
     public void addOutput(RegisterNode out) {
         this.outputNodes.add(out);
+    }
+
+    /**
+     * Here are all construction methods for all Llir nodes.
+     */
+
+    public MovImmediateInstruction newMovImmediate(int constant) {
+        return new MovImmediateInstruction(this, constant);
+    }
+
+    public AddInstruction newAdd(RegisterNode lhs, RegisterNode rhs) {
+        return new AddInstruction(this, lhs, rhs);
+    }
+
+    public InputNode newInput(Register register) {
+        return new InputNode(this, register);
+    }
+
+    public JumpInstruction newJump(BasicBlock target, SideEffect effect) {
+        return new JumpInstruction(this, target, effect);
+    }
+
+    public ReturnInstruction newReturn(Optional<RegisterNode> returnValue, SideEffect effect) {
+        return new ReturnInstruction(this, returnValue, effect);
     }
 }

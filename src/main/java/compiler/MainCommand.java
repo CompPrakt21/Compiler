@@ -1,6 +1,8 @@
 package compiler;
 
 import compiler.ast.Program;
+import compiler.codegen.FirmToLlir;
+import compiler.codegen.llir.DumpLlir;
 import compiler.diagnostics.CompilerMessageReporter;
 import compiler.semantic.ConstantFolding;
 import compiler.semantic.WellFormed;
@@ -211,6 +213,26 @@ public class MainCommand implements Callable<Integer> {
             return false;
         });
     }
+
+    @SuppressWarnings("unused")
+    @Command(name = "--backend", description = "Compile to binary.")
+    public Integer backend() {
+        return callWithChecked(file, (reporter, frontend) -> {
+
+            new Translation(frontend).translate(false);
+
+            var graph = FirmToLlir.lowerFirm();
+
+            try {
+                new DumpLlir(new PrintWriter(new File("bb_out.dot"))).dump(graph);
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            }
+
+            return false;
+        });
+    }
+
 
     @Override
     public Integer call() {
