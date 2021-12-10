@@ -1,42 +1,44 @@
 package compiler;
 
-import compiler.codegen.*;
+import compiler.codegen.llir.*;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.PrintWriter;
 import java.util.List;
+import java.util.Optional;
 
 public class BackendTest {
     @Test
     public void backendTest() throws FileNotFoundException {
         var generator = new VirtualRegister.Generator();
-        var l = List.of(generator.nextRegister());
-        var ir = new LlirGraph(l, generator);
+        var ir = new LlirGraph(generator);
 
         var startBlock = ir.getStartBlock();
 
-        var c1 = new MovImmediateInstruction(startBlock, 10);
-        var c2 = new MovImmediateInstruction(startBlock, 20);
-        var c3 = new MovImmediateInstruction(startBlock, 30);
-        var a1 = new AddInstruction(c1, c2);
-        var a2 = new AddInstruction(a1, c3);
-        var add = new AddInstruction(startBlock.getInputNodes().get(0), a2);
+        var memInputStart = new MemoryInputNode(startBlock);
+
+        var c1 = startBlock.newMovImmediate(10);
+        var c2 = startBlock.newMovImmediate(20);
+        var c3 = startBlock.newMovImmediate(30);
+        var a1 = startBlock.newAdd(c1, c2);
+        var a2 = startBlock.newAdd(a1, c3);
+        var add = startBlock.newAdd(startBlock.getInputNodes().get(0), a2);
 
         var outReg = generator.nextRegister();
-        var add2 = new AddInstruction(add, a1);
+        var add2 = startBlock.newAdd(add, a1);
         startBlock.addOutput(add2);
 
-
         var bb1 = ir.newBasicBlock();
-        var jmp = new JumpInstruction(startBlock, bb1);
+        var jmp = startBlock.newJump(bb1, memInputStart);
         startBlock.finish(jmp);
 
         var in = bb1.addInput(outReg);
-        var add3 = new AddInstruction(in, in);
+        var add3 = bb1.newAdd(in, in);
 
-        var ret = new ReturnInstruction(add3);
+        var memInputBb1 = new MemoryInputNode(bb1);
+        var ret = bb1.newReturn(Optional.of(add3), memInputBb1);
 
         add3.setScheduleNext(ret);
 

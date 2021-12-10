@@ -1,4 +1,4 @@
-package compiler.codegen;
+package compiler.codegen.llir;
 
 import java.io.PrintWriter;
 import java.util.ArrayList;
@@ -100,9 +100,14 @@ public class DumpLlir {
 
     private void dumpNode(LlirNode node) {
         var isOutput = node instanceof RegisterNode regNode && regNode.getBasicBlock().getOutputNodes().contains(regNode);
-        var isInput = node instanceof InputNode;
+        var isInput = node instanceof InputNode || node instanceof MemoryInputNode;
 
         var shape = isInput || isOutput ? "ellipse" : "box";
+        var color = switch (node) {
+            case ControlFlowNode ignored -> "red";
+            case SideEffect ignored -> "cyan";
+            default -> "black";
+        };
 
         String label = switch (node) {
             case InputNode inode -> inode.getTargetRegister().getName();
@@ -110,7 +115,7 @@ public class DumpLlir {
             default -> getNodeLabel(node);
         };
 
-        this.out.format("\t%s[label=\"%s\", shape=%s]\n", node.getID(), label, shape);
+        this.out.format("\t%s[label=\"%s\", shape=%s, color=%s]\n", node.getID(), label, shape, color);
     }
 
     private static String getNodeLabel(LlirNode node) {

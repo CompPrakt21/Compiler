@@ -1,11 +1,11 @@
-package compiler.codegen;
+package compiler.codegen.llir;
 
-import java.util.List;
 import java.util.stream.Stream;
 
 public final class JumpInstruction extends ControlFlowNode {
 
-    public JumpInstruction(BasicBlock bb, BasicBlock target) {
+    public JumpInstruction(BasicBlock bb, BasicBlock target, SideEffect sideEffect) {
+        super(bb, sideEffect);
         this.basicBlock = bb;
         this.targets.add(0, target);
     }
@@ -16,12 +16,12 @@ public final class JumpInstruction extends ControlFlowNode {
 
     @Override
     public Stream<LlirNode> getPreds() {
-        return Stream.empty();
+        return super.getPreds();
     }
 
     @Override
     public int getPredSize() {
-        return 0;
+        return super.getPredSize();
     }
 
     @Override

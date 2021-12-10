@@ -1,12 +1,11 @@
-package compiler.codegen;
+package compiler.codegen.llir;
 
 import java.util.stream.Stream;
 
 public final class InputNode extends RegisterNode {
 
     public InputNode(BasicBlock bb, Register register) {
-        super();
-        this.basicBlock = bb;
+        super(bb);
         this.targetRegister = register;
     }
 

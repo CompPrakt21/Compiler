@@ -1,4 +1,4 @@
-package compiler.codegen;
+package compiler.codegen.llir;
 
 import java.util.List;
 
@@ -9,13 +9,9 @@ public class LlirGraph {
 
     private static int nextBasicBlockId = 0;
 
-    public LlirGraph(List<? extends Register> argumentRegs, VirtualRegister.Generator generator) {
+    public LlirGraph(VirtualRegister.Generator generator) {
         this.startBlock = newBasicBlock();
         this.virtualRegGenerator = generator;
-
-        for (var reg: argumentRegs) {
-            this.startBlock.addInput(reg);
-        }
     }
 
     public BasicBlock newBasicBlock() {

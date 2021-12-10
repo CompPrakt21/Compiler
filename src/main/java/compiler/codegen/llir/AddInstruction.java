@@ -1,4 +1,4 @@
-package compiler.codegen;
+package compiler.codegen.llir;
 
 import java.util.stream.Stream;
 
@@ -7,13 +7,12 @@ public final class AddInstruction extends RegisterNode {
     private RegisterNode lhs;
     private RegisterNode rhs;
 
-    public AddInstruction(RegisterNode lhs, RegisterNode rhs) {
-        super();
+    public AddInstruction(BasicBlock bb, RegisterNode lhs, RegisterNode rhs) {
+        super(bb);
 
         this.lhs = lhs;
         this.rhs = rhs;
 
-        this.inferBasicBlock();
         this.initTargetRegister();
     }
 

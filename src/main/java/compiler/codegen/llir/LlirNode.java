@@ -1,11 +1,11 @@
-package compiler.codegen;
+package compiler.codegen.llir;
 
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-public abstract sealed class LlirNode permits RegisterNode, EffectNode, ControlFlowNode {
+public abstract sealed class LlirNode permits ControlFlowNode, EffectNode, MemoryInputNode, RegisterNode {
     private static long nextId = 1;
 
     private final long id;
@@ -14,36 +14,12 @@ public abstract sealed class LlirNode permits RegisterNode, EffectNode, ControlF
 
     protected BasicBlock basicBlock;
 
-    public LlirNode() {
+    public LlirNode(BasicBlock bb) {
         this.id = nextId;
         nextId += 1;
 
         this.scheduleNext = Optional.empty();
-    }
-
-    protected void inferBasicBlock() {
-        if (this.basicBlock != null) {
-            return;
-        }
-
-        Optional<BasicBlock> bb = Optional.empty();
-
-        for (LlirNode pred : this.getPreds().toArray(LlirNode[]::new)) {
-            var predBB = pred.getBasicBlock();
-            if (bb.isPresent()) {
-                if (predBB != bb.get()) {
-                    throw new IllegalArgumentException("Predecessors are in different basic blocks.");
-                }
-            } else {
-                bb = Optional.of(predBB);
-            }
-        }
-
-        if (bb.isPresent()) {
-            this.basicBlock = bb.get();
-        } else {
-            throw new IllegalArgumentException("Node doesn't have any predecessory and needs to set its basic block.");
-        }
+        this.basicBlock = bb;
     }
 
     public long getID() {

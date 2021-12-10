@@ -1,10 +1,10 @@
-package compiler.codegen;
+package compiler.codegen.llir;
 
 public sealed abstract class RegisterNode extends LlirNode permits AddInstruction, MovImmediateInstruction, InputNode {
     protected Register targetRegister;
 
-    public RegisterNode() {
-        super();
+    public RegisterNode(BasicBlock bb) {
+        super(bb);
     }
 
     protected void initTargetRegister() {

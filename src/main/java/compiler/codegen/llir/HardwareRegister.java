@@ -1,4 +1,4 @@
-package compiler.codegen;
+package compiler.codegen.llir;
 
 public final class HardwareRegister extends Register {
     public static final HardwareRegister RAX = new HardwareRegister("rax");
