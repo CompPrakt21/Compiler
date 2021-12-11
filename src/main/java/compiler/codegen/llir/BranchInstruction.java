@@ -32,6 +32,14 @@ public final class BranchInstruction extends ControlFlowNode {
         this.targets.add(falseBlock);
     }
 
+    public BasicBlock getTrueBlock() {
+        return this.targets.get(0);
+    }
+
+    public BasicBlock getFalseBlock() {
+        return this.targets.get(1);
+    }
+
     public Predicate getPredicate() {
         return predicate;
     }
