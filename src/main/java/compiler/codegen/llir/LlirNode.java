@@ -5,7 +5,7 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-public abstract sealed class LlirNode permits ControlFlowNode, EffectNode, MemoryInputNode, RegisterNode {
+public abstract sealed class LlirNode permits ControlFlowNode, MemoryInputNode, RegisterNode, CmpInstruction {
     private static long nextId = 1;
 
     private final long id;

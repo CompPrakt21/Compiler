@@ -82,6 +82,14 @@ public class BasicBlock {
         return new MovImmediateInstruction(this, constant);
     }
 
+    public MovImmediateInstruction newMovImmediateInto(int constant, Register target) {
+        return new MovImmediateInstruction(this, constant, target);
+    }
+
+    public MovRegisterInstruction newMovRegisterInto(Register target, RegisterNode source) {
+        return new MovRegisterInstruction(this, target, source);
+    }
+
     public AddInstruction newAdd(RegisterNode lhs, RegisterNode rhs) {
         return new AddInstruction(this, lhs, rhs);
     }
@@ -90,11 +98,19 @@ public class BasicBlock {
         return new InputNode(this, register);
     }
 
-    public JumpInstruction newJump(BasicBlock target, SideEffect effect) {
-        return new JumpInstruction(this, target, effect);
+    public JumpInstruction newJump(BasicBlock target) {
+        return new JumpInstruction(this, target);
     }
 
-    public ReturnInstruction newReturn(Optional<RegisterNode> returnValue, SideEffect effect) {
-        return new ReturnInstruction(this, returnValue, effect);
+    public ReturnInstruction newReturn(Optional<RegisterNode> returnValue) {
+        return new ReturnInstruction(this, returnValue);
+    }
+
+    public CmpInstruction newCmp(RegisterNode lhs, RegisterNode rhs) {
+        return new CmpInstruction(this, lhs, rhs);
+    }
+
+    public BranchInstruction newBranch(BranchInstruction.Predicate predicate, CmpInstruction cmp, BasicBlock trueBlock, BasicBlock falseBlock) {
+        return new BranchInstruction(this, predicate, cmp, trueBlock, falseBlock);
     }
 }

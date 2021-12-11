@@ -31,14 +31,14 @@ public class BackendTest {
         startBlock.addOutput(add2);
 
         var bb1 = ir.newBasicBlock();
-        var jmp = startBlock.newJump(bb1, memInputStart);
+        var jmp = startBlock.newJump(bb1);
         startBlock.finish(jmp);
 
         var in = bb1.addInput(outReg);
         var add3 = bb1.newAdd(in, in);
 
         var memInputBb1 = new MemoryInputNode(bb1);
-        var ret = bb1.newReturn(Optional.of(add3), memInputBb1);
+        var ret = bb1.newReturn(Optional.of(add3));
 
         add3.setScheduleNext(ret);
 

@@ -3,12 +3,13 @@ package compiler.codegen.llir;
 import java.util.Optional;
 import java.util.stream.Stream;
 
+@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public final class ReturnInstruction extends ControlFlowNode {
 
     private Optional<RegisterNode> returnValue;
 
-    public ReturnInstruction(BasicBlock bb, Optional<RegisterNode> returnValue, SideEffect sideEffect) {
-        super(bb,sideEffect);
+    public ReturnInstruction(BasicBlock bb, Optional<RegisterNode> returnValue) {
+        super(bb);
         this.returnValue = returnValue;
     }
 
@@ -18,12 +19,12 @@ public final class ReturnInstruction extends ControlFlowNode {
 
     @Override
     public Stream<LlirNode> getPreds() {
-        return Stream.concat(super.getPreds(), this.returnValue.stream());
+        return this.returnValue.stream().map(regNode -> regNode);
     }
 
     @Override
     public int getPredSize() {
-        return super.getPredSize() + (this.returnValue.isPresent() ? 1 : 0);
+        return this.returnValue.isPresent() ? 1 : 0;
     }
 
     @Override
