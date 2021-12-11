@@ -91,8 +91,8 @@ public class DumpLlir {
 
                     if (!this.visitedBasicBlocks.contains(bb)) {
                         this.dumpStack.push(bb);
-                        this.edges.add(String.format("\t%s -> %s [lhead=cluster%s, color=red]", node.getID(), bb.getEndNode().getID(), bb.getLabel()));
                     }
+                    this.edges.add(String.format("\t%s -> %s [lhead=cluster%s, color=red]", node.getID(), bb.getEndNode().getID(), bb.getLabel()));
                 }
             }
         }

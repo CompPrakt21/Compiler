@@ -4,8 +4,8 @@ import java.util.stream.Stream;
 
 public final class JumpInstruction extends ControlFlowNode {
 
-    public JumpInstruction(BasicBlock bb, BasicBlock target, SideEffect sideEffect) {
-        super(bb, sideEffect);
+    public JumpInstruction(BasicBlock bb, BasicBlock target) {
+        super(bb);
         this.basicBlock = bb;
         this.targets.add(0, target);
     }
@@ -16,12 +16,12 @@ public final class JumpInstruction extends ControlFlowNode {
 
     @Override
     public Stream<LlirNode> getPreds() {
-        return super.getPreds();
+        return Stream.empty();
     }
 
     @Override
     public int getPredSize() {
-        return super.getPredSize();
+        return 0;
     }
 
     @Override

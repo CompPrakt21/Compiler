@@ -7,9 +7,7 @@ import firm.Mode;
 import firm.Program;
 import firm.nodes.*;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Optional;
+import java.util.*;
 
 public class FirmToLlir implements NodeVisitor {
 
@@ -33,6 +31,8 @@ public class FirmToLlir implements NodeVisitor {
      */
     private final HashMap<Node, Register> markedOutNodes;
 
+    private final HashMap<Node, List<MovRegisterInstruction>> unsourcedMoves;
+
     /**
      * Remebers if node have been visited already.
      */
@@ -45,6 +45,7 @@ public class FirmToLlir implements NodeVisitor {
         this.blockMap = new HashMap<>();
         this.nodeMap = new HashMap<>();
         this.markedOutNodes = new HashMap<>();
+        this.unsourcedMoves = new HashMap<>();
         this.visited = new HashSet<>();
 
         var gen = new VirtualRegister.Generator();
@@ -75,13 +76,15 @@ public class FirmToLlir implements NodeVisitor {
             if (proj.node.getMode().equals(Mode.getT())) {
                 for (var arg : BackEdges.getOuts(proj.node)) {
                     var i = startBlock.newInput(this.llirGraph.getVirtualRegGenerator().nextRegister());
-                    this.nodeMap.put(arg.node, i);
+                    this.registerLlirNode(arg.node, i);
                 }
             }
         }
 
         // Build llir
         this.visitNode(this.firmGraph.getEnd());
+
+        assert this.unsourcedMoves.isEmpty();
 
         // Remember output nodes in their respective basic blocks.
         for (Node node : this.markedOutNodes.keySet()) {
@@ -108,6 +111,18 @@ public class FirmToLlir implements NodeVisitor {
 
     private BasicBlock getBlock(Node n) {
         return this.blockMap.get((Block) n.getBlock());
+    }
+
+    private void registerLlirNode(Node firmNode, LlirNode llirNode) {
+        this.nodeMap.put(firmNode, llirNode);
+
+        if (this.unsourcedMoves.containsKey(firmNode)) {
+            var regNode = (RegisterNode) llirNode;
+            for (var mov : this.unsourcedMoves.get(firmNode)) {
+                mov.setSource(regNode);
+            }
+            this.unsourcedMoves.remove(firmNode);
+        }
     }
 
     /**
@@ -143,14 +158,16 @@ public class FirmToLlir implements NodeVisitor {
             // If the predecessor is outside the current basic block we possibly
             // add an input node.
 
-            var predLlirNode = (RegisterNode)this.nodeMap.get(predNode);
+            var predLlirNode = this.nodeMap.get(predNode);
 
             if (predLlirNode.getBasicBlock() == currentBlock) {
                 return predLlirNode;
-            } else {
-                var input = getInputNode(currentBlock, predLlirNode.getTargetRegister());
+            } else if (predLlirNode instanceof RegisterNode predRegNode){
+                var input = getInputNode(currentBlock, predRegNode.getTargetRegister());
                 this.markedOutNodes.put(predNode, input.getTargetRegister());
                 return input;
+            } else {
+                throw new AssertionError("This should probably not be reacheable.");
             }
         } else {
             // Within a basic block we traverse in topological order, meaning
@@ -172,7 +189,10 @@ public class FirmToLlir implements NodeVisitor {
     }
 
     private BasicBlock getBasicBlock(Node n) {
-        return this.blockMap.get((Block)n.getBlock());
+        var firmBlock = n instanceof Block b ? b : (Block) n.getBlock();
+        var block = this.blockMap.get(firmBlock);
+        assert block != null;
+        return block;
     }
 
     private void visitNode(Node n) {
@@ -180,6 +200,9 @@ public class FirmToLlir implements NodeVisitor {
             this.visited.add(n);
 
             for (var pred : n.getPreds()) {
+                // Ignore keep predecssors.
+                if (pred instanceof Block) continue;
+
                 this.visitNode(pred);
             }
 
@@ -197,16 +220,17 @@ public class FirmToLlir implements NodeVisitor {
     public void visit(Proj proj) {
         var predNode = proj.getPred();
 
-        if (proj.getMode().equals(Mode.getM()) && predNode instanceof Start) {
+        if (proj.getMode().equals(Mode.getX())) {
+        } else if (proj.getMode().equals(Mode.getM()) && predNode instanceof Start) {
 
             var llirBlock = this.blockMap.get((Block)proj.getBlock());
-            this.nodeMap.put(proj, new MemoryInputNode(llirBlock));
+            this.registerLlirNode(proj, new MemoryInputNode(llirBlock));
 
         } else if (!this.nodeMap.containsKey(proj)) {
 
             if (this.nodeMap.containsKey(predNode)) {
                 var llirPred = getPredLlirNode(proj, predNode);
-                this.nodeMap.put(proj, llirPred);
+                this.registerLlirNode(proj, llirPred);
             }
 
         }
@@ -214,8 +238,6 @@ public class FirmToLlir implements NodeVisitor {
 
     public void visit(Return ret) {
         var bb = getBasicBlock(ret);
-        var memPred = ret.getMem();
-        var llirSideEffect = (SideEffect)this.nodeMap.get(memPred);
 
         Optional<RegisterNode> llirDataPred = Optional.empty();
         if (ret.getPredCount() > 1) {
@@ -224,31 +246,121 @@ public class FirmToLlir implements NodeVisitor {
             llirDataPred = Optional.of((RegisterNode) getPredLlirNode(ret, dataPred));
         }
 
-        var llirRet = bb.newReturn(llirDataPred, llirSideEffect);
+        var llirRet = bb.newReturn(llirDataPred);
 
         llirRet.getBasicBlock().finish(llirRet);
     }
 
     public void visit(Add add) {
         var bb = getBasicBlock(add);
-        var lhs = (RegisterNode)getPredLlirNode(add, add.getLeft());
 
+        var lhs = (RegisterNode)getPredLlirNode(add, add.getLeft());
         var rhs = (RegisterNode)getPredLlirNode(add, add.getRight());
 
         var llirAdd = bb.newAdd(lhs, rhs);
-        this.nodeMap.put(add, llirAdd);
+        this.registerLlirNode(add, llirAdd);
     }
 
-    public void visit(Jmp jump) {}
-    //    var bb = getBasicBlock(jump);
+    public void visit(Jmp jump) {
+        var bb = getBasicBlock(jump);
 
-    //    var targetBlock = (Block)BackEdges.getOuts(jump).iterator().next().node;
-    //    var targetBasicBlock = this.blockMap.get(targetBlock);
-    //
-    //    jump.get
+        var targetBlock = (Block)BackEdges.getOuts(jump).iterator().next().node;
+        var targetBasicBlock = this.blockMap.get(targetBlock);
 
-    //    var llirJump = bb.newJump(targetBasicBlock)
-    //}
+        var llirJump = bb.newJump(targetBasicBlock);
+        bb.finish(llirJump);
+    }
+
+    public void visit(Cmp cmp) {
+        var bb = getBasicBlock(cmp);
+
+        var lhs = (RegisterNode)getPredLlirNode(cmp, cmp.getLeft());
+        var rhs = (RegisterNode)getPredLlirNode(cmp, cmp.getRight());
+
+        var llirCmp = bb.newCmp(lhs, rhs);
+        this.registerLlirNode(cmp, llirCmp);
+    }
+
+    public void visit(Cond cond) {
+        var bb = getBasicBlock(cond);
+
+        var cmpPred = (Cmp)cond.getSelector();
+        var llirCmp = (CmpInstruction) getPredLlirNode(cond, cmpPred);
+
+        var predicate = switch(cmpPred.getRelation()) {
+            case Equal -> BranchInstruction.Predicate.EQUAL;
+            case Less -> BranchInstruction.Predicate.LESS_THAN;
+            case LessEqual -> BranchInstruction.Predicate.LESS_EQUAL;
+            case Greater -> BranchInstruction.Predicate.GREATER_THAN;
+            case GreaterEqual -> BranchInstruction.Predicate.GREATER_EQUAL;
+            default -> throw new UnsupportedOperationException("Unsupported branch predicate");
+        };
+
+        Proj trueProj = null;
+        Proj falseProj = null;
+        for (var pred : BackEdges.getOuts(cond)) {
+            if (pred.node instanceof Proj proj) {
+                assert proj.getMode().equals(Mode.getX());
+
+                if (proj.getNum() == 0) {
+                    falseProj = proj;
+                } else if (proj.getNum() == 1) {
+                    trueProj = proj;
+                } else {
+                    throw new IllegalArgumentException("Control flow projection found with num > 1");
+                }
+            }
+        }
+        assert trueProj != null && falseProj != null;
+
+        Block trueTargetBlock = (Block)BackEdges.getOuts(trueProj).iterator().next().node;
+        var trueTargetBasicBlock = getBasicBlock(trueTargetBlock);
+
+        Block falseTargetBlock = (Block)BackEdges.getOuts(falseProj).iterator().next().node;
+        var falseTargetBasicBlock = getBasicBlock(falseTargetBlock);
+
+        var llirBranch = bb.newBranch(predicate, llirCmp, trueTargetBasicBlock, falseTargetBasicBlock);
+        this.registerLlirNode(cond, llirBranch);
+
+        bb.finish(llirBranch);
+    }
+
+    public void visit(Phi phi) {
+        var bb = getBasicBlock(phi);
+
+        if (phi.getMode().equals(Mode.getM())) {
+            var memoryInput = new MemoryInputNode(bb);
+            this.registerLlirNode(phi, memoryInput);
+        } else {
+            var register = this.llirGraph.getVirtualRegGenerator().nextRegister();
+
+            for (int i = 0; i < phi.getPredCount(); i++) {
+                var pred = phi.getPred(i);
+
+                if (pred instanceof Const c) {
+                    var predBb = getBasicBlock(phi.getBlock().getPred(i).getBlock());
+                    var mov = predBb.newMovImmediateInto(c.getTarval().asInt(), register);
+                    predBb.addOutput(mov);
+
+                } else if (pred.getBlock() != phi.getBlock()) {
+                    var predRegNode = (RegisterNode) this.nodeMap.get(pred);
+                    var predBb = getBlock(pred);
+
+                    var mov = predBb.newMovRegisterInto(register, predRegNode);
+                    if (predRegNode == null) {
+                        this.unsourcedMoves.putIfAbsent(pred, new ArrayList<>());
+                        this.unsourcedMoves.get(pred).add(mov);
+                    }
+
+                    predBb.addOutput(mov);
+                } else {
+                    throw new UnsupportedOperationException("Ooops, this is a critical edge which we dont handle yet");
+                }
+            }
+
+            this.registerLlirNode(phi, bb.newInput(register));
+        }
+    }
 
     // These nodes are explicitely ignored
     public void visit(Start node) {}
@@ -273,8 +385,6 @@ public class FirmToLlir implements NodeVisitor {
     public void visit(Block node) { throwUnsupportedNode(node); }
     public void visit(Builtin node) { throwUnsupportedNode(node); }
     public void visit(Call node) { throwUnsupportedNode(node); }
-    public void visit(Cmp node) { throwUnsupportedNode(node); }
-    public void visit(Cond node) { throwUnsupportedNode(node); }
     public void visit(Confirm node) { throwUnsupportedNode(node); }
     public void visit(Store node) { throwUnsupportedNode(node); }
     public void visit(Sub node) { throwUnsupportedNode(node); }
@@ -303,7 +413,6 @@ public class FirmToLlir implements NodeVisitor {
     public void visit(Not node) { throwUnsupportedNode(node); }
     public void visit(Offset node) { throwUnsupportedNode(node); }
     public void visit(Or node) { throwUnsupportedNode(node); }
-    public void visit(Phi node) { throwUnsupportedNode(node); }
     public void visit(Pin node) { throwUnsupportedNode(node); }
 
     private void throwUnsupportedNode(Node n) {
