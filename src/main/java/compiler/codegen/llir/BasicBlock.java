@@ -1,8 +1,7 @@
 package compiler.codegen.llir;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class BasicBlock {
@@ -72,6 +71,27 @@ public class BasicBlock {
 
     public void addOutput(RegisterNode out) {
         this.outputNodes.add(out);
+    }
+
+    public Collection<LlirNode> getAllNodes() {
+        var result = new HashSet<LlirNode>();
+        var queue = new ArrayDeque<LlirNode>();
+
+        result.add(this.getEndNode());
+        queue.add(this.getEndNode());
+        for (var out: this.getOutputNodes()) {
+            result.add(out);
+            queue.add(out);
+        }
+
+        while (!queue.isEmpty()) {
+            var node = queue.pop();
+
+            queue.addAll(node.getPreds().filter(p -> !result.contains(p)).collect(Collectors.toList()));
+            result.addAll(node.getPreds().collect(Collectors.toList()));
+        }
+
+        return result;
     }
 
     /**
