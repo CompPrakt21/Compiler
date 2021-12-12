@@ -1,9 +1,6 @@
 package compiler;
 
-import firm.BackEdges;
-import firm.Dump;
-import firm.Graph;
-import firm.Mode;
+import firm.*;
 import firm.nodes.*;
 
 import java.util.*;
@@ -11,6 +8,8 @@ import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 public class InliningOptimization {
+
+    record Pair<Node, Integer>(Node node, int location){}
 
     private Graph graph;
     private ArrayDeque<Node> worklist = new ArrayDeque<>();
@@ -20,12 +19,12 @@ public class InliningOptimization {
     private ArrayDeque<Node> parameters = new ArrayDeque<>(); //needed
     private Address addressNode = null; //replaced
     private Graph addressGraph = null;  //needed
-    private Proj isNode = null; //replaced
+    private Pair<Node, Integer> isNode = null; //replaced
     private Node callingProjIs = null; //needed
 
     public InliningOptimization(Graph g) {
-        BackEdges.enable(g);
         graph = g;
+        BackEdges.enable(graph);
         NodeCollector c = new NodeCollector(worklist);
         graph.walkTopological(c);
     }
@@ -63,7 +62,10 @@ public class InliningOptimization {
             if (tempNode.getMode().equals(Mode.getM())) {
                 succsMemoryCall = tempNode;
                 callingProjIs = StreamSupport.stream(BackEdges.getOuts(succsMemoryCall).spliterator(), false).collect(Collectors.toList()).get(0).node;
-                isNode = (Proj) StreamSupport.stream(callingProjIs.getPreds().spliterator(), false).filter(node -> node.getMode().equals(Mode.getIs())).findFirst().get();
+                int count = 0;
+                for (Node pred : callingProjIs.getPreds()) {
+                    if (pred.getMode().equals(Mode.getIs())) isNode = new Pair<Node, Integer>(pred, count);
+                }
             }
 
         }
@@ -99,6 +101,21 @@ public class InliningOptimization {
         oth.forEach(node -> System.out.println(node));
 
 
+        //for (int temp = 0; temp < oth.size(); temp++) {
+          //  oth.set();
+        //}#
+        oth.set(1, oth.get(1).copyInto(graph));
+
+        oth.get(1).setBlock(callingProjIs.getBlock());
+        oth.get(1).setPred(0, parameters.getFirst());
+        oth.get(1).setPred(1, parameters.getLast());
+        System.out.println(oth.get(1));
+        oth.get(1).getPreds().forEach(node -> System.out.println(node));
+        callingProjIs.setPred(2, oth.get(oth.size() - 1));
+
+
+
+
 
 
 
@@ -123,33 +140,26 @@ public class InliningOptimization {
         System.out.println("CallSuccesors2");
         callSuccesors.forEach(node -> System.out.println(node));*/
         //callSuccesors.stream().filter(node -> node.getMode().equals(Mode.getM())).forEach(node -> node.setPred(0, nodePredPred.getFirst()));
-        BackEdges.disable(graph);
         BackEdges.disable(addressGraph);
+        BackEdges.disable(graph);
     }
 
     private ArrayDeque<Node> getPred(Node node) {
         return new ArrayDeque<Node>(StreamSupport.stream(node.getPreds().spliterator(), false).toList());
     }
 
-
+    //TODO: store which nodes are first and last
     private ArrayList<Node> DFSGraph(Node start, ArrayList<Node> parameters) {
         ArrayList<Node> result = new ArrayList<>();
-        Node curr;
+        Node curr = start;
         Stack<Node> stack = new Stack<>();
-        stack.add(start);
-        System.out.println("-----");
-        int count = 0;
         do {
-            curr = stack.pop();
             Iterator<BackEdges.Edge> i = BackEdges.getOuts(curr).iterator();
             i.forEachRemaining(edge -> {
                 Node node = edge.node;
-                if (node instanceof Proj proj) {
-
-                }
                 boolean flag = true;
-                if (node instanceof Proj proj && proj.ptr.toString().matches("T_args")) ;
-                else if (node.toString().matches("Arg")) {
+                if (node instanceof Proj proj && proj.getMode().equals(Mode.getT()));
+                else if (node instanceof Proj && node.getMode().equals(Mode.getIs())) {
                     System.out.println("Found parameter");
                     parameters.add(node);
                 }
@@ -162,6 +172,7 @@ public class InliningOptimization {
                 else if (!result.contains(node)) result.add(node);
                 if (flag && !stack.contains(node)) stack.add(node);
             });
+            curr = stack.pop();
 
         } while (!stack.isEmpty() && !(curr instanceof Return));
 
