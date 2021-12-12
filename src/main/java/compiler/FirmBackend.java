@@ -1,6 +1,8 @@
 package compiler;
 
 import firm.Backend;
+import firm.Dump;
+import firm.Program;
 import firm.Util;
 
 import java.io.File;
@@ -24,6 +26,9 @@ public class FirmBackend {
         translation.translate(dumpGraphs);
 
         Util.lowerSels();
+        for (var graph : Program.getGraphs()) {
+            Dump.dumpGraph(graph, "after-lower-sels");
+        }
 
         try {
             var execFilename = "a.out";
