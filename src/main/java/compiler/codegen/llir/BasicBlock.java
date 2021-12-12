@@ -7,7 +7,7 @@ import java.util.stream.Collectors;
 public class BasicBlock {
     private String label;
 
-    private List<RegisterNode> outputNodes;
+    private List<LlirNode> outputNodes;
 
     private List<InputNode> inputNodes;
 
@@ -65,11 +65,11 @@ public class BasicBlock {
         return input;
     }
 
-    public List<RegisterNode> getOutputNodes() {
+    public List<LlirNode> getOutputNodes() {
         return this.outputNodes;
     }
 
-    public void addOutput(RegisterNode out) {
+    public void addOutput(LlirNode out) {
         this.outputNodes.add(out);
     }
 
@@ -112,6 +112,18 @@ public class BasicBlock {
 
     public AddInstruction newAdd(RegisterNode lhs, RegisterNode rhs) {
         return new AddInstruction(this, lhs, rhs);
+    }
+
+    public MulInstruction newMul(RegisterNode lhs, RegisterNode rhs) {
+        return new MulInstruction(this, lhs, rhs);
+    }
+
+    public MovStoreInstruction newMovStore(RegisterNode addr, RegisterNode value, SideEffect sideEffect) {
+        return new MovStoreInstruction(this, sideEffect, addr, value);
+    }
+
+    public MovLoadInstruction newMovLoad(RegisterNode addr, SideEffect sideEffect) {
+        return new MovLoadInstruction(this, sideEffect, addr);
     }
 
     public InputNode newInput(Register register) {

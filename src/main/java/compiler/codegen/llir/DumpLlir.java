@@ -185,7 +185,7 @@ public class DumpLlir {
 
     private static Stream<PredWithLabel> getPredsWithLabel(LlirNode node) {
         return switch (node) {
-            case AddInstruction a -> Stream.of(new PredWithLabel(a.getLhs(), "lhs"), new PredWithLabel(a.getRhs(), "rhs"));
+            case BinaryInstruction a -> Stream.of(new PredWithLabel(a.getLhs(), "lhs"), new PredWithLabel(a.getRhs(), "rhs"));
             case CmpInstruction a -> Stream.of(new PredWithLabel(a.getLhs(), "lhs"), new PredWithLabel(a.getRhs(), "rhs"));
             default -> node.getPreds().map(l -> new PredWithLabel(l, ""));
         };
