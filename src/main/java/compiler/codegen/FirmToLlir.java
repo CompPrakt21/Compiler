@@ -311,8 +311,30 @@ public class FirmToLlir implements NodeVisitor {
         var lhs = (RegisterNode)getPredLlirNode(mul, mul.getLeft());
         var rhs = (RegisterNode)getPredLlirNode(mul, mul.getRight());
 
-        var llirAdd = bb.newMul(lhs, rhs);
-        this.registerLlirNode(mul, llirAdd);
+        var llirMul = bb.newMul(lhs, rhs);
+        this.registerLlirNode(mul, llirMul);
+    }
+
+    public void visit(Div div) {
+        var bb = getBasicBlock(div);
+
+        var mem = getPredSideEffectNode(div, div.getMem());
+        var dividend = (RegisterNode)getPredLlirNode(div, div.getLeft());
+        var divisor = (RegisterNode)getPredLlirNode(div, div.getRight());
+
+        var llirDiv = bb.newDiv(dividend, divisor, mem);
+        this.registerLlirNode(div, llirDiv);
+    }
+
+    public void visit(Mod mod) {
+        var bb = getBasicBlock(mod);
+
+        var mem = getPredSideEffectNode(mod, mod.getMem());
+        var modidend = (RegisterNode)getPredLlirNode(mod, mod.getLeft());
+        var modisor = (RegisterNode)getPredLlirNode(mod, mod.getRight());
+
+        var llirMod = bb.newMod(modidend, modisor, mem);
+        this.registerLlirNode(mod, llirMod);
     }
 
     public void visit(Jmp jump) {
@@ -470,7 +492,6 @@ public class FirmToLlir implements NodeVisitor {
     public void visit(Sync node) { throwUnsupportedNode(node); }
     public void visit(CopyB node) { throwUnsupportedNode(node); }
     public void visit(Deleted node) { throwUnsupportedNode(node); }
-    public void visit(Div node) { throwUnsupportedNode(node); }
     public void visit(Dummy node) { throwUnsupportedNode(node); }
     public void visit(Tuple node) { throwUnsupportedNode(node); }
     public void visit(Unknown node) { throwUnsupportedNode(node); }
@@ -481,7 +502,6 @@ public class FirmToLlir implements NodeVisitor {
     public void visit(Id node) { throwUnsupportedNode(node); }
     public void visit(Member node) { throwUnsupportedNode(node); }
     public void visit(Minus node) { throwUnsupportedNode(node); }
-    public void visit(Mod node) { throwUnsupportedNode(node); }
     public void visit(Mulh node) { throwUnsupportedNode(node); }
     public void visit(Mux node) { throwUnsupportedNode(node); }
     public void visit(NoMem node) { throwUnsupportedNode(node); }

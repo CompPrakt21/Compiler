@@ -1,6 +1,6 @@
 package compiler.codegen.llir;
 
-public sealed abstract class RegisterNode extends LlirNode permits BinaryInstruction, InputNode, MovImmediateInstruction, MovLoadInstruction, MovRegisterInstruction {
+public sealed abstract class RegisterNode extends LlirNode permits BinaryInstruction, DivInstruction, InputNode, ModInstruction, MovImmediateInstruction, MovLoadInstruction, MovRegisterInstruction {
     protected Register targetRegister;
 
     public RegisterNode(BasicBlock bb) {
