@@ -72,14 +72,6 @@ public class InliningOptimization {
         succsMemoryCall = StreamSupport.stream(BackEdges.getOuts(callingAddressNode).spliterator(), false).filter(edge -> edge.node.getMode().equals(Mode.getM())).findFirst().get().node;
         addressGraph = addressNode.getEntity().getGraph();
 
-        System.out.println("------");
-        System.out.println(predsMemoryCall);
-        System.out.println(addressNode);
-        System.out.println(addressGraph);
-        System.out.println(succsMemoryCall);
-        parameters.forEach(node -> System.out.println(node));
-        System.out.println("------");
-
         succsMemoryCall.setPred(0, predsMemoryCall);
 
         ArrayDeque<Node> addressWorklist = new ArrayDeque<>();
