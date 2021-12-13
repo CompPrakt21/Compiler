@@ -7,12 +7,14 @@ import compiler.semantic.SparseAstData;
 import compiler.semantic.WellFormed;
 import compiler.semantic.resolution.DefinedMethod;
 import compiler.semantic.resolution.IntrinsicMethod;
+import compiler.semantic.resolution.MethodDefinition;
 import compiler.semantic.resolution.NameResolution;
 import compiler.types.*;
 import firm.Type;
 import firm.*;
 import firm.bindings.binding_ircons;
 import firm.nodes.Block;
+import firm.nodes.Call;
 import firm.nodes.Node;
 
 import java.io.IOException;
@@ -24,6 +26,11 @@ import java.util.stream.Stream;
 public class Translation {
 
     private final FrontendResult frontend;
+
+    // What method does a call node call. (Used in the backend.)
+    private final Map<Call, MethodDefinition> methodReferences;
+    // Each methods firm graph.
+    private final Map<DefinedMethod, Graph> methodGraphs;
 
     private final Map<Ty, Type> firmTypes;
     private final List<StructType> allCreatedStructFirmTypes;
@@ -46,6 +53,9 @@ public class Translation {
 
     public Translation(FrontendResult frontend) {
         this.frontend = frontend;
+
+        this.methodReferences = new HashMap<>();
+        this.methodGraphs = new HashMap<>();
 
         //Backend.option("dump=all");
 
@@ -477,7 +487,8 @@ public class Translation {
 
         var mem = construction.getCurrentMem();
 
-        var callNode = construction.newCall(mem, addrNode, arguments, methodType);
+        var callNode = (Call) construction.newCall(mem, addrNode, arguments, methodType);
+        this.methodReferences.put(callNode, methodDef);
 
         var memProj = construction.newProj(callNode, Mode.getM(), 0);
         construction.setCurrentMem(memProj);
@@ -817,7 +828,7 @@ public class Translation {
         return graph;
     }
 
-    public void translate(boolean dumpGraphs) {
+    public TranslationResult translate(boolean dumpGraphs) {
         for (var classTy : frontend.classes()) {
             CompoundType classType = (CompoundType) ((PointerType) getFirmType(classTy)).getPointsTo();
 
@@ -847,7 +858,8 @@ public class Translation {
                 // We don't generate code for intrinsic methods.
                 if (methodDef instanceof DefinedMethod definedMethod) {
                     Graph graph = genGraphForMethod(definedMethod);
-                    graph = Optimization.constantFolding(graph);
+                    Graph foldedGraph = Optimization.constantFolding(graph);
+                    this.methodGraphs.put(definedMethod, foldedGraph);
                     if (dumpGraphs) {
                         Dump.dumpGraph(graph, methodDef.getName());
                     }
@@ -869,5 +881,7 @@ public class Translation {
                 st.finishLayout();
             }
         }
+
+        return new TranslationResult(this.methodReferences, this.methodGraphs);
     }
 }

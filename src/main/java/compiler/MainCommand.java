@@ -219,9 +219,9 @@ public class MainCommand implements Callable<Integer> {
     public Integer backend() {
         return callWithChecked(file, (reporter, frontend) -> {
 
-            new Translation(frontend).translate(false);
+            var translationResult = new Translation(frontend).translate(false);
 
-            var graph = FirmToLlir.lowerFirm();
+            var graph = FirmToLlir.lowerFirm(translationResult);
 
             try {
                 new DumpLlir(new PrintWriter(new File("bb_out.dot"))).dump(graph);

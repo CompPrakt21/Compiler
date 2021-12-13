@@ -1,5 +1,7 @@
 package compiler.codegen.llir;
 
+import compiler.semantic.resolution.MethodDefinition;
+import firm.nodes.Call;
 import firm.nodes.Div;
 
 import java.util.*;
@@ -161,5 +163,9 @@ public class BasicBlock {
 
     public BranchInstruction newBranch(BranchInstruction.Predicate predicate, CmpInstruction cmp, BasicBlock trueBlock, BasicBlock falseBlock) {
         return new BranchInstruction(this, predicate, cmp, trueBlock, falseBlock);
+    }
+
+    public CallInstruction newCall(MethodDefinition calledMethod, SideEffect sideEffect, List<RegisterNode> arguments) {
+        return new CallInstruction(this, calledMethod, sideEffect, arguments);
     }
 }

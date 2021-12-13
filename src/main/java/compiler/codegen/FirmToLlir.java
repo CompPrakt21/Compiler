@@ -1,5 +1,7 @@
 package compiler.codegen;
 
+import compiler.FrontendResult;
+import compiler.TranslationResult;
 import compiler.codegen.llir.*;
 import firm.*;
 import firm.nodes.*;
@@ -7,6 +9,8 @@ import firm.nodes.*;
 import java.util.*;
 
 public class FirmToLlir implements NodeVisitor {
+
+    private final TranslationResult translation;
 
     /**
      * Maps firm blocks to their corresponding BasicBlocks in the LlirGraph.
@@ -46,12 +50,14 @@ public class FirmToLlir implements NodeVisitor {
     private final Graph firmGraph;
 
 
-    private FirmToLlir(Graph firmGraph) {
+    private FirmToLlir(Graph firmGraph, TranslationResult translation) {
         this.blockMap = new HashMap<>();
         this.nodeMap = new HashMap<>();
         this.markedOutNodes = new HashMap<>();
         this.unsourcedMoves = new HashMap<>();
         this.visited = new HashSet<>();
+
+        this.translation = translation;
 
         var gen = new VirtualRegister.Generator();
 
@@ -102,14 +108,14 @@ public class FirmToLlir implements NodeVisitor {
         }
     }
 
-    public static LlirGraph lowerFirm() {
+    public static LlirGraph lowerFirm(TranslationResult translationResult) {
         // TODO: replace with own lowering
         Util.lowerSels();
 
-        for (var graph : Program.getGraphs()) {
-            var entity = graph.getEntity();
-            if (entity.getName().equals("_Main_bar")) {
-                var f = new FirmToLlir(graph);
+        for (var method : translationResult.methodGraphs().keySet()) {
+            if (method.getName().equals("bar")) {
+                var graph = translationResult.methodGraphs().get(method);
+                var f = new FirmToLlir(graph, translationResult);
                 Dump.dumpGraph(graph, "before-lowering-to-llir");
                 f.lower();
                 return f.llirGraph;
@@ -426,6 +432,26 @@ public class FirmToLlir implements NodeVisitor {
         registerLlirNode(load, llirLoad);
     }
 
+    public void visit(Call call) {
+        var bb = getBasicBlock(call);
+        var memNode = getPredSideEffectNode(call, call.getMem());
+
+        List<RegisterNode> args = new ArrayList<>();
+
+        for (var pred : call.getPreds()) {
+            if (pred.equals(call.getMem())) continue;
+            if (pred.equals(call.getPtr())) continue;
+
+            var llirPred = (RegisterNode)getPredLlirNode(call, pred);
+            args.add(llirPred);
+        }
+
+        var calledMethod = this.translation.methodReferences().get(call);
+
+        var llirCall = bb.newCall(calledMethod, memNode, args);
+        registerLlirNode(call, llirCall);
+    }
+
     public void visit(Phi phi) {
         var bb = getBasicBlock(phi);
 
@@ -467,6 +493,7 @@ public class FirmToLlir implements NodeVisitor {
     public void visit(Start node) {}
     public void visit(Const node) {}
     public void visit(End node) {}
+    public void visit(Address node) {}
 
     // These nodes are either not yet implemented or should never occur in the
     // firm graph during lowering to the backend.
@@ -476,7 +503,6 @@ public class FirmToLlir implements NodeVisitor {
     public void visit(Shr node) { throwUnsupportedNode(node); }
     public void visit(Shrs node) { throwUnsupportedNode(node); }
     public void visit(Size node) { throwUnsupportedNode(node); }
-    public void visit(Address node) { throwUnsupportedNode(node); }
     public void visit(Align node) { throwUnsupportedNode(node); }
     public void visit(Alloc node) { throwUnsupportedNode(node); }
     public void visit(Anchor node) { throwUnsupportedNode(node); }
@@ -485,7 +511,6 @@ public class FirmToLlir implements NodeVisitor {
     public void visit(Bitcast node) { throwUnsupportedNode(node); }
     public void visit(Block node) { throwUnsupportedNode(node); }
     public void visit(Builtin node) { throwUnsupportedNode(node); }
-    public void visit(Call node) { throwUnsupportedNode(node); }
     public void visit(Confirm node) { throwUnsupportedNode(node); }
     public void visit(Sub node) { throwUnsupportedNode(node); }
     public void visit(Switch node) { throwUnsupportedNode(node); }
