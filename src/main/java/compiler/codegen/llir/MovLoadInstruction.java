@@ -18,6 +18,10 @@ public final class MovLoadInstruction extends RegisterNode implements SideEffect
         return Stream.of(sideEffect.asLlirNode(), addrNode);
     }
 
+    public RegisterNode getAddrNode() {
+        return addrNode;
+    }
+
     @Override
     public int getPredSize() {
         return 2;
