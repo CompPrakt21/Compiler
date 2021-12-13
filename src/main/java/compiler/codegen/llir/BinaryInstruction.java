@@ -2,7 +2,7 @@ package compiler.codegen.llir;
 
 import java.util.stream.Stream;
 
-public abstract sealed class BinaryInstruction extends RegisterNode permits AddInstruction, MulInstruction {
+public abstract sealed class BinaryInstruction extends RegisterNode permits AddInstruction, MulInstruction, XorInstruction {
 
     protected RegisterNode lhs;
     protected RegisterNode rhs;
