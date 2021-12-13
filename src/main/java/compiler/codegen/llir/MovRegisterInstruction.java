@@ -32,6 +32,6 @@ public final class MovRegisterInstruction extends RegisterNode {
 
     @Override
     public String getMnemonic() {
-        return "mov";
+        return "mov-reg";
     }
 }

@@ -198,6 +198,23 @@ public class FirmToLlir implements NodeVisitor {
         }
     }
 
+    private SideEffect getPredSideEffectNode(Node node, Node predNode) {
+        var currentBlock = getBlock(node);
+        var predBlock = getBlock(predNode);
+        var predLlirNode = (SideEffect) this.nodeMap.get(predNode);
+
+        if (currentBlock.equals(predBlock)) {
+            return predLlirNode;
+        } else {
+
+            if (!predBlock.getOutputNodes().contains(predLlirNode)) {
+                predBlock.addOutput(predLlirNode.asLlirNode());
+            }
+
+            return currentBlock.getMemoryInput();
+        }
+    }
+
     private BasicBlock getBasicBlock(Node n) {
         var firmBlock = n instanceof Block b ? b : (Block) n.getBlock();
         var block = this.blockMap.get(firmBlock);
@@ -370,7 +387,7 @@ public class FirmToLlir implements NodeVisitor {
     public void visit(Store store) {
         var bb = getBasicBlock(store);
 
-        var memNode = (SideEffect)this.nodeMap.get(store.getMem());
+        var memNode = getPredSideEffectNode(store, store.getMem());
         var addrNode = (RegisterNode)this.nodeMap.get(store.getPtr());
         var valueNode = (RegisterNode)this.nodeMap.get(store.getValue());
 
@@ -380,7 +397,7 @@ public class FirmToLlir implements NodeVisitor {
 
     public void visit(Load load) {
         var bb = getBasicBlock(load);
-        var memNode = (SideEffect)this.nodeMap.get(load.getMem());
+        var memNode = getPredSideEffectNode(load, load.getMem());
         var addrNode = (RegisterNode)this.nodeMap.get(load.getPtr());
 
         var llirLoad = bb.newMovLoad(addrNode, memNode);
@@ -391,7 +408,7 @@ public class FirmToLlir implements NodeVisitor {
         var bb = getBasicBlock(phi);
 
         if (phi.getMode().equals(Mode.getM())) {
-            var memoryInput = new MemoryInputNode(bb);
+            var memoryInput = bb.getMemoryInput();
             this.registerLlirNode(phi, memoryInput);
         } else {
             var register = this.llirGraph.getVirtualRegGenerator().nextRegister();

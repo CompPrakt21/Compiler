@@ -44,33 +44,21 @@ public class DumpLlir {
             this.out.format("subgraph cluster%s {\n", bb.getLabel());
             this.out.format("label=\"%s\"", bb.getLabel());
 
-            this.out.format("subgraph cluster%sin {\n", bb.getLabel());
-            this.out.println("rank=same");
-            this.out.println("style=invis");
             for (var in : bb.getInputNodes()) {
                 this.out.println(this.visitedNodes.get(in));
             }
-            this.out.println("}");
 
-            this.out.format("subgraph cluster%sout {\n", bb.getLabel());
-            this.out.println("rank=same");
-            this.out.println("style=invis");
             for (var out: bb.getOutputNodes()) {
                 if (out instanceof InputNode in && bb.getInputNodes().contains(in)) continue;
                 this.out.println(this.visitedNodes.get(out));
             }
             this.out.println(this.visitedNodes.get(bb.getEndNode()));
-            this.out.println("}");
 
-            this.out.format("subgraph cluster%srest {\n", bb.getLabel());
-            this.out.println("rank=same");
-            this.out.println("style=invis");
             for (var n: bb.getAllNodes()) {
                 if (!bb.getOutputNodes().contains(n) && !bb.getInputNodes().contains(n) && bb.getEndNode() != n) {
                     this.out.println(this.visitedNodes.get(n));
                 }
             }
-            this.out.println("}");
 
             this.out.println("}");
         }
@@ -133,10 +121,12 @@ public class DumpLlir {
         var isOutput = node instanceof RegisterNode regNode && regNode.getBasicBlock().getOutputNodes().contains(regNode);
         var isInput = node instanceof InputNode || node instanceof MemoryInputNode;
 
-        var shape = isInput || isOutput ? "ellipse" : "box";
+        var shape = isInput ? "hexagon" : isOutput ? "ellipse" : "box";
+
         var color = switch (node) {
             case ControlFlowNode ignored -> "red";
             case SideEffect ignored -> "cyan";
+            case MovImmediateInstruction ignored -> "orange";
             default -> "black";
         };
 
