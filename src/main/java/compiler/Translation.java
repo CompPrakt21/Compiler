@@ -736,6 +736,7 @@ public class Translation {
                 headerBlock.mature();
 
                 construction.setCurrentBlock(followingBlock);
+                this.emitJump = true;
             }
             case compiler.ast.Block block -> {
                 for (var stmt : block.getStatements()) {
