@@ -1,5 +1,7 @@
 package compiler.codegen.llir;
 
+import firm.nodes.Div;
+
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -123,6 +125,14 @@ public class BasicBlock {
 
     public MulInstruction newMul(RegisterNode lhs, RegisterNode rhs) {
         return new MulInstruction(this, lhs, rhs);
+    }
+
+    public DivInstruction newDiv(RegisterNode dividend, RegisterNode divisor, SideEffect sideEffect) {
+        return new DivInstruction(this, dividend, divisor, sideEffect);
+    }
+
+    public ModInstruction newMod(RegisterNode dividend, RegisterNode divisor, SideEffect sideEffect) {
+        return new ModInstruction(this, dividend, divisor, sideEffect);
     }
 
     public MovStoreInstruction newMovStore(RegisterNode addr, RegisterNode value, SideEffect sideEffect) {
