@@ -38,6 +38,6 @@ public final class MovStoreInstruction extends LlirNode implements SideEffect {
 
     @Override
     public String getMnemonic() {
-        return "mov";
+        return "mov-store";
     }
 }

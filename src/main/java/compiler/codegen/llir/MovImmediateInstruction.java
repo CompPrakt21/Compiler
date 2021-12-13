@@ -34,6 +34,6 @@ public final class MovImmediateInstruction extends RegisterNode {
 
     @Override
     public String getMnemonic() {
-        return "mov";
+        return "mov-imm";
     }
 }

@@ -25,6 +25,6 @@ public final class MovLoadInstruction extends RegisterNode implements SideEffect
 
     @Override
     public String getMnemonic() {
-        return "mov";
+        return "mov-load";
     }
 }

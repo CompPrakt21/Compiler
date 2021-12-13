@@ -11,6 +11,8 @@ public class BasicBlock {
 
     private List<InputNode> inputNodes;
 
+    private MemoryInputNode memoryInput;
+
     private ControlFlowNode endNode;
 
     private boolean finishedConstruction;
@@ -24,6 +26,7 @@ public class BasicBlock {
         this.finishedConstruction = false;
         this.endNode = null;
         this.graph = graph;
+        this.memoryInput = new MemoryInputNode(this);
     }
 
     public void finish(ControlFlowNode endNode) {
@@ -57,6 +60,10 @@ public class BasicBlock {
 
     public List<InputNode> getInputNodes() {
         return this.inputNodes;
+    }
+
+    public MemoryInputNode getMemoryInput() {
+        return this.memoryInput;
     }
 
     public InputNode addInput(Register register) {
