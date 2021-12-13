@@ -129,6 +129,10 @@ public class BasicBlock {
         return new MulInstruction(this, lhs, rhs);
     }
 
+    public XorInstruction newXor(RegisterNode lhs, RegisterNode rhs) {
+        return new XorInstruction(this, lhs, rhs);
+    }
+
     public DivInstruction newDiv(RegisterNode dividend, RegisterNode divisor, SideEffect sideEffect) {
         return new DivInstruction(this, dividend, divisor, sideEffect);
     }
