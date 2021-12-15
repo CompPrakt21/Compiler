@@ -311,6 +311,27 @@ public class FirmToLlir implements NodeVisitor {
         this.registerLlirNode(add, llirAdd);
     }
 
+    public void visit(Minus minus) {
+        var bb = getBasicBlock(minus);
+
+        var llirPred = (RegisterNode) getPredLlirNode(minus, minus.getOp());
+
+        var zero = bb.newMovImmediate(0);
+        var llirMinus = bb.newSub(zero, llirPred);
+
+        this.registerLlirNode(minus, llirMinus);
+    }
+
+    public void visit(Sub sub) {
+        var bb = getBasicBlock(sub);
+
+        var lhs = (RegisterNode)getPredLlirNode(sub, sub.getLeft());
+        var rhs = (RegisterNode)getPredLlirNode(sub, sub.getRight());
+
+        var llirAdd = bb.newSub(lhs, rhs);
+        this.registerLlirNode(sub, llirAdd);
+    }
+
     public void visit(Eor xor) {
         var bb = getBasicBlock(xor);
 
@@ -538,7 +559,6 @@ public class FirmToLlir implements NodeVisitor {
     public void visit(Block node) { throwUnsupportedNode(node); }
     public void visit(Builtin node) { throwUnsupportedNode(node); }
     public void visit(Confirm node) { throwUnsupportedNode(node); }
-    public void visit(Sub node) { throwUnsupportedNode(node); }
     public void visit(Switch node) { throwUnsupportedNode(node); }
     public void visit(Sync node) { throwUnsupportedNode(node); }
     public void visit(CopyB node) { throwUnsupportedNode(node); }
@@ -551,7 +571,6 @@ public class FirmToLlir implements NodeVisitor {
     public void visit(IJmp node) { throwUnsupportedNode(node); }
     public void visit(Id node) { throwUnsupportedNode(node); }
     public void visit(Member node) { throwUnsupportedNode(node); }
-    public void visit(Minus node) { throwUnsupportedNode(node); }
     public void visit(Mulh node) { throwUnsupportedNode(node); }
     public void visit(Mux node) { throwUnsupportedNode(node); }
     public void visit(NoMem node) { throwUnsupportedNode(node); }
