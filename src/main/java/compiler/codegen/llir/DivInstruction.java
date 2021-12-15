@@ -15,6 +15,18 @@ public final class DivInstruction extends RegisterNode implements SideEffect {
         initTargetRegister();
     }
 
+    public RegisterNode getDividend() {
+        return dividend;
+    }
+
+    public RegisterNode getDivisor() {
+        return divisor;
+    }
+
+    public SideEffect getSideEffect() {
+        return sideEffect;
+    }
+
     @Override
     public Stream<LlirNode> getPreds() {
         return Stream.of(this.dividend, this.divisor, this.sideEffect.asLlirNode());
