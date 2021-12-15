@@ -125,6 +125,10 @@ public class BasicBlock {
         return new AddInstruction(this, lhs, rhs);
     }
 
+    public SubInstruction newSub(RegisterNode lhs, RegisterNode rhs) {
+        return new SubInstruction(this, lhs, rhs);
+    }
+
     public MulInstruction newMul(RegisterNode lhs, RegisterNode rhs) {
         return new MulInstruction(this, lhs, rhs);
     }
