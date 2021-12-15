@@ -15,6 +15,14 @@ public final class ModInstruction extends RegisterNode implements SideEffect {
         initTargetRegister();
     }
 
+    public RegisterNode getDividend() {
+        return dividend;
+    }
+
+    public RegisterNode getDivisor() {
+        return divisor;
+    }
+
     @Override
     public Stream<LlirNode> getPreds() {
         return Stream.of(this.dividend, this.divisor, this.sideEffect.asLlirNode());
