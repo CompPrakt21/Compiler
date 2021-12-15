@@ -363,30 +363,46 @@ public class FirmToLlir implements NodeVisitor {
         bb.finish(llirJump);
     }
 
-    public void visit(Cmp cmp) {
+     public void visit(Cmp cmp) {
         var bb = getBasicBlock(cmp);
 
-        var lhs = (RegisterNode)getPredLlirNode(cmp, cmp.getLeft());
-        var rhs = (RegisterNode)getPredLlirNode(cmp, cmp.getRight());
+        var lhs = (RegisterNode) getPredLlirNode(cmp, cmp.getLeft());
+        var rhs = (RegisterNode) getPredLlirNode(cmp, cmp.getRight());
 
         var llirCmp = bb.newCmp(lhs, rhs);
         this.registerLlirNode(cmp, llirCmp);
     }
 
+    public void visit(Not not) {
+        var llirNode = getPredLlirNode(not, not.getOp());
+        registerLlirNode(not, llirNode);
+    }
+
+    private BranchInstruction.Predicate getCmpPredicate(Node node) {
+        if (node instanceof Not not) {
+            var pred = getCmpPredicate(not.getOp());
+            return pred.invert();
+        } else if (node instanceof Cmp cmp) {
+            return switch(cmp.getRelation()) {
+                case Equal -> BranchInstruction.Predicate.EQUAL;
+                case Less -> BranchInstruction.Predicate.LESS_THAN;
+                case LessEqual -> BranchInstruction.Predicate.LESS_EQUAL;
+                case Greater -> BranchInstruction.Predicate.GREATER_THAN;
+                case GreaterEqual -> BranchInstruction.Predicate.GREATER_EQUAL;
+                default -> throw new UnsupportedOperationException("Unsupported branch predicate");
+            };
+        } else {
+            throw new AssertionError("Unreacheable, method should only be called with a cmp node.");
+        }
+    }
+
     public void visit(Cond cond) {
         var bb = getBasicBlock(cond);
 
-        var cmpPred = (Cmp)cond.getSelector();
+        var cmpPred = cond.getSelector();
         var llirCmp = (CmpInstruction) getPredLlirNode(cond, cmpPred);
 
-        var predicate = switch(cmpPred.getRelation()) {
-            case Equal -> BranchInstruction.Predicate.EQUAL;
-            case Less -> BranchInstruction.Predicate.LESS_THAN;
-            case LessEqual -> BranchInstruction.Predicate.LESS_EQUAL;
-            case Greater -> BranchInstruction.Predicate.GREATER_THAN;
-            case GreaterEqual -> BranchInstruction.Predicate.GREATER_EQUAL;
-            default -> throw new UnsupportedOperationException("Unsupported branch predicate");
-        };
+        var predicate = getCmpPredicate(cmpPred);
 
         Proj trueProj = null;
         Proj falseProj = null;
@@ -539,7 +555,6 @@ public class FirmToLlir implements NodeVisitor {
     public void visit(Mulh node) { throwUnsupportedNode(node); }
     public void visit(Mux node) { throwUnsupportedNode(node); }
     public void visit(NoMem node) { throwUnsupportedNode(node); }
-    public void visit(Not node) { throwUnsupportedNode(node); }
     public void visit(Offset node) { throwUnsupportedNode(node); }
     public void visit(Or node) { throwUnsupportedNode(node); }
     public void visit(Pin node) { throwUnsupportedNode(node); }
