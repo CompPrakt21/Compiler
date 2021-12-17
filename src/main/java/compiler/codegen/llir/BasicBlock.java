@@ -81,7 +81,9 @@ public class BasicBlock {
     }
 
     public void addOutput(LlirNode out) {
-        this.outputNodes.add(out);
+        if (!this.outputNodes.contains(out)) {
+            this.outputNodes.add(out);
+        }
     }
 
     public Collection<LlirNode> getAllNodes() {

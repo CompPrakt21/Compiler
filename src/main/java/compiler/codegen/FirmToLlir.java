@@ -98,7 +98,7 @@ public class FirmToLlir implements NodeVisitor {
         BackEdges.enable(this.firmGraph);
 
         // Generate all basic blocks
-        this.firmGraph.walkBlocks(block -> {
+        this.firmGraph.walkBlocksPostorder(block -> {
             var blockEdge = new BlockEdges();
             blockEdge.incoming = block.getPredCount();
             blockEdge.outgoing = 0;
@@ -177,16 +177,17 @@ public class FirmToLlir implements NodeVisitor {
         throw new UnsupportedOperationException("asdf");
     }
 
-    private BasicBlock getBlock(Node n) {
-        return this.blockMap.get((Block) n.getBlock());
-    }
-
     private void registerLlirNode(Node firmNode, LlirNode llirNode) {
         this.nodeMap.put(firmNode, llirNode);
 
         if (this.unsourcedMoves.containsKey(firmNode)) {
             var regNode = (RegisterNode) llirNode;
             for (var mov : this.unsourcedMoves.get(firmNode)) {
+
+                if (mov.getBasicBlock() != getBasicBlock(firmNode)) {
+                    regNode = mov.getBasicBlock().addInput(regNode.getTargetRegister());
+                }
+
                 mov.setSource(regNode);
             }
             this.unsourcedMoves.remove(firmNode);
@@ -211,7 +212,7 @@ public class FirmToLlir implements NodeVisitor {
      * to the current basic block if the predecessor is in a different basic block.
      */
     private LlirNode getPredLlirNode(Node node, Node predNode) {
-        var currentBlock = getBlock(node);
+        var currentBlock = getBasicBlock(node);
 
         if (predNode instanceof Const constant) {
             // First we check if the predecessor node is a constant.
@@ -257,8 +258,8 @@ public class FirmToLlir implements NodeVisitor {
     }
 
     private SideEffect getPredSideEffectNode(Node node, Node predNode) {
-        var currentBlock = getBlock(node);
-        var predBlock = getBlock(predNode);
+        var currentBlock = getBasicBlock(node);
+        var predBlock = getBasicBlock(predNode);
         var predLlirNode = (SideEffect) this.nodeMap.get(predNode);
 
         if (currentBlock.equals(predBlock)) {
@@ -619,12 +620,12 @@ public class FirmToLlir implements NodeVisitor {
                 var pred = phi.getPred(i);
 
                 BasicBlock predBb;
-                if (isCriticalEdge(phi, pred)) {
+                if (isCriticalEdge(phi, phi.getBlock().getPred(i))) {
                     predBb = getInsertedBlockOnCriticalEdge((Block) phi.getBlock(), i);
 
                 } else {
                     assert pred.getBlock() != phi.getBlock();
-                    predBb = getBlock(pred);
+                    predBb = getBasicBlock(phi.getBlock().getPred(i));
                 }
 
                 if (pred instanceof Const c) {
