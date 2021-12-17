@@ -1,9 +1,6 @@
 package compiler.codegen.llir;
 
-import java.util.ArrayDeque;
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.List;
+import java.util.*;
 
 public class LlirGraph {
     private BasicBlock startBlock;
@@ -27,7 +24,7 @@ public class LlirGraph {
     }
 
     public Collection<BasicBlock> collectAllBasicBlocks() {
-        HashSet<BasicBlock> bbs = new HashSet<>();
+        List<BasicBlock> bbs = new ArrayList<>();
         ArrayDeque<BasicBlock> queue = new ArrayDeque<>();
         bbs.add(this.startBlock);
         queue.push(this.startBlock);

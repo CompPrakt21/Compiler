@@ -1,9 +1,13 @@
 package compiler;
 
 import compiler.ast.Program;
+import compiler.codegen.Emitter;
 import compiler.codegen.FirmToLlir;
+import compiler.codegen.MolkiEmitter;
 import compiler.codegen.NaiveScheduler;
+import compiler.codegen.llir.CallInstruction;
 import compiler.codegen.llir.DumpLlir;
+import compiler.codegen.llir.LlirGraph;
 import compiler.diagnostics.CompilerMessageReporter;
 import compiler.semantic.ConstantFolding;
 import compiler.semantic.WellFormed;
@@ -11,6 +15,7 @@ import compiler.semantic.resolution.NameResolution;
 import compiler.syntax.Lexer;
 import compiler.syntax.Parser;
 import compiler.syntax.Token;
+import compiler.types.VoidTy;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Model.CommandSpec;
@@ -26,6 +31,7 @@ import java.io.PrintWriter;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
+import java.util.HashMap;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.function.Function;
@@ -224,6 +230,8 @@ public class MainCommand implements Callable<Integer> {
 
             var graphs = FirmToLlir.lowerFirm(translationResult);
 
+            var schedules = new HashMap<LlirGraph, NaiveScheduler.ScheduleResult>();
+
             for (var pair : graphs.methodLlirGraphs().entrySet()) {
                 var name = pair.getKey().getLinkerName();
                 try {
@@ -233,6 +241,7 @@ public class MainCommand implements Callable<Integer> {
                 }
 
                 var scheduleResult = NaiveScheduler.schedule(pair.getValue());
+                schedules.put(pair.getValue(), scheduleResult);
                 try {
                     new DumpLlir(new PrintWriter(new File(String.format("llir-after-schedule_%s.dot", name))))
                             .withSchedule(scheduleResult.schedule())
@@ -240,6 +249,43 @@ public class MainCommand implements Callable<Integer> {
                 } catch (FileNotFoundException e) {
                     e.printStackTrace();
                 }
+            }
+
+            Emitter emitter = new MolkiEmitter();
+
+            for (var pair : graphs.methodLlirGraphs().entrySet()) {
+                String name = pair.getKey().getLinkerName();
+                if (frontend.mainMethod().getLinkerName().equals(name)) {
+                    name = "minijava_main";
+                }
+
+                emitter.beginFunction(name, pair.getKey().getParameterTy().size(), pair.getKey().getReturnTy() instanceof VoidTy);
+
+                var schedule = schedules.get(pair.getValue());
+
+                for (var block : pair.getValue().collectAllBasicBlocks()) {
+                    emitter.beginBlock(block);
+
+                    var currentNode = schedule.startNodes().get(block);
+
+                    while(schedule.schedule().contains(currentNode)) {
+
+                        emitter.emitInstruction(currentNode);
+                        currentNode = schedule.schedule().get(currentNode);
+                    }
+
+                    emitter.emitInstruction(currentNode);
+
+                    emitter.endBlock();
+                }
+
+                emitter.endFunction();
+            }
+
+            try {
+                emitter.write(new File(frontend.inputFile().getName() + ".s"));
+            } catch (IOException e) {
+                e.printStackTrace();
             }
 
             return false;

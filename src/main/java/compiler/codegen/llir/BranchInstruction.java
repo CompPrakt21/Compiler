@@ -7,7 +7,7 @@ import java.util.stream.Stream;
 public final class BranchInstruction extends ControlFlowNode {
 
     public enum Predicate {
-        GREATER_THAN("gt"), GREATER_EQUAL("ge"), LESS_THAN("lt"), LESS_EQUAL("le"), EQUAL("eq"), NOT_EQUAL("ne");
+        GREATER_THAN("g"), GREATER_EQUAL("ge"), LESS_THAN("l"), LESS_EQUAL("le"), EQUAL("e"), NOT_EQUAL("ne");
 
         private String suffix;
 

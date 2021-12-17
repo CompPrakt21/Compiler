@@ -25,7 +25,7 @@ public class AssemblyEmitter extends Emitter {
     }
 
     @Override
-    public void endBlock(ControlFlowNode endNode) {
+    public void endBlock() {
         // Do nothing for now, might be necessary elsewhere
     }
 

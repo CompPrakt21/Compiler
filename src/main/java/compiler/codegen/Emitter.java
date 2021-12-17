@@ -25,7 +25,7 @@ public abstract class Emitter {
     }
 
     public abstract void beginBlock(BasicBlock block);
-    public abstract void endBlock(ControlFlowNode endNode);
+    public abstract void endBlock();
 
     /* TODO: Add function information */
     public abstract void beginFunction(String name, int numArgs, boolean isVoid);
