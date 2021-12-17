@@ -1,5 +1,8 @@
 package compiler.codegen.llir;
 
+import java.util.ArrayDeque;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 
 public class LlirGraph {
@@ -21,6 +24,24 @@ public class LlirGraph {
         var label = String.format("BB%d", id);
 
         return new BasicBlock(this, label);
+    }
+
+    public Collection<BasicBlock> collectAllBasicBlocks() {
+        HashSet<BasicBlock> bbs = new HashSet<>();
+        ArrayDeque<BasicBlock> queue = new ArrayDeque<>();
+        bbs.add(this.startBlock);
+        queue.push(this.startBlock);
+
+        while (!queue.isEmpty()) {
+            for (var target : queue.pop().getEndNode().getTargets()) {
+                if (!bbs.contains(target)) {
+                    bbs.add(target);
+                    queue.add(target);
+                }
+            }
+        }
+
+        return bbs;
     }
 
     public VirtualRegister.Generator getVirtualRegGenerator() {

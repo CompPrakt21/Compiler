@@ -2,6 +2,7 @@ package compiler;
 
 import compiler.ast.Program;
 import compiler.codegen.FirmToLlir;
+import compiler.codegen.NaiveScheduler;
 import compiler.codegen.llir.DumpLlir;
 import compiler.diagnostics.CompilerMessageReporter;
 import compiler.semantic.ConstantFolding;
@@ -226,7 +227,16 @@ public class MainCommand implements Callable<Integer> {
             for (var pair : graphs.methodLlirGraphs().entrySet()) {
                 var name = pair.getKey().getLinkerName();
                 try {
-                    new DumpLlir(new PrintWriter(new File(String.format("llir_%s.dot", name)))).dump(pair.getValue());
+                    new DumpLlir(new PrintWriter(new File(String.format("llir-before-schedule_%s.dot", name)))).dump(pair.getValue());
+                } catch (FileNotFoundException e) {
+                    e.printStackTrace();
+                }
+
+                var scheduleResult = NaiveScheduler.schedule(pair.getValue());
+                try {
+                    new DumpLlir(new PrintWriter(new File(String.format("llir-after-schedule_%s.dot", name))))
+                            .withSchedule(scheduleResult.schedule())
+                            .dump(pair.getValue());
                 } catch (FileNotFoundException e) {
                     e.printStackTrace();
                 }

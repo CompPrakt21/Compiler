@@ -4,10 +4,13 @@ import java.io.PrintWriter;
 import java.util.*;
 import java.util.stream.Stream;
 
+@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class DumpLlir {
     private final PrintWriter out;
     private final HashMap<LlirNode, String> visitedNodes;
     private final HashSet<BasicBlock> visitedBasicBlocks;
+
+    private Optional<LlirAttribute<LlirNode>> schedule;
 
     private final Stack<BasicBlock> dumpStack;
 
@@ -21,6 +24,12 @@ public class DumpLlir {
         this.visitedBasicBlocks = new HashSet<>();
         this.dumpStack = new Stack<>();
         this.edges = new ArrayList<>();
+        this.schedule = Optional.empty();
+    }
+
+    public DumpLlir withSchedule(LlirAttribute<LlirNode> schedule) {
+        this.schedule = Optional.of(schedule);
+        return this;
     }
 
     public void dump(LlirGraph graph) {
@@ -94,8 +103,9 @@ public class DumpLlir {
                 this.edges.add(String.format("\t%s -> %s [label=\"%s\"]", node.getID(), pred.node.getID(), pred.label));
             });
 
-            if (node.getScheduleNext().isPresent()) {
-                this.edges.add(String.format("\t%s -> %s[color=purple, style=dashed]", node.getID(), node.getScheduleNext().get().getID()));
+            if (this.schedule.isPresent()) {
+                var target = this.schedule.get().tryGet(node);
+                target.ifPresent(llirNode -> this.edges.add(String.format("\t%s -> %s[color=purple, style=dashed, constraint=false]", node.getID(), llirNode.getID())));
             }
 
             if (node instanceof ControlFlowNode controlFlowNode) {
