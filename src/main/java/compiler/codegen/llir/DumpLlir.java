@@ -142,7 +142,7 @@ public class DumpLlir {
     private static String getNodeLabel(LlirNode node) {
         return switch (node) {
             case MovImmediateInstruction mov -> String.format("%s 0x%x", mov.getMnemonic(), mov.getImmediateValue());
-            case CallInstruction call -> String.format("%s %s", call.getMnemonic(), call.getCalledMethod().getLinkerName());
+            case CallInstruction call -> String.format("%s %s", call.getMnemonic(), call.getCalledMethod() != null ? call.getCalledMethod().getLinkerName() : "null");
             default -> node.getMnemonic();
         };
     }

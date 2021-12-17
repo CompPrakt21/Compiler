@@ -71,6 +71,12 @@ public class BasicBlock {
     }
 
     public InputNode addInput(Register register) {
+        for (var i : this.inputNodes) {
+            if (i.getTargetRegister().equals(register)) {
+                return i;
+            }
+        }
+
         var input = new InputNode(this, register);
         this.inputNodes.add(input);
         return input;
@@ -81,6 +87,7 @@ public class BasicBlock {
     }
 
     public void addOutput(LlirNode out) {
+        assert out != null;
         if (!this.outputNodes.contains(out)) {
             this.outputNodes.add(out);
         }
