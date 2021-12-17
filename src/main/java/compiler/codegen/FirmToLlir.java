@@ -45,7 +45,7 @@ public class FirmToLlir implements NodeVisitor {
     private final LlirGraph llirGraph;
 
     /**
-     * Remembers nodes that are to be marked as output nodes
+     * Remembers nodes that are to be marked as output nodes.
      */
     private final HashMap<Node, Register> markedOutNodes;
 
@@ -58,6 +58,13 @@ public class FirmToLlir implements NodeVisitor {
      * the register of said instruction.
      */
     private final HashMap<Node, List<MovRegisterInstruction>> unsourcedMoves;
+
+    /**
+     * Due to the so called 'swap problem' phis that are used by other phis in the
+     * same basic block need to use temporary values.
+     * We collect such phis in a pass before lowering.
+     */
+    private final HashSet<Node> temporariedPhis;
 
     /**
      * Remebers if node have been visited already.
@@ -74,6 +81,7 @@ public class FirmToLlir implements NodeVisitor {
         this.nodeMap = new HashMap<>();
         this.markedOutNodes = new HashMap<>();
         this.unsourcedMoves = new HashMap<>();
+        this.temporariedPhis = new HashSet<>();
         this.visited = new HashSet<>();
 
         this.translation = translation;
@@ -107,6 +115,13 @@ public class FirmToLlir implements NodeVisitor {
                 for (var succBlock : BackEdges.getOuts(node)) {
                     if (succBlock.node instanceof Block) {
                         this.blockEdges.get((Block)node.getBlock()).outgoing += 1;
+                    }
+                }
+            }
+            if (node instanceof Phi) {
+                for (var pred : node.getPreds()) {
+                    if (pred instanceof Phi) {
+                        this.temporariedPhis.add(pred);
                     }
                 }
             }
@@ -630,7 +645,14 @@ public class FirmToLlir implements NodeVisitor {
                 }
             }
 
-            this.registerLlirNode(phi, bb.newInput(register));
+            var input = bb.newInput(register);
+            if (this.temporariedPhis.contains(phi)) {
+                var tmpRegister = this.llirGraph.getVirtualRegGenerator().nextRegister();
+                var mov = bb.newMovRegisterInto(tmpRegister, input);
+                this.registerLlirNode(phi, mov);
+            } else {
+                this.registerLlirNode(phi, input);
+            }
         }
     }
 
