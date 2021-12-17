@@ -221,12 +221,15 @@ public class MainCommand implements Callable<Integer> {
 
             var translationResult = new Translation(frontend).translate(false);
 
-            var graph = FirmToLlir.lowerFirm(translationResult);
+            var graphs = FirmToLlir.lowerFirm(translationResult);
 
-            try {
-                new DumpLlir(new PrintWriter(new File("bb_out.dot"))).dump(graph);
-            } catch (FileNotFoundException e) {
-                e.printStackTrace();
+            for (var pair : graphs.methodLlirGraphs().entrySet()) {
+                var name = pair.getKey().getLinkerName();
+                try {
+                    new DumpLlir(new PrintWriter(new File(String.format("llir_%s.dot", name)))).dump(pair.getValue());
+                } catch (FileNotFoundException e) {
+                    e.printStackTrace();
+                }
             }
 
             return false;

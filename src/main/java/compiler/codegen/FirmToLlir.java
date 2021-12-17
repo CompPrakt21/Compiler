@@ -1,14 +1,13 @@
 package compiler.codegen;
 
-import compiler.FrontendResult;
 import compiler.TranslationResult;
 import compiler.codegen.llir.*;
+import compiler.semantic.resolution.DefinedMethod;
 import compiler.utils.GenericNodeWalker;
 import firm.*;
 import firm.nodes.*;
 
 import java.util.*;
-import java.util.function.Function;
 
 public class FirmToLlir implements NodeVisitor {
 
@@ -67,7 +66,14 @@ public class FirmToLlir implements NodeVisitor {
     private final HashSet<Node> temporariedPhis;
 
     /**
-     * Remebers if node have been visited already.
+     * When traversing the firm graph, we stop at phi nodes
+     * and resume at the phi's predecessors once the previous
+     * DFS has stopped.
+     */
+    private final ArrayDeque<Node> phiPredQueue;
+
+    /**
+     * Remembers if node have been visited already.
      */
     private final HashSet<Node> visited;
 
@@ -82,6 +88,7 @@ public class FirmToLlir implements NodeVisitor {
         this.markedOutNodes = new HashMap<>();
         this.unsourcedMoves = new HashMap<>();
         this.temporariedPhis = new HashSet<>();
+        this.phiPredQueue= new ArrayDeque<>();
         this.visited = new HashSet<>();
 
         this.translation = translation;
@@ -129,8 +136,6 @@ public class FirmToLlir implements NodeVisitor {
 
         // Create method parameter llir nodes
         // TODO: for now they are just input nodes, we probably want to support some calling convention.
-        BackEdges.disable(this.firmGraph);
-        BackEdges.enable(this.firmGraph);
         var startBlock = this.llirGraph.getStartBlock();
 
         var startNode = this.firmGraph.getStart();
@@ -142,11 +147,28 @@ public class FirmToLlir implements NodeVisitor {
                     var i = startBlock.newInput(this.llirGraph.getVirtualRegGenerator().nextRegister());
                     this.registerLlirNode(arg.node, i);
                 }
+            } else if (proj.node.getMode().equals(Mode.getM())) {
+                this.registerLlirNode(proj.node, startBlock.getMemoryInput());
             }
         }
 
         // Build llir
         this.visitNode(this.firmGraph.getEnd());
+
+        while (!this.phiPredQueue.isEmpty()) {
+            var node = this.phiPredQueue.pop();
+            this.visitNode(node);
+        }
+
+        // Mark all nodes with side effect, that are not used outside their bb as output nodes.
+        GenericNodeWalker.walkNodes(this.firmGraph, node -> {
+            for (var pred : node.getPreds()) {
+                if (pred.getMode().equals(Mode.getM()) && !pred.getBlock().equals(node.getBlock())) {
+                    var predBB = getBasicBlock(pred);
+                    predBB.addOutput(nodeMap.get(pred));
+                }
+            }
+        });
 
         assert this.unsourcedMoves.isEmpty();
 
@@ -160,21 +182,26 @@ public class FirmToLlir implements NodeVisitor {
         }
     }
 
-    public static LlirGraph lowerFirm(TranslationResult translationResult) {
+    public record LoweringResult(
+            Map<DefinedMethod, LlirGraph> methodLlirGraphs
+    ){}
+
+    public static LoweringResult lowerFirm(TranslationResult translationResult) {
         // TODO: replace with own lowering
         Util.lowerSels();
 
+        HashMap<DefinedMethod, LlirGraph> methodLlirGraphs = new HashMap<>();
+
         for (var method : translationResult.methodGraphs().keySet()) {
-            if (method.getName().equals("bar")) {
                 var graph = translationResult.methodGraphs().get(method);
-                var f = new FirmToLlir(graph, translationResult);
                 Dump.dumpGraph(graph, "before-lowering-to-llir");
+                var f = new FirmToLlir(graph, translationResult);
                 f.lower();
-                return f.llirGraph;
-            }
+                LlirVerifier.verify(f.llirGraph);
+                methodLlirGraphs.put(method, f.llirGraph);
         }
 
-        throw new UnsupportedOperationException("asdf");
+        return new LoweringResult(methodLlirGraphs);
     }
 
     private void registerLlirNode(Node firmNode, LlirNode llirNode) {
@@ -266,10 +293,6 @@ public class FirmToLlir implements NodeVisitor {
             return predLlirNode;
         } else {
 
-            if (!predBlock.getOutputNodes().contains(predLlirNode)) {
-                predBlock.addOutput(predLlirNode.asLlirNode());
-            }
-
             return currentBlock.getMemoryInput();
         }
     }
@@ -317,13 +340,11 @@ public class FirmToLlir implements NodeVisitor {
 
             for (var pred : n.getPreds()) {
                 // Ignore keep predecssors.
-                if (pred instanceof Block) continue;
-
-                this.visitNode(pred);
-
-                if (pred.getMode().equals(Mode.getM()) && !pred.getBlock().equals(n.getBlock())) {
-                    var predBB = getBasicBlock(pred);
-                    predBB.addOutput(nodeMap.get(pred));
+                if (n instanceof End) continue;
+                if (n instanceof Phi) {
+                    this.phiPredQueue.push(pred);
+                } else {
+                    this.visitNode(pred);
                 }
             }
 
@@ -349,6 +370,8 @@ public class FirmToLlir implements NodeVisitor {
 
         if (proj.getMode().equals(Mode.getX())) {
             // These nodes are handled by visit(Cond).
+        } else if (proj.getPred().equals(firmGraph.getStart())) {
+
         } else if (proj.getMode().equals(Mode.getM())) {
             if (predNode instanceof Start) {
                 var llirBlock = this.blockMap.get((Block) proj.getBlock());
@@ -365,6 +388,8 @@ public class FirmToLlir implements NodeVisitor {
             if (this.nodeMap.containsKey(predNode)) {
                 var llirPred = getPredLlirNode(proj, predNode);
                 this.registerLlirNode(proj, llirPred);
+            } else {
+                throw new AssertionError("Pred of proj node should have been visited before");
             }
 
         }
@@ -546,8 +571,8 @@ public class FirmToLlir implements NodeVisitor {
         var bb = getBasicBlock(store);
 
         var memNode = getPredSideEffectNode(store, store.getMem());
-        var addrNode = (RegisterNode)this.nodeMap.get(store.getPtr());
-        var valueNode = (RegisterNode)this.nodeMap.get(store.getValue());
+        var addrNode = (RegisterNode)getPredLlirNode(store, store.getPtr());
+        var valueNode = (RegisterNode)getPredLlirNode(store, store.getValue());
 
         var llirStore = bb.newMovStore(addrNode, valueNode, memNode);
         registerLlirNode(store, llirStore);
@@ -556,7 +581,7 @@ public class FirmToLlir implements NodeVisitor {
     public void visit(Load load) {
         var bb = getBasicBlock(load);
         var memNode = getPredSideEffectNode(load, load.getMem());
-        var addrNode = (RegisterNode)this.nodeMap.get(load.getPtr());
+        var addrNode = (RegisterNode)getPredLlirNode(load, load.getPtr());
 
         var llirLoad = bb.newMovLoad(addrNode, memNode);
         registerLlirNode(load, llirLoad);
@@ -620,6 +645,7 @@ public class FirmToLlir implements NodeVisitor {
                 var pred = phi.getPred(i);
 
                 BasicBlock predBb;
+                // What is the correct basic block to place mov for the phi.
                 if (isCriticalEdge(phi, phi.getBlock().getPred(i))) {
                     predBb = getInsertedBlockOnCriticalEdge((Block) phi.getBlock(), i);
 
@@ -628,15 +654,29 @@ public class FirmToLlir implements NodeVisitor {
                     predBb = getBasicBlock(phi.getBlock().getPred(i));
                 }
 
+                // If the predecessor is constant, simply rematerialize the value.
                 if (pred instanceof Const c) {
                     var mov = predBb.newMovImmediateInto(c.getTarval().asInt(), register);
                     predBb.addOutput(mov);
 
                 } else {
+                    // Now we need to handle a few cases
 
+                    // Get the potential predecessor llir node (it might be null, meaning it hasn't been visited yet)
                     var predRegNode = (RegisterNode) this.nodeMap.get(pred);
 
+                    // The llir predecessor node exists, but in a different block where we need to place the mov.
+                    // This means we're on a critical edge. Add input node to predBb so the mov has a valid source.
+                    if (predRegNode != null && predRegNode.getBasicBlock() != predBb) {
+                        predRegNode = predBb.addInput(predRegNode.getTargetRegister());
+                        predRegNode.getBasicBlock().addOutput(predRegNode);
+                    }
+
                     var mov = predBb.newMovRegisterInto(register, predRegNode);
+
+                    // If no predecessor node exist, create move the anyway and remember that we need to add
+                    // the source of the move once the predecessor has been created.
+                    // NOTE: If we're on a critical edge, the input node needed will be created by registerLlirNode
                     if (predRegNode == null) {
                         this.unsourcedMoves.putIfAbsent(pred, new ArrayList<>());
                         this.unsourcedMoves.get(pred).add(mov);
@@ -646,6 +686,9 @@ public class FirmToLlir implements NodeVisitor {
                 }
             }
 
+            // If this phi is in temporariedPhis, this means the swap problem might occur here.
+            // We need to store the value in a different register, than where the phi is accumulated
+            // and any use of this phi uses this new register.
             var input = bb.newInput(register);
             if (this.temporariedPhis.contains(phi)) {
                 var tmpRegister = this.llirGraph.getVirtualRegGenerator().nextRegister();
