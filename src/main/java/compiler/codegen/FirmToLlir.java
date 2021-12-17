@@ -3,10 +3,12 @@ package compiler.codegen;
 import compiler.FrontendResult;
 import compiler.TranslationResult;
 import compiler.codegen.llir.*;
+import compiler.utils.GenericNodeWalker;
 import firm.*;
 import firm.nodes.*;
 
 import java.util.*;
+import java.util.function.Function;
 
 public class FirmToLlir implements NodeVisitor {
 
@@ -16,6 +18,21 @@ public class FirmToLlir implements NodeVisitor {
      * Maps firm blocks to their corresponding BasicBlocks in the LlirGraph.
      */
     private final HashMap<Block, BasicBlock> blockMap;
+
+    /**
+     * Stores the number of incoming and outgoing edges of a block.
+     * We need this to determine whether an edge is critical.
+     */
+    private static class BlockEdges{ int incoming; int outgoing; }
+    private final HashMap<Block, BlockEdges> blockEdges;
+
+    /**
+     * On critical edges we need to insert basic blocks to resolve phi nodes.
+     * We store them in this hashmap where the key consists of the target block (which contains the phi)
+     * and the edge index. (phiNode.getPred(idx))
+     */
+    private record Edge(Block target, int idx) {}
+    private final HashMap<Edge, BasicBlock> insertedBlocks;
 
     /**
      * Maps firm nodes to their corresponding LlirNodes.
@@ -28,7 +45,7 @@ public class FirmToLlir implements NodeVisitor {
     private final LlirGraph llirGraph;
 
     /**
-     * Remembers nodes that are to be marked as out
+     * Remembers nodes that are to be marked as output nodes
      */
     private final HashMap<Node, Register> markedOutNodes;
 
@@ -51,6 +68,8 @@ public class FirmToLlir implements NodeVisitor {
 
 
     private FirmToLlir(Graph firmGraph, TranslationResult translation) {
+        this.blockEdges = new HashMap<>();
+        this.insertedBlocks = new HashMap<>();
         this.blockMap = new HashMap<>();
         this.nodeMap = new HashMap<>();
         this.markedOutNodes = new HashMap<>();
@@ -68,16 +87,34 @@ public class FirmToLlir implements NodeVisitor {
     }
 
     private void lower() {
+        BackEdges.enable(this.firmGraph);
+
         // Generate all basic blocks
         this.firmGraph.walkBlocks(block -> {
+            var blockEdge = new BlockEdges();
+            blockEdge.incoming = block.getPredCount();
+            blockEdge.outgoing = 0;
+            this.blockEdges.put(block, blockEdge);
+
             if (this.firmGraph.getEndBlock().equals(block) || this.firmGraph.getStartBlock().equals(block)) return;
             if (!this.blockMap.containsKey(block)) {
                 this.blockMap.put(block, this.llirGraph.newBasicBlock());
             }
         });
 
+        GenericNodeWalker.walkNodes(this.firmGraph, node -> {
+            if (node.getMode().equals(Mode.getX())) {
+                for (var succBlock : BackEdges.getOuts(node)) {
+                    if (succBlock.node instanceof Block) {
+                        this.blockEdges.get((Block)node.getBlock()).outgoing += 1;
+                    }
+                }
+            }
+        });
+
         // Create method parameter llir nodes
         // TODO: for now they are just input nodes, we probably want to support some calling convention.
+        BackEdges.disable(this.firmGraph);
         BackEdges.enable(this.firmGraph);
         var startBlock = this.llirGraph.getStartBlock();
 
@@ -228,6 +265,36 @@ public class FirmToLlir implements NodeVisitor {
         return block;
     }
 
+    /**
+     * Utility method to insert control flow edges into llir graph.
+     * If the control flow edge is critical, this method will insert
+     * the second jump from the inserted basic block to the original target block
+     * and return the inserted basic block.
+     * Otherwise it will return the provided targetBlock.
+     */
+    private BasicBlock insertControlFlowEdge(Node start, Block targetBlock) {
+        var startBlock = (Block)start.getBlock();
+
+        var targetBasicBlock = getBasicBlock(targetBlock);
+
+        var predIdx = -1;
+        for (int i = 0; i < targetBlock.getPredCount(); i++) {
+            if (targetBlock.getPred(i).equals(start)) {
+                predIdx = i;
+                break;
+            }
+        }
+        assert predIdx >= 0;
+
+        if (isCriticalEdge(targetBlock, start)) {
+            var insertedBb = getInsertedBlockOnCriticalEdge(targetBlock, predIdx);
+            insertedBb.finish(insertedBb.newJump(targetBasicBlock));
+            return insertedBb;
+        } else {
+            return targetBasicBlock;
+        }
+    }
+
     private void visitNode(Node n) {
         if (!this.visited.contains(n)) {
             this.visited.add(n);
@@ -265,6 +332,7 @@ public class FirmToLlir implements NodeVisitor {
         var predNode = proj.getPred();
 
         if (proj.getMode().equals(Mode.getX())) {
+            // These nodes are handled by visit(Cond).
         } else if (proj.getMode().equals(Mode.getM())) {
             if (predNode instanceof Start) {
                 var llirBlock = this.blockMap.get((Block) proj.getBlock());
@@ -378,10 +446,9 @@ public class FirmToLlir implements NodeVisitor {
         var bb = getBasicBlock(jump);
 
         var targetBlock = (Block)BackEdges.getOuts(jump).iterator().next().node;
-        var targetBasicBlock = this.blockMap.get(targetBlock);
 
-        var llirJump = bb.newJump(targetBasicBlock);
-        bb.finish(llirJump);
+        var actualTargetBlock = this.insertControlFlowEdge(jump, targetBlock);
+        bb.finish(bb.newJump(actualTargetBlock));
     }
 
      public void visit(Cmp cmp) {
@@ -443,10 +510,10 @@ public class FirmToLlir implements NodeVisitor {
         assert trueProj != null && falseProj != null;
 
         Block trueTargetBlock = (Block)BackEdges.getOuts(trueProj).iterator().next().node;
-        var trueTargetBasicBlock = getBasicBlock(trueTargetBlock);
+        var trueTargetBasicBlock = this.insertControlFlowEdge(trueProj, trueTargetBlock);
 
         Block falseTargetBlock = (Block)BackEdges.getOuts(falseProj).iterator().next().node;
-        var falseTargetBasicBlock = getBasicBlock(falseTargetBlock);
+        var falseTargetBasicBlock = this.insertControlFlowEdge(falseProj, falseTargetBlock);
 
         var llirBranch = bb.newBranch(predicate, llirCmp, trueTargetBasicBlock, falseTargetBasicBlock);
         this.registerLlirNode(cond, llirBranch);
@@ -499,6 +566,31 @@ public class FirmToLlir implements NodeVisitor {
         registerLlirNode(call, llirCall);
     }
 
+    /**
+     * Determines if an edge is critical.
+     * The method uses the dependency direction of the firmgraph,
+     * the actual control flow is reversed, going from end to start.
+     */
+    private boolean isCriticalEdge(Node start, Node end) {
+        var startBlock = start instanceof Block ? (Block) start : (Block)start.getBlock();
+        var endBlock = end instanceof Block ? (Block) end: (Block)end.getBlock();
+
+        return this.blockEdges.get(startBlock).incoming > 1 && this.blockEdges.get(endBlock).outgoing > 1;
+    }
+
+    /**
+     * Retrieves (and creates lazily) the basic block that is inserted on a critical edge in order to lower phis correctly.
+     */
+    private BasicBlock getInsertedBlockOnCriticalEdge(Block block, int predIdx) {
+        var edge = new Edge(block, predIdx);
+
+        if (!this.insertedBlocks.containsKey(edge)) {
+            this.insertedBlocks.put(edge, llirGraph.newBasicBlock());
+        }
+
+        return this.insertedBlocks.get(edge);
+    }
+
     public void visit(Phi phi) {
         var bb = getBasicBlock(phi);
 
@@ -511,14 +603,22 @@ public class FirmToLlir implements NodeVisitor {
             for (int i = 0; i < phi.getPredCount(); i++) {
                 var pred = phi.getPred(i);
 
+                BasicBlock predBb;
+                if (isCriticalEdge(phi, pred)) {
+                    predBb = getInsertedBlockOnCriticalEdge((Block) phi.getBlock(), i);
+
+                } else {
+                    assert pred.getBlock() != phi.getBlock();
+                    predBb = getBlock(pred);
+                }
+
                 if (pred instanceof Const c) {
-                    var predBb = getBasicBlock(phi.getBlock().getPred(i).getBlock());
                     var mov = predBb.newMovImmediateInto(c.getTarval().asInt(), register);
                     predBb.addOutput(mov);
 
-                } else if (pred.getBlock() != phi.getBlock()) {
+                } else {
+
                     var predRegNode = (RegisterNode) this.nodeMap.get(pred);
-                    var predBb = getBlock(pred);
 
                     var mov = predBb.newMovRegisterInto(register, predRegNode);
                     if (predRegNode == null) {
@@ -527,8 +627,6 @@ public class FirmToLlir implements NodeVisitor {
                     }
 
                     predBb.addOutput(mov);
-                } else {
-                    throw new UnsupportedOperationException("Ooops, this is a critical edge which we dont handle yet");
                 }
             }
 
