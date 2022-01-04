@@ -26,7 +26,7 @@ public class BackendTest {
         var a2 = startBlock.newAdd(a1, c3);
         var add = startBlock.newAdd(startBlock.getInputNodes().get(0), a2);
 
-        var outReg = generator.nextRegister();
+        var outReg = generator.nextRegister(Register.Width.BIT32);
         var add2 = startBlock.newAdd(add, a1);
         startBlock.addOutput(add2);
 

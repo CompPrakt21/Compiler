@@ -15,7 +15,7 @@ public abstract sealed class BinaryInstruction extends RegisterNode permits AddI
         this.lhs = lhs;
         this.rhs = rhs;
 
-        this.initTargetRegister();
+        this.initTargetRegister(lhs.getTargetRegister(), rhs.getTargetRegister());
     }
 
     public RegisterNode getLhs() {

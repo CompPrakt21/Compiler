@@ -129,6 +129,10 @@ public class BasicBlock {
         return new MovRegisterInstruction(this, target, source);
     }
 
+    public MovSignExtendInstruction newMovSignExtend(RegisterNode input) {
+        return new MovSignExtendInstruction(this, input);
+    }
+
     public AddInstruction newAdd(RegisterNode lhs, RegisterNode rhs) {
         return new AddInstruction(this, lhs, rhs);
     }
@@ -157,8 +161,8 @@ public class BasicBlock {
         return new MovStoreInstruction(this, sideEffect, addr, value);
     }
 
-    public MovLoadInstruction newMovLoad(RegisterNode addr, SideEffect sideEffect) {
-        return new MovLoadInstruction(this, sideEffect, addr);
+    public MovLoadInstruction newMovLoad(RegisterNode addr, SideEffect sideEffect, Register.Width outputWidth) {
+        return new MovLoadInstruction(this, sideEffect, addr, outputWidth);
     }
 
     public InputNode newInput(Register register) {
@@ -181,7 +185,11 @@ public class BasicBlock {
         return new BranchInstruction(this, predicate, cmp, trueBlock, falseBlock);
     }
 
-    public CallInstruction newCall(MethodDefinition calledMethod, SideEffect sideEffect, List<RegisterNode> arguments) {
-        return new CallInstruction(this, calledMethod, sideEffect, arguments);
+    public AllocCallInstruction newAllocCall(SideEffect sideEffect, RegisterNode numElements, RegisterNode elemSize) {
+        return new AllocCallInstruction(this, sideEffect, numElements, elemSize);
+    }
+
+    public MethodCallInstruction newMethodCall(MethodDefinition calledMethod, SideEffect sideEffect, List<RegisterNode> arguments) {
+        return new MethodCallInstruction(this, calledMethod, sideEffect, arguments);
     }
 }

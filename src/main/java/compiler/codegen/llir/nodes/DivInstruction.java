@@ -1,6 +1,7 @@
 package compiler.codegen.llir.nodes;
 
 import compiler.codegen.llir.BasicBlock;
+import compiler.codegen.llir.Register;
 
 import java.util.stream.Stream;
 
@@ -14,7 +15,7 @@ public final class DivInstruction extends RegisterNode implements SideEffect {
         this.dividend = dividend;
         this.divisor = divisor;
         this.sideEffect = sideEffect;
-        initTargetRegister();
+        initTargetRegister(Register.Width.BIT32);
     }
 
     public RegisterNode getDividend() {

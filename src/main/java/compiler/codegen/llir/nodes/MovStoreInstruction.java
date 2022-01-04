@@ -1,6 +1,7 @@
 package compiler.codegen.llir.nodes;
 
 import compiler.codegen.llir.BasicBlock;
+import compiler.codegen.llir.Register;
 
 import java.util.stream.Stream;
 
@@ -13,6 +14,7 @@ public final class MovStoreInstruction extends LlirNode implements SideEffect {
         super(bb);
         this.sideEffect = sideEffect;
         this.addrNode = addrNode;
+        assert addrNode.getTargetRegister().getWidth() == Register.Width.BIT64;
         this.valueNode = valueNode;
     }
 

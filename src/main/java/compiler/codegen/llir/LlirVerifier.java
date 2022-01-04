@@ -1,7 +1,11 @@
 package compiler.codegen.llir;
 
+import compiler.codegen.llir.nodes.AllocCallInstruction;
 import compiler.codegen.llir.nodes.ControlFlowNode;
 import compiler.codegen.llir.nodes.LlirNode;
+import compiler.codegen.llir.nodes.MethodCallInstruction;
+import compiler.types.ArrayTy;
+import compiler.types.ClassTy;
 
 import java.util.Objects;
 
@@ -44,9 +48,26 @@ public class LlirVerifier {
 
         node.getPreds().forEach(this::verifyNode);
 
-        if (node instanceof ControlFlowNode cfn) {
-            assert cfn.getTargets().stream().allMatch(Objects::nonNull);
-            cfn.getTargets().stream().forEach(this::verifyBasicBlock);
+        switch (node) {
+            case ControlFlowNode cfn -> {
+                assert cfn.getTargets().stream().allMatch(Objects::nonNull);
+                cfn.getTargets().stream().forEach(this::verifyBasicBlock);
+            }
+            case AllocCallInstruction a -> {
+                assert a.getTargetRegister().getWidth() == Register.Width.BIT64;
+            }
+            case MethodCallInstruction m -> {
+                var returnTy = m.getCalledMethod().getReturnTy();
+
+                var isWide = returnTy instanceof ClassTy || returnTy instanceof ArrayTy;
+
+                if (isWide) {
+                    assert m.getTargetRegister().getWidth() == Register.Width.BIT64;
+                } else {
+                    assert m.getTargetRegister().getWidth() == Register.Width.BIT32;
+                }
+            }
+            default -> {}
         }
     }
 

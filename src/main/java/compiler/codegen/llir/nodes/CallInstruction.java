@@ -1,46 +1,19 @@
 package compiler.codegen.llir.nodes;
 
 import compiler.codegen.llir.BasicBlock;
-import compiler.semantic.resolution.MethodDefinition;
 
 import java.util.List;
-import java.util.stream.Stream;
 
-public final class CallInstruction extends RegisterNode  implements SideEffect{
+public abstract sealed class CallInstruction extends RegisterNode  implements SideEffect permits AllocCallInstruction, MethodCallInstruction {
 
-    private SideEffect sideEffect;
-    private List<RegisterNode> arguments;
-    private MethodDefinition calledMethod;
+    protected SideEffect sideEffect;
 
-    public CallInstruction(BasicBlock bb, MethodDefinition calledMethod, SideEffect sideEffect, List<RegisterNode> args) {
+    public CallInstruction(BasicBlock bb, SideEffect sideEffect) {
         super(bb);
         this.sideEffect = sideEffect;
-        this.arguments = args;
-        this.calledMethod = calledMethod;
-        initTargetRegister();
     }
 
-    public SideEffect getSideEffect() {
-        return sideEffect;
-    }
-
-    public List<RegisterNode> getArguments() {
-        return arguments;
-    }
-
-    public MethodDefinition getCalledMethod() {
-        return calledMethod;
-    }
-
-    @Override
-    public Stream<LlirNode> getPreds() {
-        return Stream.concat(Stream.of(this.sideEffect.asLlirNode()), this.arguments.stream());
-    }
-
-    @Override
-    public int getPredSize() {
-        return this.arguments.size() + 1;
-    }
+    public abstract List<RegisterNode> getArguments();
 
     @Override
     public String getMnemonic() {

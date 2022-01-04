@@ -448,14 +448,16 @@ public class Translation {
         assert targetNode.getMode().equals(Mode.getP());
 
         var indexNode = translateExpr(expr.getIndexExpression());
+        var extendedIndexNode = construction.newConv(indexNode, Mode.getLs());
 
         var exprTy = (ArrayTy)frontend.expressionTypes().get(expr.getTarget()).orElseThrow();
         var childTy = exprTy.getChildTy();
         var childFirmType = getFirmType(childTy);
 
         var objectSize = construction.newSize(Mode.getIs(), childFirmType);
+        var extendedObjectSize = construction.newConv(objectSize, Mode.getLs());
 
-        var byteIndexNode = construction.newConv(construction.newMul(indexNode, objectSize), Mode.getLs());
+        var byteIndexNode = construction.newMul(extendedIndexNode, extendedObjectSize);
 
         return construction.newAdd(targetNode, byteIndexNode);
     }

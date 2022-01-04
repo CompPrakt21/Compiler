@@ -249,6 +249,7 @@ public class MainCommand implements Callable<Integer> {
                 }
             }
 
+            /*
             Emitter emitter = new MolkiEmitter();
 
             for (var pair : graphs.methodLlirGraphs().entrySet()) {
@@ -286,6 +287,7 @@ public class MainCommand implements Callable<Integer> {
                 e.printStackTrace();
             }
 
+        */
             return false;
         });
     }

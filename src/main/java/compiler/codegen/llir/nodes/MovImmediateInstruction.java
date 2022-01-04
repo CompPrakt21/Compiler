@@ -12,7 +12,7 @@ public final class MovImmediateInstruction extends RegisterNode {
     public MovImmediateInstruction(BasicBlock bb, int immediateValue) {
         super(bb);
         this.immediateValue = immediateValue;
-        this.initTargetRegister();
+        this.initTargetRegister(Register.Width.BIT32);
     }
 
     public MovImmediateInstruction(BasicBlock bb, int immediateValue, Register target) {

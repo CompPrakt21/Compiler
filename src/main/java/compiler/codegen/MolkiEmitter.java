@@ -25,7 +25,7 @@ public class MolkiEmitter extends Emitter {
     @Override
     public void beginBlock(BasicBlock block) {
         if (garbage == null) {
-            garbage = block.getGraph().getVirtualRegGenerator().nextRegister();
+            garbage = block.getGraph().getVirtualRegGenerator().next32Register();
         }
 
         this.append(block.getLabel() + ":");
@@ -53,25 +53,24 @@ public class MolkiEmitter extends Emitter {
                 asm += String.format("\n\tjmp %s", insn.getFalseBlock().getLabel());
             }
             case CallInstruction insn -> {
-                var calledMethod = insn.getCalledMethod();
+                boolean returnsNotVoid = switch (insn) {
+                    case MethodCallInstruction m -> !(m.getCalledMethod().getReturnTy() instanceof VoidTy);
+                    case AllocCallInstruction ignored -> true;
+                };
 
-                boolean returnsNotVoid = calledMethod == null || !(calledMethod.getReturnTy() instanceof VoidTy);
-
-                String calledName;
-                if (calledMethod == null) {
-                    calledName = "__stdlib_calloc";
-                } else {
-                    calledName = calledMethod.getLinkerName();
-                    if (calledName.equals("_System_out_println")) {
-                        calledName = "__stdlib_println";
-                    } else if (calledName.equals("_System_in_read")) {
-                        calledName = "__stdlib_read";
-                    } else if (calledName.equals("_System_out_write")) {
-                        calledName = "__stdlib_write";
-                    } else if (calledName.equals("_System_out_flush")) {
-                        calledName = "__stdlib_println";
+                String calledName = switch (insn) {
+                    case MethodCallInstruction m -> {
+                        String n = m.getCalledMethod().getLinkerName();
+                        yield switch (n) {
+                            case "_System_out_println" -> "__stdlib_println";
+                            case "_System_in_read" -> "__stdlib_read";
+                            case "_System_out_write" -> "__stdlib_write";
+                            case "_System_out_flush" -> "__stdlib_flush";
+                            default -> n;
+                        };
                     }
-                }
+                    case AllocCallInstruction ignored -> "__stdlib_calloc";
+                };
 
                 var args = insn.getArguments();
 

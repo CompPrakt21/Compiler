@@ -4,9 +4,11 @@ import java.util.Objects;
 
 public final class VirtualRegister extends Register {
     private final int id;
+    private final Width width;
 
-    private VirtualRegister(int id) {
+    private VirtualRegister(int id, Width width) {
         this.id = id;
+        this.width = width;
     }
 
     public int getId() {
@@ -28,7 +30,16 @@ public final class VirtualRegister extends Register {
 
     @Override
     public String getName() {
-        return String.format("v%s", getId());
+        var width = switch (this.getWidth()) {
+            case BIT32 -> "v";
+            case BIT64 -> "V";
+        };
+        return String.format("%s%s", width, getId());
+    }
+
+    @Override
+    public Width getWidth() {
+        return this.width;
     }
 
     public static class Generator {
@@ -38,8 +49,20 @@ public final class VirtualRegister extends Register {
             this.nextId = 1;
         }
 
-        public VirtualRegister nextRegister() {
-            var reg = new VirtualRegister(this.nextId);
+        public VirtualRegister next32Register() {
+            var reg = new VirtualRegister(this.nextId, Width.BIT32);
+            this.nextId += 1;
+            return reg;
+        }
+
+        public VirtualRegister next64Register() {
+            var reg = new VirtualRegister(this.nextId, Width.BIT64);
+            this.nextId += 1;
+            return reg;
+        }
+
+        public VirtualRegister nextRegister(Width width) {
+            var reg = new VirtualRegister(this.nextId, width);
             this.nextId += 1;
             return reg;
         }

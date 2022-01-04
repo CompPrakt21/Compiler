@@ -145,7 +145,7 @@ public class FirmToLlir implements NodeVisitor {
             if (proj.node.getMode().equals(Mode.getT())) {
                 for (var arg : BackEdges.getOuts(proj.node)) {
                     if (arg.node instanceof Anchor) continue;
-                    var i = startBlock.newInput(this.llirGraph.getVirtualRegGenerator().nextRegister());
+                    var i = startBlock.newInput(this.llirGraph.getVirtualRegGenerator().next32Register());
                     this.registerLlirNode(arg.node, i);
                 }
             } else if (proj.node.getMode().equals(Mode.getM())) {
@@ -180,6 +180,14 @@ public class FirmToLlir implements NodeVisitor {
             var basicBlock = llirNode.getBasicBlock();
 
             basicBlock.addOutput((RegisterNode) llirNode);
+        }
+    }
+
+    private static Register.Width modeToRegisterWidth(Mode m) {
+        if (m.equals(Mode.getP()) || m.equals(Mode.getLs()) || m.equals(Mode.getLu())) {
+            return Register.Width.BIT64;
+        } else {
+            return Register.Width.BIT32;
         }
     }
 
@@ -277,7 +285,7 @@ public class FirmToLlir implements NodeVisitor {
             if (this.markedOutNodes.containsKey(predNode)) {
                 inputRegister = this.markedOutNodes.get(predNode);
             } else {
-                inputRegister = this.llirGraph.getVirtualRegGenerator().nextRegister();
+                inputRegister = this.llirGraph.getVirtualRegGenerator().next32Register();
                 this.markedOutNodes.put(predNode, inputRegister);
             }
 
@@ -564,8 +572,16 @@ public class FirmToLlir implements NodeVisitor {
     }
 
     public void visit(Conv node) {
-        var pred = getPredLlirNode(node, node.getOp());
-        registerLlirNode(node, pred);
+        var bb = getBasicBlock(node);
+
+        var pred = (RegisterNode)getPredLlirNode(node, node.getOp());
+
+        assert node.getOp().getMode().equals(Mode.getIs());
+        assert node.getMode().equals(Mode.getLs());
+
+        var llirNode = bb.newMovSignExtend(pred);
+
+        registerLlirNode(node, llirNode);
     }
 
     public void visit(Store store) {
@@ -584,7 +600,17 @@ public class FirmToLlir implements NodeVisitor {
         var memNode = getPredSideEffectNode(load, load.getMem());
         var addrNode = (RegisterNode)getPredLlirNode(load, load.getPtr());
 
-        var llirLoad = bb.newMovLoad(addrNode, memNode);
+        // Find the mode of the loaded value, by searching for its proj node.
+        Mode outputMode = null;
+        for (var edge : BackEdges.getOuts(load)) {
+            // Ignore proj for memory value.
+            if (edge.node instanceof Proj proj && !proj.getMode().equals(Mode.getM())) {
+                outputMode = proj.getMode();
+            }
+        }
+        assert outputMode != null;
+
+        var llirLoad = bb.newMovLoad(addrNode, memNode, modeToRegisterWidth(outputMode));
         registerLlirNode(load, llirLoad);
     }
 
@@ -604,7 +630,15 @@ public class FirmToLlir implements NodeVisitor {
 
         var calledMethod = this.translation.methodReferences().get(call);
 
-        var llirCall = bb.newCall(calledMethod, memNode, args);
+        CallInstruction llirCall;
+        // If no corresponding method definition was found, it has to be an allocation invocation.
+        if (calledMethod == null) {
+            assert args.size() == 2;
+            llirCall = bb.newAllocCall(memNode, args.get(0), args.get(1));
+        } else {
+            llirCall = bb.newMethodCall(calledMethod, memNode, args);
+        }
+
         registerLlirNode(call, llirCall);
     }
 
@@ -640,7 +674,7 @@ public class FirmToLlir implements NodeVisitor {
             var memoryInput = bb.getMemoryInput();
             this.registerLlirNode(phi, memoryInput);
         } else {
-            var register = this.llirGraph.getVirtualRegGenerator().nextRegister();
+            var register = this.llirGraph.getVirtualRegGenerator().next32Register();
 
             for (int i = 0; i < phi.getPredCount(); i++) {
                 var pred = phi.getPred(i);
@@ -692,7 +726,7 @@ public class FirmToLlir implements NodeVisitor {
             // and any use of this phi uses this new register.
             var input = bb.newInput(register);
             if (this.temporariedPhis.contains(phi)) {
-                var tmpRegister = this.llirGraph.getVirtualRegGenerator().nextRegister();
+                var tmpRegister = this.llirGraph.getVirtualRegGenerator().nextRegister(input.getTargetRegister().getWidth());
                 var mov = bb.newMovRegisterInto(tmpRegister, input);
                 this.registerLlirNode(phi, mov);
             } else {
