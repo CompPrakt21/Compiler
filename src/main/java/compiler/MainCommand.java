@@ -6,6 +6,7 @@ import compiler.codegen.FirmToLlir;
 import compiler.codegen.MolkiEmitter;
 import compiler.codegen.NaiveScheduler;
 import compiler.codegen.llir.DumpLlir;
+import compiler.codegen.llir.DumpScheduledLlir;
 import compiler.codegen.llir.LlirGraph;
 import compiler.diagnostics.CompilerMessageReporter;
 import compiler.semantic.ConstantFolding;
@@ -241,9 +242,8 @@ public class MainCommand implements Callable<Integer> {
                 var scheduleResult = NaiveScheduler.schedule(pair.getValue());
                 schedules.put(pair.getValue(), scheduleResult);
                 try {
-                    new DumpLlir(new PrintWriter(new File(String.format("llir-after-schedule_%s.dot", name))))
-                            .withSchedule(scheduleResult.schedule())
-                            .dump(pair.getValue());
+                    new DumpScheduledLlir(new PrintWriter(new File(String.format("llir-after-schedule_%s.dot", name))))
+                            .dump(pair.getValue(), scheduleResult);
                 } catch (FileNotFoundException e) {
                     e.printStackTrace();
                 }

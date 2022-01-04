@@ -18,6 +18,14 @@ public final class AllocCallInstruction extends CallInstruction {
         initTargetRegister(Register.Width.BIT64);
     }
 
+    public RegisterNode getNumElements() {
+        return numElements;
+    }
+
+    public RegisterNode getElemSize() {
+        return elemSize;
+    }
+
     @Override
     public Stream<LlirNode> getPreds() {
         return Stream.of(this.sideEffect.asLlirNode(), this.elemSize, this.numElements);

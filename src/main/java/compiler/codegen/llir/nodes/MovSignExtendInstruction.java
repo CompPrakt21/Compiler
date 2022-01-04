@@ -18,6 +18,10 @@ public final class MovSignExtendInstruction extends RegisterNode {
         initTargetRegister(Register.Width.BIT64);
     }
 
+    public RegisterNode getInput() {
+        return input;
+    }
+
     @Override
     public Stream<LlirNode> getPreds() {
         return Stream.of(this.input);

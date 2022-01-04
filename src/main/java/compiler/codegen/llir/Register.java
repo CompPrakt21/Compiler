@@ -9,4 +9,9 @@ public abstract sealed class Register permits VirtualRegister, HardwareRegister 
     public abstract String getName();
 
     public abstract Width getWidth();
+
+    @Override
+    public String toString() {
+        return this.getName();
+    }
 }
