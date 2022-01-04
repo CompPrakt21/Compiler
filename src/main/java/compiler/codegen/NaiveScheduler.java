@@ -1,6 +1,9 @@
 package compiler.codegen;
 
 import compiler.codegen.llir.*;
+import compiler.codegen.llir.nodes.InputNode;
+import compiler.codegen.llir.nodes.LlirNode;
+import compiler.codegen.llir.nodes.MemoryInputNode;
 
 import java.util.*;
 import java.util.stream.Collectors;

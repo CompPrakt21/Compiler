@@ -1,12 +1,12 @@
 package compiler;
 
 import compiler.codegen.llir.*;
+import compiler.codegen.llir.nodes.MemoryInputNode;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.PrintWriter;
-import java.util.List;
 import java.util.Optional;
 
 public class BackendTest {
@@ -40,7 +40,7 @@ public class BackendTest {
         var memInputBb1 = new MemoryInputNode(bb1);
         var ret = bb1.newReturn(Optional.of(add3));
 
-        add3.setScheduleNext(ret);
+        //add3.setScheduleNext(ret);
 
         bb1.finish(ret);
 

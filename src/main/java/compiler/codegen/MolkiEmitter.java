@@ -1,7 +1,7 @@
 package compiler.codegen;
 
-import compiler.TranslationResult;
 import compiler.codegen.llir.*;
+import compiler.codegen.llir.nodes.*;
 import compiler.types.VoidTy;
 
 public class MolkiEmitter extends Emitter {

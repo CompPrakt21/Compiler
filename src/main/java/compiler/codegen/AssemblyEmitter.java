@@ -1,6 +1,7 @@
 package compiler.codegen;
 
 import compiler.codegen.llir.*;
+import compiler.codegen.llir.nodes.LlirNode;
 
 public class AssemblyEmitter extends Emitter {
 

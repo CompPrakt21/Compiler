@@ -1,5 +1,7 @@
 package compiler.codegen.llir;
 
+import compiler.codegen.llir.nodes.*;
+
 import java.io.PrintWriter;
 import java.util.*;
 import java.util.stream.Stream;

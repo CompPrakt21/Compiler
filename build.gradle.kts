@@ -23,7 +23,7 @@ dependencies {
 
 application {
     mainClass.set("compiler.MainCommand")
-    applicationDefaultJvmArgs = listOf("--enable-preview", "-Xss35m")
+    applicationDefaultJvmArgs = listOf("--enable-preview", "-Xss35m", "-ea")
 }
 
 buildDir = File("target")

@@ -1,4 +1,6 @@
-package compiler.codegen.llir;
+package compiler.codegen.llir.nodes;
+
+import compiler.codegen.llir.BasicBlock;
 
 public final class XorInstruction extends BinaryInstruction {
 

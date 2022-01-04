@@ -2,6 +2,7 @@ package compiler.codegen;
 
 import compiler.TranslationResult;
 import compiler.codegen.llir.*;
+import compiler.codegen.llir.nodes.*;
 import compiler.semantic.resolution.DefinedMethod;
 import compiler.utils.GenericNodeWalker;
 import firm.*;

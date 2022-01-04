@@ -1,7 +1,7 @@
-package compiler.codegen.llir;
+package compiler.codegen.llir.nodes;
 
+import compiler.codegen.llir.BasicBlock;
 import compiler.semantic.resolution.MethodDefinition;
-import firm.nodes.Call;
 
 import java.util.List;
 import java.util.stream.Stream;

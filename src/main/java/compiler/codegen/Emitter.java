@@ -1,12 +1,9 @@
 package compiler.codegen;
 
 import compiler.codegen.llir.BasicBlock;
-import compiler.codegen.llir.ControlFlowNode;
-import compiler.codegen.llir.LlirNode;
+import compiler.codegen.llir.nodes.LlirNode;
 
-import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.List;

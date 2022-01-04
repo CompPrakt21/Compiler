@@ -1,8 +1,7 @@
 package compiler.codegen.llir;
 
+import compiler.codegen.llir.nodes.*;
 import compiler.semantic.resolution.MethodDefinition;
-import firm.nodes.Call;
-import firm.nodes.Div;
 
 import java.util.*;
 import java.util.stream.Collectors;

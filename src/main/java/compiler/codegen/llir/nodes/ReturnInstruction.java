@@ -1,4 +1,6 @@
-package compiler.codegen.llir;
+package compiler.codegen.llir.nodes;
+
+import compiler.codegen.llir.BasicBlock;
 
 import java.util.Optional;
 import java.util.stream.Stream;

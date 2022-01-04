@@ -1,5 +1,7 @@
 package compiler.codegen.llir;
 
+import compiler.codegen.llir.nodes.LlirNode;
+
 import java.util.HashMap;
 import java.util.Optional;
 

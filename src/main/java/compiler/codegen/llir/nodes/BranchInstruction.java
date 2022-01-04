@@ -1,6 +1,6 @@
-package compiler.codegen.llir;
+package compiler.codegen.llir.nodes;
 
-import firm.nodes.Cmp;
+import compiler.codegen.llir.BasicBlock;
 
 import java.util.stream.Stream;
 

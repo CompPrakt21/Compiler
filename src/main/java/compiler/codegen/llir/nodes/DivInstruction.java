@@ -1,13 +1,15 @@
-package compiler.codegen.llir;
+package compiler.codegen.llir.nodes;
+
+import compiler.codegen.llir.BasicBlock;
 
 import java.util.stream.Stream;
 
-public final class ModInstruction extends RegisterNode implements SideEffect {
+public final class DivInstruction extends RegisterNode implements SideEffect {
     private RegisterNode dividend;
     private RegisterNode divisor;
     private SideEffect sideEffect;
 
-    public ModInstruction(BasicBlock bb, RegisterNode dividend, RegisterNode divisor, SideEffect sideEffect) {
+    public DivInstruction(BasicBlock bb, RegisterNode dividend, RegisterNode divisor, SideEffect sideEffect) {
         super(bb);
         this.dividend = dividend;
         this.divisor = divisor;
@@ -23,6 +25,10 @@ public final class ModInstruction extends RegisterNode implements SideEffect {
         return divisor;
     }
 
+    public SideEffect getSideEffect() {
+        return sideEffect;
+    }
+
     @Override
     public Stream<LlirNode> getPreds() {
         return Stream.of(this.dividend, this.divisor, this.sideEffect.asLlirNode());
@@ -35,6 +41,6 @@ public final class ModInstruction extends RegisterNode implements SideEffect {
 
     @Override
     public String getMnemonic() {
-        return "mod";
+        return "div";
     }
 }
