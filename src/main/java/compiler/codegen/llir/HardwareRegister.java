@@ -33,6 +33,9 @@ public final class HardwareRegister extends Register {
     public static final HardwareRegister R14D = new HardwareRegister("r14d", Width.BIT32);
     public static final HardwareRegister R15D = new HardwareRegister("r15d", Width.BIT32);
 
+    public static final HardwareRegister RSP = new HardwareRegister("rsp", Width.BIT64);
+    public static final HardwareRegister RBP = new HardwareRegister("rbp", Width.BIT64);
+
     private final String name;
     private final Width width;
 

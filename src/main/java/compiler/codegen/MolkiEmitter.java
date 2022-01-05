@@ -121,14 +121,6 @@ public class MolkiEmitter extends Emitter {
                 asm = String.format("\tjmp %s",
                         insn.getTarget().getLabel());
             }
-            case ModInstruction insn -> {
-                // TODO: This is wrong, molki needs you to pass two result registers
-                asm = String.format("\tidiv [%%@%d | %%@%d] -> [%%@%d | %%@%d]",
-                        ((VirtualRegister)insn.getDividend().getTargetRegister()).getId(),
-                        ((VirtualRegister)insn.getDivisor().getTargetRegister()).getId(),
-                        this.garbage.getId(),
-                        ((VirtualRegister)insn.getTargetRegister()).getId());
-            }
             case MovImmediateInstruction insn -> {
                 asm = String.format("\tmov $%d, %%@%d",
                         insn.getImmediateValue(),

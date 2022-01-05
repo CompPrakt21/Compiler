@@ -9,12 +9,18 @@ public final class DivInstruction extends RegisterNode implements SideEffect {
     private RegisterNode dividend;
     private RegisterNode divisor;
     private SideEffect sideEffect;
+    private DivType type;
 
-    public DivInstruction(BasicBlock bb, RegisterNode dividend, RegisterNode divisor, SideEffect sideEffect) {
+    public enum DivType {
+        Div, Mod
+    }
+
+    public DivInstruction(BasicBlock bb, RegisterNode dividend, RegisterNode divisor, SideEffect sideEffect, DivType type) {
         super(bb);
         this.dividend = dividend;
         this.divisor = divisor;
         this.sideEffect = sideEffect;
+        this.type = type;
         initTargetRegister(Register.Width.BIT32);
     }
 
@@ -30,6 +36,10 @@ public final class DivInstruction extends RegisterNode implements SideEffect {
         return sideEffect;
     }
 
+    public DivType getType() {
+        return type;
+    }
+
     @Override
     public Stream<LlirNode> getPreds() {
         return Stream.of(this.dividend, this.divisor, this.sideEffect.asLlirNode());
@@ -42,6 +52,9 @@ public final class DivInstruction extends RegisterNode implements SideEffect {
 
     @Override
     public String getMnemonic() {
-        return "div";
+        return switch (this.type) {
+            case Div -> "div";
+            case Mod -> "div (mod)";
+        };
     }
 }

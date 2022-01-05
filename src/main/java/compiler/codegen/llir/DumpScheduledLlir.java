@@ -34,7 +34,6 @@ public class DumpScheduledLlir {
                 var arguments = method.getArguments().stream().map(RegisterNode::getTargetRegister).collect(Collectors.toList());
                 yield String.format("%s <- %s %s (%s)", method.getTargetRegister(), method.getMnemonic(), method.getCalledMethod().getLinkerName(), arguments);
             }
-            case ModInstruction mod -> String.format("%s <- %s %s %s", mod.getTargetRegister(), mod.getMnemonic(), mod.getDividend().getTargetRegister(), mod.getDivisor().getTargetRegister());
             case MovImmediateInstruction movImm -> String.format("%s <- %s %s", movImm.getTargetRegister(), movImm.getMnemonic(), movImm.getImmediateValue());
             case MovLoadInstruction movLoad -> String.format("%s <- %s [%s]", movLoad.getTargetRegister(), movLoad.getMnemonic(), movLoad.getAddrNode().getTargetRegister());
             case MovRegisterInstruction movReg -> String.format("%s <- %s %s", movReg.getTargetRegister(), movReg.getMnemonic(), movReg.getSourceRegister().getTargetRegister());

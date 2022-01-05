@@ -150,11 +150,11 @@ public class BasicBlock {
     }
 
     public DivInstruction newDiv(RegisterNode dividend, RegisterNode divisor, SideEffect sideEffect) {
-        return new DivInstruction(this, dividend, divisor, sideEffect);
+        return new DivInstruction(this, dividend, divisor, sideEffect, DivInstruction.DivType.Div);
     }
 
-    public ModInstruction newMod(RegisterNode dividend, RegisterNode divisor, SideEffect sideEffect) {
-        return new ModInstruction(this, dividend, divisor, sideEffect);
+    public DivInstruction newMod(RegisterNode dividend, RegisterNode divisor, SideEffect sideEffect) {
+        return new DivInstruction(this, dividend, divisor, sideEffect, DivInstruction.DivType.Mod);
     }
 
     public MovStoreInstruction newMovStore(RegisterNode addr, RegisterNode value, SideEffect sideEffect) {
