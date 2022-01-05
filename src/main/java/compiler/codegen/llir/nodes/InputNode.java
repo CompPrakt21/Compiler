@@ -1,7 +1,7 @@
 package compiler.codegen.llir.nodes;
 
 import compiler.codegen.llir.BasicBlock;
-import compiler.codegen.llir.Register;
+import compiler.codegen.Register;
 
 import java.util.stream.Stream;
 

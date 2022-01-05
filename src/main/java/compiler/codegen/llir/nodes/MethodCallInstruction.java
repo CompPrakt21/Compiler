@@ -1,7 +1,7 @@
 package compiler.codegen.llir.nodes;
 
 import compiler.codegen.llir.BasicBlock;
-import compiler.codegen.llir.Register;
+import compiler.codegen.Register;
 import compiler.semantic.resolution.DefinedMethod;
 import compiler.semantic.resolution.MethodDefinition;
 import compiler.types.ArrayTy;

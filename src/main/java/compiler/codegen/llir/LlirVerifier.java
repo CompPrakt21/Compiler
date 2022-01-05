@@ -1,5 +1,6 @@
 package compiler.codegen.llir;
 
+import compiler.codegen.Register;
 import compiler.codegen.llir.nodes.AllocCallInstruction;
 import compiler.codegen.llir.nodes.ControlFlowNode;
 import compiler.codegen.llir.nodes.LlirNode;

@@ -1,5 +1,7 @@
 package compiler;
 
+import compiler.codegen.Register;
+import compiler.codegen.VirtualRegister;
 import compiler.codegen.llir.*;
 import compiler.codegen.llir.nodes.MemoryInputNode;
 import org.junit.jupiter.api.Test;

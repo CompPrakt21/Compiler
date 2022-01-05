@@ -1,5 +1,7 @@
 package compiler.codegen.llir;
 
+import compiler.codegen.VirtualRegister;
+
 import java.util.*;
 
 public class LlirGraph {

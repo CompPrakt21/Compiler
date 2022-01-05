@@ -538,17 +538,17 @@ public class FirmToLlir implements NodeVisitor {
         registerLlirNode(not, llirNode);
     }
 
-    private BranchInstruction.Predicate getCmpPredicate(Node node) {
+    private Predicate getCmpPredicate(Node node) {
         if (node instanceof Not not) {
             var pred = getCmpPredicate(not.getOp());
             return pred.invert();
         } else if (node instanceof Cmp cmp) {
             return switch(cmp.getRelation()) {
-                case Equal -> BranchInstruction.Predicate.EQUAL;
-                case Less -> BranchInstruction.Predicate.LESS_THAN;
-                case LessEqual -> BranchInstruction.Predicate.LESS_EQUAL;
-                case Greater -> BranchInstruction.Predicate.GREATER_THAN;
-                case GreaterEqual -> BranchInstruction.Predicate.GREATER_EQUAL;
+                case Equal -> Predicate.EQUAL;
+                case Less -> Predicate.LESS_THAN;
+                case LessEqual -> Predicate.LESS_EQUAL;
+                case Greater -> Predicate.GREATER_THAN;
+                case GreaterEqual -> Predicate.GREATER_EQUAL;
                 default -> throw new UnsupportedOperationException("Unsupported branch predicate");
             };
         } else {

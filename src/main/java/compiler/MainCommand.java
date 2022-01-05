@@ -5,6 +5,8 @@ import compiler.codegen.*;
 import compiler.codegen.llir.DumpLlir;
 import compiler.codegen.llir.DumpScheduledLlir;
 import compiler.codegen.llir.LlirGraph;
+import compiler.codegen.sir.DumpSir;
+import compiler.codegen.sir.SirGraph;
 import compiler.diagnostics.CompilerMessageReporter;
 import compiler.semantic.ConstantFolding;
 import compiler.semantic.WellFormed;
@@ -226,7 +228,7 @@ public class MainCommand implements Callable<Integer> {
 
             var graphs = FirmToLlir.lowerFirm(translationResult);
 
-            var schedules = new HashMap<LlirGraph, ScheduleResult>();
+            var schedules = new HashMap<LlirGraph, SirGraph>();
 
             for (var pair : graphs.methodLlirGraphs().entrySet()) {
                 var name = pair.getKey().getLinkerName();
@@ -237,10 +239,17 @@ public class MainCommand implements Callable<Integer> {
                 }
 
                 var scheduleResult = NaiveScheduler.schedule(pair.getValue());
-                schedules.put(pair.getValue(), scheduleResult);
                 try {
                     new DumpScheduledLlir(new PrintWriter(new File(String.format("llir-after-schedule_%s.dot", name))))
                             .dump(pair.getValue(), scheduleResult);
+                } catch (FileNotFoundException e) {
+                    e.printStackTrace();
+                }
+
+                var sirGraph = new LlirToSir(pair.getValue(), scheduleResult).transform();
+                schedules.put(pair.getValue(), sirGraph);
+                try {
+                    new DumpSir(new PrintWriter(new File(String.format("sir-before-reg-alloc_%s.dot", name))), sirGraph).dump();
                 } catch (FileNotFoundException e) {
                     e.printStackTrace();
                 }

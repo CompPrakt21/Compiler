@@ -1,9 +1,9 @@
 package compiler;
 
 import compiler.codegen.MolkiEmitter;
+import compiler.codegen.VirtualRegister;
 import compiler.codegen.llir.*;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Disabled;
 
 import java.io.File;
 import java.io.IOException;

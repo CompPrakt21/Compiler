@@ -1,5 +1,7 @@
 package compiler.codegen.llir;
 
+import compiler.codegen.Predicate;
+import compiler.codegen.Register;
 import compiler.codegen.llir.nodes.*;
 import compiler.semantic.resolution.MethodDefinition;
 
@@ -181,7 +183,7 @@ public class BasicBlock {
         return new CmpInstruction(this, lhs, rhs);
     }
 
-    public BranchInstruction newBranch(BranchInstruction.Predicate predicate, CmpInstruction cmp, BasicBlock trueBlock, BasicBlock falseBlock) {
+    public BranchInstruction newBranch(Predicate predicate, CmpInstruction cmp, BasicBlock trueBlock, BasicBlock falseBlock) {
         return new BranchInstruction(this, predicate, cmp, trueBlock, falseBlock);
     }
 
