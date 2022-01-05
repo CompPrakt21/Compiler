@@ -9,18 +9,16 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 public class NaiveScheduler {
-    private final List<LlirNode> scheduleList;
-    private final Map<BasicBlock, LlirNode> startNodes;
+    private List<LlirNode> scheduleList;
     private final LlirAttribute<Visited> visited;
-    private final LlirAttribute<LlirNode> schedule;
+    private final Map<BasicBlock, List<LlirNode>> schedule;
 
     private final LlirGraph graph;
 
     private NaiveScheduler(LlirGraph graph) {
         this.scheduleList = new ArrayList<>();
-        this.startNodes = new HashMap<>();
         this.visited = new LlirAttribute<>();
-        this.schedule = new LlirAttribute<>();
+        this.schedule = new HashMap<>();
         this.graph = graph;
     }
 
@@ -29,18 +27,14 @@ public class NaiveScheduler {
     }
 
     private void scheduleBasicBlock(BasicBlock bb) {
-        this.scheduleList.clear();
 
         for (var node : bb.getOutputNodes()) {
             this.scheduleNode(node);
         }
         this.scheduleNode(bb.getEndNode());
 
-        for (int i = 0; i < this.scheduleList.size() - 1; i++) {
-            this.schedule.set(this.scheduleList.get(i), this.scheduleList.get(i + 1));
-        }
-
-        this.startNodes.put(bb, this.scheduleList.get(0));
+        this.schedule.put(bb, this.scheduleList);
+        this.scheduleList = new ArrayList<>();
     }
 
     private void scheduleNode(LlirNode node) {
@@ -49,7 +43,7 @@ public class NaiveScheduler {
         }
         this.visited.set(node, Visited.VISITED);
 
-        var preds = node.getPreds().collect(Collectors.toList());
+        var preds = node.getPreds().toList();
 
         for (var pred : preds) {
             this.scheduleNode(pred);
@@ -64,16 +58,11 @@ public class NaiveScheduler {
         }
     }
 
-    public record ScheduleResult(
-        LlirAttribute<LlirNode> schedule,
-        Map<BasicBlock, LlirNode> startNodes
-    ){}
-
     public static ScheduleResult schedule(LlirGraph graph) {
         var scheduler = new NaiveScheduler(graph);
 
         scheduler.schedule();
 
-        return new ScheduleResult(scheduler.schedule, scheduler.startNodes);
+        return new ScheduleResult(scheduler.schedule);
     }
 }

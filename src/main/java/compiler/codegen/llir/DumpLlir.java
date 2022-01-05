@@ -1,5 +1,6 @@
 package compiler.codegen.llir;
 
+import compiler.codegen.ScheduleResult;
 import compiler.codegen.llir.nodes.*;
 
 import java.io.PrintWriter;
@@ -12,7 +13,7 @@ public class DumpLlir {
     private final HashMap<LlirNode, String> visitedNodes;
     private final HashSet<BasicBlock> visitedBasicBlocks;
 
-    private Optional<LlirAttribute<LlirNode>> schedule;
+    private Optional<ScheduleResult> schedule;
 
     private final Stack<BasicBlock> dumpStack;
 
@@ -29,7 +30,7 @@ public class DumpLlir {
         this.schedule = Optional.empty();
     }
 
-    public DumpLlir withSchedule(LlirAttribute<LlirNode> schedule) {
+    public DumpLlir withSchedule(ScheduleResult schedule) {
         this.schedule = Optional.of(schedule);
         return this;
     }
@@ -106,8 +107,14 @@ public class DumpLlir {
             });
 
             if (this.schedule.isPresent()) {
-                var target = this.schedule.get().tryGet(node);
-                target.ifPresent(llirNode -> this.edges.add(String.format("\t%s -> %s[color=purple, style=dashed, constraint=false]", node.getID(), llirNode.getID())));
+                var schedule = this.schedule.get().schedule().get(node.getBasicBlock());
+                var nodeScheduleIdx = schedule.indexOf(node);
+                var targetScheduleIdx = nodeScheduleIdx + 1;
+
+                if (targetScheduleIdx < schedule.size()) {
+                    var target = schedule.get(targetScheduleIdx);
+                    this.edges.add(String.format("\t%s -> %s[color=purple, style=dashed, constraint=false]", node.getID(), target.getID()));
+                }
             }
 
             if (node instanceof ControlFlowNode controlFlowNode) {

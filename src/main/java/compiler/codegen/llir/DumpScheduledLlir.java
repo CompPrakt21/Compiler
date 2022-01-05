@@ -1,6 +1,6 @@
 package compiler.codegen.llir;
 
-import compiler.codegen.NaiveScheduler;
+import compiler.codegen.ScheduleResult;
 import compiler.codegen.llir.nodes.*;
 
 import java.io.PrintWriter;
@@ -11,7 +11,7 @@ public class DumpScheduledLlir {
     private final PrintWriter out;
 
     private LlirGraph graph;
-    private NaiveScheduler.ScheduleResult schedule;
+    private ScheduleResult schedule;
 
     private final HashSet<BasicBlock> visitedBlocks;
 
@@ -58,18 +58,10 @@ public class DumpScheduledLlir {
         StringBuilder label = new StringBuilder();
         label.append(String.format("%s\\l", bb.getLabel()));
 
-        var currentNode = this.schedule.startNodes().get(bb);
+        var schedule = this.schedule.schedule().get(bb);
 
-        while (true) {
-            label.append(String.format("%s\\l", this.formatNode(currentNode)));
-
-            var nextNode = this.schedule.schedule().tryGet(currentNode);
-
-            if (nextNode.isEmpty()) {
-                break;
-            }
-
-            currentNode = nextNode.get();
+        for (var instruction : schedule) {
+            label.append(String.format("%s\\l", this.formatNode(instruction)));
         }
 
         this.out.format("%s [label=\"%s\", shape=rectangle];\n", bb.getLabel(), label);
@@ -88,7 +80,7 @@ public class DumpScheduledLlir {
         }
     }
 
-    public void dump(LlirGraph graph, NaiveScheduler.ScheduleResult schedule) {
+    public void dump(LlirGraph graph, ScheduleResult schedule) {
         this.graph = graph;
         this.schedule = schedule;
 

@@ -1,10 +1,7 @@
 package compiler;
 
 import compiler.ast.Program;
-import compiler.codegen.Emitter;
-import compiler.codegen.FirmToLlir;
-import compiler.codegen.MolkiEmitter;
-import compiler.codegen.NaiveScheduler;
+import compiler.codegen.*;
 import compiler.codegen.llir.DumpLlir;
 import compiler.codegen.llir.DumpScheduledLlir;
 import compiler.codegen.llir.LlirGraph;
@@ -229,7 +226,7 @@ public class MainCommand implements Callable<Integer> {
 
             var graphs = FirmToLlir.lowerFirm(translationResult);
 
-            var schedules = new HashMap<LlirGraph, NaiveScheduler.ScheduleResult>();
+            var schedules = new HashMap<LlirGraph, ScheduleResult>();
 
             for (var pair : graphs.methodLlirGraphs().entrySet()) {
                 var name = pair.getKey().getLinkerName();
