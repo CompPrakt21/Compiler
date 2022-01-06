@@ -149,7 +149,6 @@ public class FirmToLlir implements NodeVisitor {
         });
 
         // Create method parameter llir nodes
-        // TODO: for now they are just input nodes, we probably want to support some calling convention.
         var startBlock = this.llirGraph.getStartBlock();
 
         var startNode = this.firmGraph.getStart();
@@ -320,8 +319,7 @@ public class FirmToLlir implements NodeVisitor {
             if (this.markedOutNodes.containsKey(predNode)) {
                 inputRegister = this.markedOutNodes.get(predNode);
             } else {
-                // TODO: this is not always 32 bit
-                inputRegister = this.llirGraph.getVirtualRegGenerator().next32Register();
+                inputRegister = this.llirGraph.getVirtualRegGenerator().nextRegister(modeToRegisterWidth(predNode.getMode()));
                 this.markedOutNodes.put(predNode, inputRegister);
             }
 
@@ -711,8 +709,7 @@ public class FirmToLlir implements NodeVisitor {
             var memoryInput = bb.getMemoryInput();
             this.registerLlirNode(phi, memoryInput);
         } else {
-            // TODO: this is not always 32 bit
-            var register = this.llirGraph.getVirtualRegGenerator().next32Register();
+            var register = this.llirGraph.getVirtualRegGenerator().nextRegister(modeToRegisterWidth(phi.getMode()));
 
             for (int i = 0; i < phi.getPredCount(); i++) {
                 var pred = phi.getPred(i);
