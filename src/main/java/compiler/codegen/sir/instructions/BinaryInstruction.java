@@ -1,12 +1,13 @@
 package compiler.codegen.sir.instructions;
 
+import compiler.codegen.Operand;
 import compiler.codegen.Register;
 
 public abstract sealed class BinaryInstruction extends RegisterInstruction permits AddInstruction, DivInstruction, SubInstruction, MulInstruction, XorInstruction {
     protected Register lhs;
-    protected Register rhs;
+    protected Operand rhs;
 
-    public BinaryInstruction(Register target, Register lhs, Register rhs) {
+    public BinaryInstruction(Register target, Register lhs, Operand rhs) {
         super(target);
         this.lhs = lhs;
         this.rhs = rhs;
@@ -20,11 +21,11 @@ public abstract sealed class BinaryInstruction extends RegisterInstruction permi
         this.lhs = lhs;
     }
 
-    public Register getRhs() {
+    public Operand getRhs() {
         return rhs;
     }
 
-    public void setRhs(Register rhs) {
+    public void setRhs(Operand rhs) {
         this.rhs = rhs;
     }
 }

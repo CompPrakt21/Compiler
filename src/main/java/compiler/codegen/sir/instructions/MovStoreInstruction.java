@@ -1,21 +1,22 @@
 package compiler.codegen.sir.instructions;
 
 import compiler.codegen.Register;
+import compiler.codegen.MemoryLocation;
 
 public final class MovStoreInstruction extends Instruction {
-    private Register address;
+    private MemoryLocation address;
     private Register value;
 
-    public MovStoreInstruction(Register address, Register value) {
+    public MovStoreInstruction(MemoryLocation address, Register value) {
         this.address = address;
         this.value = value;
     }
 
-    public Register getAddress() {
+    public MemoryLocation getAddress() {
         return address;
     }
 
-    public void setAddress(Register address) {
+    public void setAddress(MemoryLocation address) {
         this.address = address;
     }
 

@@ -1,13 +1,22 @@
 package compiler.codegen.sir;
 
-public class SirGraph {
-    private BasicBlock startBlock;
+import java.util.List;
 
-    public SirGraph(BasicBlock startBlock) {
+public class SirGraph {
+    private final BasicBlock startBlock;
+
+    private final List<BasicBlock> blocks;
+
+    public SirGraph(BasicBlock startBlock, List<BasicBlock> blocks) {
         this.startBlock = startBlock;
+        this.blocks = blocks;
     }
 
     public BasicBlock getStartBlock() {
         return startBlock;
+    }
+
+    public List<BasicBlock> getBlocks() {
+        return this.blocks;
     }
 }

@@ -22,6 +22,6 @@ public final class ReturnInstruction extends ControlFlowInstruction {
 
     @Override
     public String getMnemonic() {
-        return "mul";
+        return "ret";
     }
 }

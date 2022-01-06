@@ -14,6 +14,10 @@ public final class MovSignExtendInstruction extends RegisterInstruction {
         return input;
     }
 
+    public void setInput(Register input) {
+        this.input = input;
+    }
+
     @Override
     public String getMnemonic() {
         return "mov-sx";

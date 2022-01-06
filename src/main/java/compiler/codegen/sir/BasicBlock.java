@@ -22,6 +22,10 @@ public class BasicBlock {
         return instructions;
     }
 
+    public void setInstructions(List<Instruction> instructions) {
+        this.instructions = instructions;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

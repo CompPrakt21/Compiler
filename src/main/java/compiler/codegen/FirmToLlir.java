@@ -48,6 +48,11 @@ public class FirmToLlir implements NodeVisitor {
     private final LlirGraph llirGraph;
 
     /**
+     * The virtual registers used as method parameters.
+     */
+    private final List<VirtualRegister> methodParameters;
+
+    /**
      * Remembers nodes that are to be marked as output nodes.
      */
     private final HashMap<Node, Register> markedOutNodes;
@@ -104,6 +109,7 @@ public class FirmToLlir implements NodeVisitor {
         var gen = new VirtualRegister.Generator();
 
         this.llirGraph = new LlirGraph(gen);
+        this.methodParameters = new ArrayList<>();
         this.firmGraph = firmGraph;
 
         this.blockMap.put(firmGraph.getStartBlock(), llirGraph.getStartBlock());
@@ -152,8 +158,13 @@ public class FirmToLlir implements NodeVisitor {
             if (proj.node.getMode().equals(Mode.getT())) {
                 for (var arg : BackEdges.getOuts(proj.node)) {
                     if (arg.node instanceof Anchor) continue;
-                    // TODO: this is not always 32bit.
-                    var i = startBlock.newInput(this.llirGraph.getVirtualRegGenerator().next32Register());
+
+                    var width = modeToRegisterWidth(arg.node.getMode());
+
+                    var virtReg = this.llirGraph.getVirtualRegGenerator().nextRegister(width);
+                    var i = startBlock.newInput(virtReg);
+                    this.methodParameters.add(virtReg);
+
                     this.registerLlirNode(arg.node, i);
                 }
             } else if (proj.node.getMode().equals(Mode.getM())) {
@@ -200,7 +211,8 @@ public class FirmToLlir implements NodeVisitor {
     }
 
     public record LoweringResult(
-            Map<DefinedMethod, LlirGraph> methodLlirGraphs
+            Map<DefinedMethod, LlirGraph> methodLlirGraphs,
+            Map<DefinedMethod, List<VirtualRegister>> methodParameters
     ){}
 
     public static LoweringResult lowerFirm(TranslationResult translationResult) {
@@ -208,6 +220,7 @@ public class FirmToLlir implements NodeVisitor {
         Util.lowerSels();
 
         HashMap<DefinedMethod, LlirGraph> methodLlirGraphs = new HashMap<>();
+        HashMap<DefinedMethod, List<VirtualRegister>> methodParameters = new HashMap<>();
 
         for (var method : translationResult.methodGraphs().keySet()) {
                 var graph = translationResult.methodGraphs().get(method);
@@ -216,9 +229,11 @@ public class FirmToLlir implements NodeVisitor {
                 f.lower();
                 LlirVerifier.verify(f.llirGraph);
                 methodLlirGraphs.put(method, f.llirGraph);
+                methodParameters.put(method, f.methodParameters);
+
         }
 
-        return new LoweringResult(methodLlirGraphs);
+        return new LoweringResult(methodLlirGraphs, methodParameters);
     }
 
     private void registerLlirNode(Node firmNode, LlirNode llirNode, SideEffect sideEffect) {

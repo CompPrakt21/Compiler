@@ -253,6 +253,14 @@ public class MainCommand implements Callable<Integer> {
                 } catch (FileNotFoundException e) {
                     e.printStackTrace();
                 }
+
+                new NaiveRegisterAllocator(graphs.methodParameters().get(pair.getKey()), sirGraph).allocate();
+
+                try {
+                    new DumpSir(new PrintWriter(new File(String.format("sir-after-reg-alloc_%s.dot", name))), sirGraph).dump();
+                } catch (FileNotFoundException e) {
+                    e.printStackTrace();
+                }
             }
 
             /*

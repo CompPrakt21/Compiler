@@ -1,9 +1,10 @@
 package compiler.codegen.sir.instructions;
 
+import compiler.codegen.Operand;
 import compiler.codegen.Register;
 
 public final class AddInstruction extends BinaryInstruction {
-    public AddInstruction(Register target, Register lhs, Register rhs) {
+    public AddInstruction(Register target, Register lhs, Operand rhs) {
         super(target, lhs, rhs);
     }
 

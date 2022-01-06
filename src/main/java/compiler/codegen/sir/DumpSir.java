@@ -1,5 +1,6 @@
 package compiler.codegen.sir;
 
+import compiler.codegen.Register;
 import compiler.codegen.sir.instructions.*;
 
 import java.io.PrintWriter;
@@ -20,7 +21,7 @@ public class DumpSir {
     private String formatInstruction(Instruction instr) {
         return switch (instr) {
             case BinaryInstruction binary -> String.format("%s <- %s %s %s", binary.getTarget(), binary.getMnemonic(), binary.getLhs(), binary.getRhs());
-            case AllocCallInstruction alloc -> String.format("%s <- %s <alloc> (%s %s)", alloc.getTarget(), alloc.getMnemonic(), alloc.getNumElements(), alloc.getObjectSize());
+            case AllocCallInstruction alloc -> String.format("%s <- %s (%s %s)", alloc.getTarget(), alloc.getMnemonic(), alloc.getNumElements(), alloc.getObjectSize());
             case BranchInstruction branch -> String.format("%s", branch.getMnemonic());
             case CmpInstruction cmp -> String.format("%s %s %s", cmp.getMnemonic(), cmp.getLhs(), cmp.getRhs());
             case JumpInstruction jump -> String.format("%s", jump.getMnemonic());
@@ -28,11 +29,14 @@ public class DumpSir {
                 yield String.format("%s <- %s %s (%s)", method.getTarget(), method.getMnemonic(), method.getMethod().getLinkerName(), method.getArguments());
             }
             case MovImmediateInstruction movImm -> String.format("%s <- %s %s", movImm.getTarget(), movImm.getMnemonic(), movImm.getImmediateValue());
-            case MovLoadInstruction movLoad -> String.format("%s <- %s [%s]", movLoad.getTarget(), movLoad.getMnemonic(), movLoad.getAddress());
+            case MovLoadInstruction movLoad -> String.format("%s <- %s %s", movLoad.getTarget(), movLoad.getMnemonic(), movLoad.getAddress().formatIntelSyntax());
             case MovRegInstruction movReg -> String.format("%s <- %s %s", movReg.getTarget(), movReg.getMnemonic(), movReg.getSource());
             case MovSignExtendInstruction movSX -> String.format("%s <- %s %s", movSX.getTarget(), movSX.getMnemonic(), movSX.getInput());
-            case MovStoreInstruction movStore -> String.format("%s [%s] %s", movStore.getMnemonic(), movStore.getAddress(), movStore.getValue());
-            case ReturnInstruction ret -> String.format("%s", ret.getMnemonic());
+            case MovStoreInstruction movStore -> String.format("%s %s %s", movStore.getMnemonic(), movStore.getAddress().formatIntelSyntax(), movStore.getValue());
+            case ReturnInstruction ret -> String.format("%s %s", ret.getMnemonic(), ret.getReturnValue().map(Register::toString).orElse(""));
+            case PushInstruction push -> String.format("%s %s", push.getMnemonic(), push.getRegister());
+            case PopInstruction pop -> String.format("%s <- %s", pop.getRegister(), pop.getMnemonic());
+            case LeaveInstruction leave -> String.format("%s", leave.getMnemonic());
         };
     }
     private void printTarget(BasicBlock start, BasicBlock end, String label) {

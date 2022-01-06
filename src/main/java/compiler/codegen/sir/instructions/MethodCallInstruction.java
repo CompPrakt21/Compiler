@@ -3,6 +3,7 @@ package compiler.codegen.sir.instructions;
 import compiler.codegen.Register;
 import compiler.semantic.resolution.MethodDefinition;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public final class MethodCallInstruction extends CallInstruction {
@@ -12,7 +13,7 @@ public final class MethodCallInstruction extends CallInstruction {
     public MethodCallInstruction(Register target, MethodDefinition method, List<Register> arguments) {
         super(target);
         this.method = method;
-        this.arguments = arguments;
+        this.arguments = new ArrayList<>(arguments);
     }
 
     public List<Register> getArguments() {
