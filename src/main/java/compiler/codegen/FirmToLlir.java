@@ -4,11 +4,14 @@ import compiler.TranslationResult;
 import compiler.codegen.llir.*;
 import compiler.codegen.llir.nodes.*;
 import compiler.semantic.resolution.DefinedMethod;
+import compiler.types.ArrayTy;
+import compiler.types.ClassTy;
 import compiler.utils.GenericNodeWalker;
 import firm.*;
 import firm.nodes.*;
 
 import java.util.*;
+import java.util.stream.Stream;
 
 public class FirmToLlir implements NodeVisitor {
 
@@ -50,7 +53,7 @@ public class FirmToLlir implements NodeVisitor {
     /**
      * The virtual registers used as method parameters.
      */
-    private final List<VirtualRegister> methodParameters;
+    private List<VirtualRegister> methodParameters;
 
     /**
      * Remembers nodes that are to be marked as output nodes.
@@ -91,8 +94,9 @@ public class FirmToLlir implements NodeVisitor {
 
     private final Graph firmGraph;
 
+    private final DefinedMethod method;
 
-    private FirmToLlir(Graph firmGraph, TranslationResult translation) {
+    private FirmToLlir(DefinedMethod method, Graph firmGraph, TranslationResult translation) {
         this.blockEdges = new HashMap<>();
         this.insertedBlocks = new HashMap<>();
         this.blockMap = new HashMap<>();
@@ -110,6 +114,7 @@ public class FirmToLlir implements NodeVisitor {
 
         this.llirGraph = new LlirGraph(gen);
         this.methodParameters = new ArrayList<>();
+        this.method = method;
         this.firmGraph = firmGraph;
 
         this.blockMap.put(firmGraph.getStartBlock(), llirGraph.getStartBlock());
@@ -153,16 +158,24 @@ public class FirmToLlir implements NodeVisitor {
 
         var startNode = this.firmGraph.getStart();
 
+        var methodParamTys = Stream.concat(this.method.getContainingClass().stream(), this.method.getParameterTy().stream());
+        this.methodParameters = methodParamTys.map(arg -> {
+            var width = (arg instanceof ClassTy || arg instanceof ArrayTy) ? Register.Width.BIT64 : Register.Width.BIT32;
+            return this.llirGraph.getVirtualRegGenerator().nextRegister(width);
+        }).toList();
+
         for (var proj : BackEdges.getOuts(startNode)) {
             if (proj.node.getMode().equals(Mode.getT())) {
                 for (var arg : BackEdges.getOuts(proj.node)) {
                     if (arg.node instanceof Anchor) continue;
 
-                    var width = modeToRegisterWidth(arg.node.getMode());
+                    // As
+                    var argProj = (Proj) arg.node;
+                    var width = modeToRegisterWidth(argProj.getMode());
+                    var argVirtReg = this.methodParameters.get(argProj.getNum());
+                    assert argVirtReg.getWidth() == width;
 
-                    var virtReg = this.llirGraph.getVirtualRegGenerator().nextRegister(width);
-                    var i = startBlock.newInput(virtReg);
-                    this.methodParameters.add(virtReg);
+                    var i = startBlock.newInput(argVirtReg);
 
                     this.registerLlirNode(arg.node, i);
                 }
@@ -224,7 +237,7 @@ public class FirmToLlir implements NodeVisitor {
         for (var method : translationResult.methodGraphs().keySet()) {
                 var graph = translationResult.methodGraphs().get(method);
                 Dump.dumpGraph(graph, "before-lowering-to-llir");
-                var f = new FirmToLlir(graph, translationResult);
+                var f = new FirmToLlir(method, graph, translationResult);
                 f.lower();
                 LlirVerifier.verify(f.llirGraph);
                 methodLlirGraphs.put(method, f.llirGraph);
