@@ -3,12 +3,12 @@ package compiler.codegen;
 import compiler.codegen.sir.BasicBlock;
 import compiler.codegen.sir.SirGraph;
 import compiler.codegen.sir.instructions.*;
-import compiler.errors.MainMethodProblems;
 import compiler.semantic.resolution.DefinedMethod;
 import compiler.semantic.resolution.IntrinsicMethod;
 import compiler.types.VoidTy;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 
@@ -76,6 +76,8 @@ public class NaiveRegisterAllocator {
             var memLoc = movInstr.getAddress();
             memLoc.setConstant(memLoc.getConstant() + stackOffset);
         });
+
+        this.scheduleBlocks();
     }
 
     private HardwareRegister concretizeRegister(Register reg, List<Instruction> newList) {
@@ -125,7 +127,7 @@ public class NaiveRegisterAllocator {
             }
             case VirtualRegister virtReg ->
                 allocatedRegisters.add(this.concretizeRegister(virtReg, newList));
-            case HardwareRegister reg -> {}
+            case HardwareRegister ignored -> {}
             case Constant ignored -> {}
         }
 
@@ -365,5 +367,32 @@ public class NaiveRegisterAllocator {
         }
 
         bb.setInstructions(newList);
+    }
+
+    private void scheduleBlocks() {
+        HashSet<BasicBlock> visitedBlocks = new HashSet<>();
+
+        this.graph.getBlocks().clear();
+
+        this.scheduleBlockDFS(this.graph.getStartBlock(), visitedBlocks, this.graph.getBlocks());
+    }
+
+    private void scheduleBlockDFS(BasicBlock bb, HashSet<BasicBlock> visited, List<BasicBlock> blockSequence) {
+        if (visited.contains(bb)) {
+            return;
+        } else {
+            visited.add(bb);
+            blockSequence.add(bb);
+        }
+
+        var lastInstr = (ControlFlowInstruction) bb.getInstructions().get(bb.getInstructions().size() - 1);
+        switch (lastInstr) {
+            case JumpInstruction jump -> this.scheduleBlockDFS(jump.getTarget(), visited, blockSequence);
+            case BranchInstruction branch -> {
+                this.scheduleBlockDFS(branch.getFalseBlock(), visited, blockSequence);
+                this.scheduleBlockDFS(branch.getTrueBlock(), visited, blockSequence);
+            }
+            case ReturnInstruction ignored -> {}
+        }
     }
 }

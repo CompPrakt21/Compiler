@@ -6,7 +6,16 @@ import java.util.List;
 import java.util.Objects;
 
 public class BasicBlock {
+    /**
+     * Name of the basic block, same as in the llir usually BBxx.
+     * Where xx is some number.
+     */
     private final String label;
+
+    /**
+     * The linear sequence of instructions in this basic block.
+     * The last instruction is always the one and only ControlFlowInstruction.
+     */
     private List<Instruction> instructions;
 
     public BasicBlock(String label, List<Instruction> instructions) {
