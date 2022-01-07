@@ -119,8 +119,8 @@ public class BasicBlock {
      * Here are all construction methods for all Llir nodes.
      */
 
-    public MovImmediateInstruction newMovImmediate(int constant) {
-        return new MovImmediateInstruction(this, constant);
+    public MovImmediateInstruction newMovImmediate(int constant, Register.Width width) {
+        return new MovImmediateInstruction(this, constant, width);
     }
 
     public MovImmediateInstruction newMovImmediateInto(int constant, Register target) {

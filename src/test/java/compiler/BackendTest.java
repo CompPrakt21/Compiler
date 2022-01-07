@@ -21,9 +21,9 @@ public class BackendTest {
 
         var memInputStart = new MemoryInputNode(startBlock);
 
-        var c1 = startBlock.newMovImmediate(10);
-        var c2 = startBlock.newMovImmediate(20);
-        var c3 = startBlock.newMovImmediate(30);
+        var c1 = startBlock.newMovImmediate(10, Register.Width.BIT32);
+        var c2 = startBlock.newMovImmediate(20, Register.Width.BIT32);
+        var c3 = startBlock.newMovImmediate(30, Register.Width.BIT32);
         var a1 = startBlock.newAdd(c1, c2);
         var a2 = startBlock.newAdd(a1, c3);
         var add = startBlock.newAdd(startBlock.getInputNodes().get(0), a2);

@@ -290,7 +290,7 @@ public class FirmToLlir implements NodeVisitor {
             // created on-the-fly when needed.
 
             var bb = getBasicBlock(node);
-            return bb.newMovImmediate(constant.getTarval().asInt());
+            return bb.newMovImmediate(constant.getTarval().asInt(), modeToRegisterWidth(predNode.getMode()));
 
         } else if (this.valueNodeMap.containsKey(predNode)) {
             // Next we see if we already created a llir node for this firm node.
@@ -467,7 +467,7 @@ public class FirmToLlir implements NodeVisitor {
 
         var llirPred = (RegisterNode) getPredLlirNode(minus, minus.getOp());
 
-        var zero = bb.newMovImmediate(0);
+        var zero = bb.newMovImmediate(0, modeToRegisterWidth(minus.getMode()));
         var llirMinus = bb.newSub(zero, llirPred);
 
         this.registerLlirNode(minus, llirMinus);
