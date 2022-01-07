@@ -230,6 +230,8 @@ public class MainCommand implements Callable<Integer> {
 
             var schedules = new HashMap<LlirGraph, SirGraph>();
 
+            Emitter emitter = new Emitter();
+
             for (var pair : graphs.methodLlirGraphs().entrySet()) {
                 var name = pair.getKey().getLinkerName();
                 try {
@@ -261,33 +263,18 @@ public class MainCommand implements Callable<Integer> {
                 } catch (FileNotFoundException e) {
                     e.printStackTrace();
                 }
-            }
 
-            /*
-            Emitter emitter = new MolkiEmitter();
-
-            for (var pair : graphs.methodLlirGraphs().entrySet()) {
-                String name = pair.getKey().getLinkerName();
                 if (frontend.mainMethod().getLinkerName().equals(name)) {
-                    name = "minijava_main";
+                    name = "__MiniJava_Main__";
                 }
 
                 emitter.beginFunction(name, pair.getKey().getParameterTy().size(), pair.getKey().getReturnTy() instanceof VoidTy);
-
-                var schedule = schedules.get(pair.getValue());
-
-                for (var block : pair.getValue().collectAllBasicBlocks()) {
+                for (var block : sirGraph.getBlocks()) {
                     emitter.beginBlock(block);
 
-                    var currentNode = schedule.startNodes().get(block);
-
-                    while(schedule.schedule().contains(currentNode)) {
-
-                        emitter.emitInstruction(currentNode);
-                        currentNode = schedule.schedule().get(currentNode);
+                    for (var insn : block.getInstructions()) {
+                        emitter.emitInstruction(insn);
                     }
-
-                    emitter.emitInstruction(currentNode);
 
                     emitter.endBlock();
                 }
@@ -295,13 +282,29 @@ public class MainCommand implements Callable<Integer> {
                 emitter.endFunction();
             }
 
+            var asmOutputFile = new File(frontend.inputFile().getName() + ".s");
+
             try {
-                emitter.write(new File(frontend.inputFile().getName() + ".s"));
+                emitter.write(asmOutputFile);
             } catch (IOException e) {
                 e.printStackTrace();
             }
 
-        */
+            var execFilename = "a.out";
+
+            try {
+                var jarFile = new File(MainCommand.class.getProtectionDomain().getCodeSource().getLocation().toURI());
+                var baseDir = jarFile.getParentFile().getParentFile();
+                var runtimeFile = new File(baseDir, "libruntime.c");
+
+                ProcessBuilder pb = new ProcessBuilder("gcc", "-o", execFilename, asmOutputFile.getAbsolutePath(), runtimeFile.getAbsolutePath());
+                pb.inheritIO();
+                pb.start();
+            } catch (IOException | URISyntaxException e) {
+                e.printStackTrace();
+                return true;
+            }
+
             return false;
         });
     }

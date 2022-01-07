@@ -24,4 +24,9 @@ public final class Constant extends Operand {
     public String formatIntelSyntax() {
         return Integer.toString(value);
     }
+
+    @Override
+    public String formatATTSyntax() {
+        return String.format("$%d", value);
+    }
 }

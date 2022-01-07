@@ -26,4 +26,9 @@ public abstract sealed class Register extends Operand permits VirtualRegister, H
     public String formatIntelSyntax() {
         return this.toString();
     }
+
+    @Override
+    public String formatATTSyntax() {
+        return "%" + this.getName();
+    }
 }

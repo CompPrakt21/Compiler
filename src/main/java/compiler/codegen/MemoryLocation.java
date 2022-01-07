@@ -100,4 +100,32 @@ public final class MemoryLocation extends Operand {
         s.append("]");
         return s.toString();
     }
+
+    public String formatATTSyntax() {
+        StringBuilder s = new StringBuilder();
+
+        if (this.constant != 0) {
+            s.append(this.constant);
+        }
+
+        s.append("(");
+
+        if (this.baseRegister.isPresent()) {
+            s.append("%");
+            s.append(this.baseRegister.get());
+        }
+
+        if (this.index.isPresent()) {
+            s.append(",%");
+            s.append(this.index.get());
+        }
+
+        if (this.scale > 1) {
+            s.append(",");
+            s.append(this.scale);
+        }
+
+        s.append(")");
+        return s.toString();
+    }
 }
