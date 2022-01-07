@@ -357,6 +357,7 @@ public class NaiveRegisterAllocator {
         // add function prolog
         if (bb == this.graph.getStartBlock()) {
             newList.add(new PushInstruction(HardwareRegister.RBP));
+            newList.add(new MovRegInstruction(HardwareRegister.RBP, HardwareRegister.RSP));
             var stackSpace = new SubInstruction(HardwareRegister.RSP, HardwareRegister.RSP, new Constant(0));
             this.allocateStackSpaceInstruction = Optional.of(stackSpace);
             newList.add(stackSpace);
