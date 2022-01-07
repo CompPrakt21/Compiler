@@ -21,12 +21,12 @@ public final class ReturnInstruction extends ControlFlowNode {
 
     @Override
     public Stream<LlirNode> getPreds() {
-        return this.returnValue.stream().map(regNode -> regNode);
+        return Stream.concat(super.getPreds(), this.returnValue.stream());
     }
 
     @Override
     public int getPredSize() {
-        return this.returnValue.isPresent() ? 1 : 0;
+        return super.getPredSize() + (this.returnValue.isPresent() ? 1 : 0);
     }
 
     @Override

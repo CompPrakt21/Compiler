@@ -26,12 +26,12 @@ public final class CmpInstruction extends LlirNode {
 
     @Override
     public Stream<LlirNode> getPreds() {
-        return Stream.of(lhs, rhs);
+        return Stream.concat(super.getPreds(), Stream.of(lhs, rhs));
     }
 
     @Override
     public int getPredSize() {
-        return 2;
+        return super.getPredSize() + 2;
     }
 
     @Override

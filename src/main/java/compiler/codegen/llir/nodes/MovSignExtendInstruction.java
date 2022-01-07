@@ -24,12 +24,12 @@ public final class MovSignExtendInstruction extends RegisterNode {
 
     @Override
     public Stream<LlirNode> getPreds() {
-        return Stream.of(this.input);
+        return Stream.concat(super.getPreds(), Stream.of(this.input));
     }
 
     @Override
     public int getPredSize() {
-        return 1;
+        return super.getPredSize() + 1;
     }
 
     @Override

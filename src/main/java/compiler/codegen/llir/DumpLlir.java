@@ -156,6 +156,8 @@ public class DumpLlir {
         };
 
         this.visitedNodes.put(node, String.format("\t%s[label=\"%s\", shape=%s, color=%s]", node.getID(), label, shape, color));
+
+        node.getScheduleDependencies().forEach(pred -> this.edges.add(String.format("%s -> %s [style=dotted]", node.getID(), pred.getID())));
     }
 
     private static String getNodeLabel(LlirNode node) {

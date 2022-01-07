@@ -20,7 +20,7 @@ public final class MovLoadInstruction extends RegisterNode implements SideEffect
 
     @Override
     public Stream<LlirNode> getPreds() {
-        return Stream.of(sideEffect.asLlirNode(), addrNode);
+        return Stream.concat(super.getPreds(), Stream.of(sideEffect.asLlirNode(), addrNode));
     }
 
     public RegisterNode getAddrNode() {
@@ -29,7 +29,7 @@ public final class MovLoadInstruction extends RegisterNode implements SideEffect
 
     @Override
     public int getPredSize() {
-        return 2;
+        return super.getPredSize() + 2;
     }
 
     @Override

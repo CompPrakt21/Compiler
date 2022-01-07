@@ -88,6 +88,15 @@ public class FirmToLlir implements NodeVisitor {
     private final ArrayDeque<Node> phiPredQueue;
 
     /**
+     * When resolving phis, we add MovRegInstructions into previous basic blocks.
+     * All these moves are stored in this list.
+     * Since these moves overwrite a virtual register, we need to schedule these instructions
+     * after any use of the original value (which is an input node).
+     * This happens after the main construction.
+     */
+    private final List<MovRegisterInstruction> phiRegMoves;
+
+    /**
      * Remembers if node have been visited already.
      */
     private final HashSet<Node> visited;
@@ -107,6 +116,7 @@ public class FirmToLlir implements NodeVisitor {
         this.temporariedPhis = new HashSet<>();
         this.phiPredQueue= new ArrayDeque<>();
         this.visited = new HashSet<>();
+        this.phiRegMoves = new ArrayList<>();
 
         this.translation = translation;
 
@@ -212,6 +222,22 @@ public class FirmToLlir implements NodeVisitor {
 
             basicBlock.addOutput((RegisterNode) llirNode);
         }
+
+        // Finally add schedule dependencies where necessary.
+        this.phiRegMoves.forEach(phiRegMov -> {
+            var bb = phiRegMov.getBasicBlock();
+            var overwritesInputNodeRegister = bb.getInputNodes().stream().map(inputNode -> inputNode.getTargetRegister().equals(phiRegMov.getTargetRegister())).findAny().orElse(false);
+            if (overwritesInputNodeRegister) {
+                // We need to schedule phiRegMov after any use of the input node.
+
+                for (var node : bb.getAllNodes()) {
+                    if (node == phiRegMov) continue;
+                    if (node.getPreds().anyMatch(pred -> pred instanceof InputNode input && input.getTargetRegister().equals(phiRegMov.getTargetRegister()))) {
+                        phiRegMov.addScheduleDependency(node);
+                    }
+                }
+            }
+        });
     }
 
     private static Register.Width modeToRegisterWidth(Mode m) {
@@ -756,6 +782,7 @@ public class FirmToLlir implements NodeVisitor {
                     }
 
                     var mov = predBb.newMovRegisterInto(register, predRegNode);
+                    this.phiRegMoves.add(mov);
 
                     // If no predecessor node exist, create move the anyway and remember that we need to add
                     // the source of the move once the predecessor has been created.

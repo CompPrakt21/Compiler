@@ -40,12 +40,12 @@ public final class MethodCallInstruction extends CallInstruction {
 
     @Override
     public Stream<LlirNode> getPreds() {
-        return Stream.concat(Stream.of(this.sideEffect.asLlirNode()), this.arguments.stream());
+        return Stream.concat(Stream.concat(super.getPreds(), Stream.of(this.sideEffect.asLlirNode())), this.arguments.stream());
     }
 
     @Override
     public int getPredSize() {
-        return this.arguments.size() + 1;
+        return super.getPredSize() + this.arguments.size() + 1;
     }
 
 }

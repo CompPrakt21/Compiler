@@ -28,12 +28,12 @@ public final class AllocCallInstruction extends CallInstruction {
 
     @Override
     public Stream<LlirNode> getPreds() {
-        return Stream.of(this.sideEffect.asLlirNode(), this.elemSize, this.numElements);
+        return Stream.concat(super.getPreds(), Stream.of(this.sideEffect.asLlirNode(), this.elemSize, this.numElements));
     }
 
     @Override
     public int getPredSize() {
-        return 2;
+        return super.getPredSize() + 2;
     }
 
     @Override

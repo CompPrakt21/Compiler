@@ -32,12 +32,12 @@ public final class MovStoreInstruction extends LlirNode implements SideEffect {
 
     @Override
     public Stream<LlirNode> getPreds() {
-        return Stream.of(sideEffect.asLlirNode(), this.addrNode, this.valueNode);
+        return Stream.concat(super.getPreds(), Stream.of(sideEffect.asLlirNode(), this.addrNode, this.valueNode));
     }
 
     @Override
     public int getPredSize() {
-        return 3;
+        return super.getPredSize() + 3;
     }
 
     @Override

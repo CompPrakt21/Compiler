@@ -28,11 +28,11 @@ public abstract sealed class BinaryInstruction extends RegisterNode permits AddI
 
     @Override
     public Stream<LlirNode> getPreds() {
-        return Stream.of(lhs, rhs);
+        return Stream.concat(super.getPreds(), Stream.of(lhs, rhs));
     }
 
     @Override
     public int getPredSize() {
-        return 2;
+        return super.getPredSize() + 2;
     }
 }

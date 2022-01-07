@@ -14,12 +14,12 @@ public final class InputNode extends RegisterNode {
 
     @Override
     public Stream<LlirNode> getPreds() {
-        return Stream.empty();
+        return super.getPreds();
     }
 
     @Override
     public int getPredSize() {
-        return 0;
+        return super.getPredSize();
     }
 
     @Override

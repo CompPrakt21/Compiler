@@ -25,12 +25,12 @@ public final class MovRegisterInstruction extends RegisterNode {
 
     @Override
     public Stream<LlirNode> getPreds() {
-        return Stream.of(source);
+        return Stream.concat(super.getPreds(), Stream.of(source));
     }
 
     @Override
     public int getPredSize() {
-        return 1;
+        return super.getPredSize() + 1;
     }
 
     @Override

@@ -33,12 +33,12 @@ public final class BranchInstruction extends ControlFlowNode {
 
     @Override
     public Stream<LlirNode> getPreds() {
-        return Stream.of(this.cmp);
+        return Stream.concat(super.getPreds(), Stream.of(this.cmp));
     }
 
     @Override
     public int getPredSize() {
-        return 1;
+        return super.getPredSize() + 1;
     }
 
     @Override

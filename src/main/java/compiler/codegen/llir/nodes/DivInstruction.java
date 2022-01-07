@@ -42,12 +42,12 @@ public final class DivInstruction extends RegisterNode implements SideEffect {
 
     @Override
     public Stream<LlirNode> getPreds() {
-        return Stream.of(this.dividend, this.divisor, this.sideEffect.asLlirNode());
+        return Stream.concat(super.getPreds(), Stream.of(this.dividend, this.divisor, this.sideEffect.asLlirNode()));
     }
 
     @Override
     public int getPredSize() {
-        return 3;
+        return super.getPredSize() + 3;
     }
 
     @Override
