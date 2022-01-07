@@ -57,7 +57,7 @@ public class Emitter {
                         insn.getRhs().formatATTSyntax(), insn.getLhs().formatATTSyntax());
             }
             case AllocCallInstruction insn -> {
-                asm = String.format("\tcall %s", "malloc");
+                asm = String.format("\tcall %s", "__builtin_alloc_function__");
             }
             case BranchInstruction insn -> {
                 asm = String.format("\tj%s %s",
