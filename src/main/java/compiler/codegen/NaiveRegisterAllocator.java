@@ -28,20 +28,12 @@ public class NaiveRegisterAllocator {
      */
     private Optional<SubInstruction> allocateStackSpaceInstruction;
     private List<AddInstruction> freeStackSpaceInstructions;
-    /**
-     * These move store instructions copy function parameters onto the activation record of a
-     * called function. The offset is relative of the calling functions rbp and is the sum
-     * of the final stack slot offset and argument offset.
-     * We need to add the final stack slot offset at the end.
-     */
-    private List<MovStoreInstruction> copyFunctionParams;
 
     public NaiveRegisterAllocator(List<VirtualRegister> methodParameters, SirGraph graph) {
         this.methodParameters = methodParameters;
         this.graph = graph;
         this.allocateStackSpaceInstruction = Optional.empty();
         this.freeStackSpaceInstructions = new ArrayList<>();
-        this.copyFunctionParams = new ArrayList<>();
         this.stackSlots = new StackSlots();
         this.freeRegisters = new FreeRegisterManager();
     }
@@ -51,6 +43,7 @@ public class NaiveRegisterAllocator {
      * Mutates the graph and schedule if necessary.
      */
     public void allocate() {
+        // Calculate parameter offsets.
         var paramOffset = 2 * Register.Width.BIT64.getByteSize(); // RIP and RBP are before parameters
         for (VirtualRegister param : this.methodParameters) {
             this.stackSlots.mapRegister(param, paramOffset);
@@ -70,11 +63,6 @@ public class NaiveRegisterAllocator {
         this.freeStackSpaceInstructions.forEach(addInstr -> {
             var addRhs = (Constant) addInstr.getRhs();
             addRhs.setValue(-stackOffset);
-        });
-
-        this.copyFunctionParams.forEach(movInstr -> {
-            var memLoc = movInstr.getAddress();
-            memLoc.setConstant(memLoc.getConstant() + stackOffset);
         });
 
         this.scheduleBlocks();
@@ -247,21 +235,14 @@ public class NaiveRegisterAllocator {
                         }
                     }
                     case DefinedMethod method -> {
-                        // reserve stack space
-                        var requiredStackSpace = methodCall.getArguments().size() * Register.Width.BIT64.getByteSize();
-                        newList.add(new SubInstruction(HardwareRegister.RSP, HardwareRegister.RSP, new Constant(requiredStackSpace)));
-
-                        // copy params onto stack space
-                        for (int i = 0; i < methodCall.getArguments().size(); i++) {
+                        for (int i = methodCall.getArguments().size() - 1; i >= 0; i--) {
                             var hardwareReg = this.concretizeRegister(methodCall.getArguments().get(i), newList);
 
-                            var paramOffset = - (i + 1) * Register.Width.BIT64.getByteSize();
-                            var paramStoreInstr = new MovStoreInstruction(new MemoryLocation(HardwareRegister.RBP, paramOffset), hardwareReg);
-                            this.copyFunctionParams.add(paramStoreInstr);
-                            newList.add(paramStoreInstr);
+                            newList.add(new PushInstruction(hardwareReg.forWidth(Register.Width.BIT64)));
 
                             this.freeRegisters.releaseRegister(hardwareReg);
                         }
+                        var requiredStackSpace = methodCall.getArguments().size() * Register.Width.BIT64.getByteSize();
 
                         // call function
                         newList.add(methodCall);

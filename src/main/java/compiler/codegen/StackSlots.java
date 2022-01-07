@@ -13,17 +13,20 @@ public class StackSlots {
         this.offsets = new HashMap<>();
     }
 
-    private int allocateNewSpace(Register.Width width) {
-        var bytes = width.getByteSize();
-
-        var paddingNeeded = Math.floorMod(currentOffset, bytes);
+    private void alignTo8() {
+        var paddingNeeded = Math.floorMod(currentOffset, 8);
         if (paddingNeeded != 0) {
             this.currentOffset -= paddingNeeded;
 
-            assert Math.floorMod(currentOffset, bytes) == 0;
+            assert Math.floorMod(currentOffset, 8) == 0;
         }
+    }
 
+    private int allocateNewSpace(Register.Width width) {
+        var bytes = width.getByteSize();
         this.currentOffset -= bytes;
+
+        this.alignTo8();
 
         return currentOffset;
     }
