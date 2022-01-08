@@ -154,13 +154,13 @@ public class FirmToLlir implements NodeVisitor {
                     }
                 }
             }
-            if (node instanceof Phi) {
-                for (var pred : node.getPreds()) {
-                    if (pred instanceof Phi) {
-                        this.temporariedPhis.add(pred);
-                    }
-                }
-            }
+            //if (node instanceof Phi) {
+            //    for (var pred : node.getPreds()) {
+            //        if (pred instanceof Phi) {
+            //            this.temporariedPhis.add(pred);
+            //        }
+            //    }
+            //}
         });
 
         // Create method parameter llir nodes
@@ -270,7 +270,6 @@ public class FirmToLlir implements NodeVisitor {
                 LlirVerifier.verify(f.llirGraph);
                 methodLlirGraphs.put(method, f.llirGraph);
                 methodParameters.put(method, f.methodParameters);
-
         }
 
         return new LoweringResult(methodLlirGraphs, methodParameters);
