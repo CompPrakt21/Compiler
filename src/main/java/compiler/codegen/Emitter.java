@@ -72,9 +72,7 @@ public class Emitter {
                         insn.getLhs().formatATTSyntax());
             }
             case DivInstruction insn -> {
-                // TODO: This is wrong, molki needs you to pass two result registers
-                //asm = String.format("\tidiv %s", insn.
-                throw new UnsupportedOperationException("Div not implemented");
+                asm = String.format("\tidiv %s", insn.getDivisor().formatATTSyntax());
             }
             case JumpInstruction insn -> {
                 asm = String.format("\tjmp %s",
@@ -140,6 +138,11 @@ public class Emitter {
                         insn.getRhs().formatATTSyntax(),
                         insn.getLhs().formatATTSyntax());
 
+            }
+            case ConvertDoubleToQuadInstruction insn -> {
+                assert insn.getTarget().equals(HardwareRegister.EDX);
+                assert insn.getDoubleWord().equals(HardwareRegister.EAX);
+                asm = "\tcdq";
             }
             default -> throw new IllegalArgumentException("Instruction not emitable: " + instruction);
         }

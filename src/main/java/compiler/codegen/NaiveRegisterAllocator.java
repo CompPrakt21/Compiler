@@ -125,27 +125,33 @@ public class NaiveRegisterAllocator {
     private void allocateRegForInstruction(Instruction instr, List<Instruction> newList) {
         switch (instr) {
             case DivInstruction div -> {
-                var lhsVirtReg = (VirtualRegister) div.getLhs();
-                var rhsVirtReg = (VirtualRegister) div.getRhs();
-                var lhs = this.concretizeRegisterInto(HardwareRegister.EAX, lhsVirtReg, newList);
-                var rhs = this.concretizeRegisterInto(HardwareRegister.EDX, rhsVirtReg, newList);
+                var dividendVirtReg = (VirtualRegister) div.getDividend();
+                var divisorVirtReg = (VirtualRegister) div.getDivisor();
 
-                div.setLhs(lhs);
-                div.setRhs(rhs);
+                var implicitLowerDividendReg = this.concretizeRegisterInto(HardwareRegister.EAX, dividendVirtReg, newList);
+                var implicitUpperDividendReg = this.freeRegisters.requestSpecificRegister(HardwareRegister.EDX).orElseThrow();
 
-                var targetVirtReg = (VirtualRegister)div.getTarget();
+                newList.add(new ConvertDoubleToQuadInstruction(implicitUpperDividendReg, implicitLowerDividendReg));
+
+                var divisorHardwareReg= this.concretizeRegister(divisorVirtReg, newList);
+
+                var targetVirtReg = (VirtualRegister) div.getTarget();
+
+                div.setDividend(implicitLowerDividendReg);
+                div.setDivisor(divisorHardwareReg);
 
                 switch (div.getType()) {
-                    case Div -> div.setTarget(lhs);
-                    case Mod -> div.setTarget(rhs);
+                    case Div -> div.setTarget(implicitLowerDividendReg);
+                    case Mod -> div.setTarget(implicitUpperDividendReg);
                 }
 
                 newList.add(div);
 
                 this.saveVirtualRegister(targetVirtReg, (HardwareRegister) div.getTarget(), newList);
 
-                this.freeRegisters.releaseRegister(lhs);
-                this.freeRegisters.releaseRegister(rhs);
+                this.freeRegisters.releaseRegister(implicitLowerDividendReg);
+                this.freeRegisters.releaseRegister(implicitUpperDividendReg);
+                this.freeRegisters.releaseRegister(divisorHardwareReg);
             }
             case BinaryInstruction binary -> {
                 var targetReg = (VirtualRegister) binary.getTarget();

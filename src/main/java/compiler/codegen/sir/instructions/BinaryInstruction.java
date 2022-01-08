@@ -3,7 +3,7 @@ package compiler.codegen.sir.instructions;
 import compiler.codegen.Operand;
 import compiler.codegen.Register;
 
-public abstract sealed class BinaryInstruction extends RegisterInstruction permits AddInstruction, DivInstruction, SubInstruction, MulInstruction, XorInstruction {
+public abstract sealed class BinaryInstruction extends RegisterInstruction permits AddInstruction, SubInstruction, MulInstruction, XorInstruction {
     protected Register lhs;
     protected Operand rhs;
 

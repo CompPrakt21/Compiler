@@ -2,8 +2,11 @@ package compiler.codegen.sir.instructions;
 
 import compiler.codegen.Register;
 
-public final class DivInstruction extends BinaryInstruction {
+public final class DivInstruction extends RegisterInstruction {
     private DivType type;
+
+    private Register dividend;
+    private Register divisor;
 
     @Override
     public String getMnemonic() {
@@ -17,9 +20,27 @@ public final class DivInstruction extends BinaryInstruction {
         Div, Mod
     }
 
-    public DivInstruction(Register target, Register lhs, Register rhs, DivType type) {
-        super(target, lhs, rhs);
+    public DivInstruction(Register target, Register dividend, Register divisor, DivType type) {
+        super(target);
         this.type = type;
+        this.dividend = dividend;
+        this.divisor = divisor;
+    }
+
+    public Register getDividend() {
+        return dividend;
+    }
+
+    public void setDividend(Register dividend) {
+        this.dividend = dividend;
+    }
+
+    public Register getDivisor() {
+        return divisor;
+    }
+
+    public void setDivisor(Register divisor) {
+        this.divisor = divisor;
     }
 
     public DivType getType() {

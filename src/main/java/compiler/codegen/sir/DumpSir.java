@@ -20,6 +20,7 @@ public class DumpSir {
 
     private String formatInstruction(Instruction instr) {
         return switch (instr) {
+            case DivInstruction div -> String.format("%s <- %s %s %s", div.getTarget(), div.getMnemonic(), div.getDividend(), div.getDivisor());
             case BinaryInstruction binary -> String.format("%s <- %s %s %s", binary.getTarget(), binary.getMnemonic(), binary.getLhs(), binary.getRhs());
             case AllocCallInstruction alloc -> String.format("%s <- %s (%s %s)", alloc.getTarget(), alloc.getMnemonic(), alloc.getNumElements(), alloc.getObjectSize());
             case BranchInstruction branch -> String.format("%s", branch.getMnemonic());
@@ -37,6 +38,7 @@ public class DumpSir {
             case PushInstruction push -> String.format("%s %s", push.getMnemonic(), push.getRegister());
             case PopInstruction pop -> String.format("%s <- %s", pop.getRegister(), pop.getMnemonic());
             case LeaveInstruction leave -> String.format("%s", leave.getMnemonic());
+            case ConvertDoubleToQuadInstruction cdq -> String.format("%s <- %s %s", cdq.getTarget(), cdq.getMnemonic(), cdq.getDoubleWord());
         };
     }
     private void printTarget(BasicBlock start, BasicBlock end, String label) {
