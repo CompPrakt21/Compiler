@@ -226,13 +226,15 @@ public class FirmToLlir implements NodeVisitor {
         // Finally add schedule dependencies where necessary.
         this.phiRegMoves.forEach(phiRegMov -> {
             var bb = phiRegMov.getBasicBlock();
-            var overwritesInputNodeRegister = bb.getInputNodes().stream().map(inputNode -> inputNode.getTargetRegister().equals(phiRegMov.getTargetRegister())).findAny().orElse(false);
-            if (overwritesInputNodeRegister) {
+            var overwritesInputNodeRegister = bb.getInputNodes().stream().filter(inputNode -> inputNode.getTargetRegister().equals(phiRegMov.getTargetRegister())).toList();
+            assert overwritesInputNodeRegister.size() <= 1;
+            if (overwritesInputNodeRegister.size() == 1) {
                 // We need to schedule phiRegMov after any use of the input node.
+                var inputNode = overwritesInputNodeRegister.get(0);
 
                 for (var node : bb.getAllNodes()) {
                     if (node == phiRegMov) continue;
-                    if (node.getPreds().anyMatch(pred -> pred instanceof InputNode input && input.getTargetRegister().equals(phiRegMov.getTargetRegister()))) {
+                    if (node.getPreds().anyMatch(inputNode::equals)) {
                         phiRegMov.addScheduleDependency(node);
                     }
                 }
