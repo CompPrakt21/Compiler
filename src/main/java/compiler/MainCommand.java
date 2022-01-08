@@ -312,7 +312,8 @@ public class MainCommand implements Callable<Integer> {
 
     @Override
     public Integer call() {
-        return translate(false);
+        //return translate(false);
+        return backend();
     }
 
     public static void main(String[] args) {
