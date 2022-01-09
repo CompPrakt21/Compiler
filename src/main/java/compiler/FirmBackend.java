@@ -26,8 +26,11 @@ public class FirmBackend {
         translation.translate(dumpGraphs);
 
         Util.lowerSels();
-        for (var graph : Program.getGraphs()) {
-            Dump.dumpGraph(graph, "after-lower-sels");
+
+        if (dumpGraphs) {
+            for (var graph : Program.getGraphs()) {
+                Dump.dumpGraph(graph, "after-lower-sels");
+            }
         }
 
         try {

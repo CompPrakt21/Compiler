@@ -289,7 +289,8 @@ public class FirmToLlir implements NodeVisitor {
 
         for (var method : translationResult.methodGraphs().keySet()) {
                 var graph = translationResult.methodGraphs().get(method);
-                Dump.dumpGraph(graph, "before-lowering-to-llir");
+
+                //Dump.dumpGraph(graph, "before-lowering-to-llir");
                 var f = new FirmToLlir(method, graph, translationResult);
                 f.lower();
                 LlirVerifier.verify(f.llirGraph);

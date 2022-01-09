@@ -231,7 +231,6 @@ public class MainCommand implements Callable<Integer> {
             Emitter emitter = new Emitter();
 
             for (var pair : graphs.methodLlirGraphs().entrySet()) {
-
                 var name = pair.getKey().getLinkerName();
 
                 if (dumpGraphs) {
