@@ -177,7 +177,7 @@ public class FirmToLlir implements NodeVisitor {
                     }
                 }
             }
-            if (node instanceof Phi) {
+            if (node instanceof Phi && !node.getMode().equals(Mode.getM())) {
                 for (var pred : node.getPreds()) {
                     if (pred instanceof Phi && pred.getBlock().equals(node.getBlock())) {
                         this.temporariedPhis.add(pred);
