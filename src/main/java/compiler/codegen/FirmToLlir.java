@@ -705,15 +705,7 @@ public class FirmToLlir implements NodeVisitor {
         var memNode = getPredSideEffectNode(load, load.getMem());
         var addrNode = (RegisterNode)getPredLlirNode(load, load.getPtr());
 
-        // Find the mode of the loaded value, by searching for its proj node.
-        Mode outputMode = null;
-        for (var edge : BackEdges.getOuts(load)) {
-            // Ignore proj for memory value.
-            if (edge.node instanceof Proj proj && !proj.getMode().equals(Mode.getM())) {
-                outputMode = proj.getMode();
-            }
-        }
-        assert outputMode != null;
+        Mode outputMode = load.getLoadMode();
 
         var llirLoad = bb.newMovLoad(addrNode, memNode, modeToRegisterWidth(outputMode));
         registerLlirNode(load, llirLoad);
