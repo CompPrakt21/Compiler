@@ -220,48 +220,58 @@ public class MainCommand implements Callable<Integer> {
     }
 
     @SuppressWarnings("unused")
-    @Command(name = "--backend", description = "Compile to binary.")
-    public Integer backend() {
+    @Command(name = "--compile", description = "Compile to binary.")
+    public Integer compile(@Option(names = "--dump", description = "Dump the resulting FIRM graphs.") boolean dumpGraphs) {
         return callWithChecked(file, (reporter, frontend) -> {
 
             var translationResult = new Translation(frontend).translate(false);
-
             var graphs = FirmToLlir.lowerFirm(translationResult);
-
             var schedules = new HashMap<LlirGraph, SirGraph>();
 
             Emitter emitter = new Emitter();
 
             for (var pair : graphs.methodLlirGraphs().entrySet()) {
+
                 var name = pair.getKey().getLinkerName();
-                try {
-                    new DumpLlir(new PrintWriter(new File(String.format("llir-before-schedule_%s.dot", name)))).dump(pair.getValue());
-                } catch (FileNotFoundException e) {
-                    e.printStackTrace();
+
+                if (dumpGraphs) {
+                    try {
+                        new DumpLlir(new PrintWriter(new File(String.format("llir-before-schedule_%s.dot", name)))).dump(pair.getValue());
+                    } catch (FileNotFoundException e) {
+                        e.printStackTrace();
+                    }
                 }
 
                 var scheduleResult = NaiveScheduler.schedule(pair.getValue());
-                try {
-                    new DumpScheduledLlir(new PrintWriter(new File(String.format("llir-after-schedule_%s.dot", name))))
-                            .dump(pair.getValue(), scheduleResult);
-                } catch (FileNotFoundException e) {
-                    e.printStackTrace();
+
+                if (dumpGraphs) {
+                    try {
+                        new DumpScheduledLlir(new PrintWriter(new File(String.format("llir-after-schedule_%s.dot", name))))
+                                .dump(pair.getValue(), scheduleResult);
+                    } catch (FileNotFoundException e) {
+                        e.printStackTrace();
+                    }
                 }
 
                 var sirGraph = new LlirToSir(pair.getValue(), scheduleResult).transform();
                 schedules.put(pair.getValue(), sirGraph);
-                try {
-                    new DumpSir(new PrintWriter(new File(String.format("sir-before-reg-alloc_%s.dot", name))), sirGraph).dump();
-                } catch (FileNotFoundException e) {
-                    e.printStackTrace();
+
+                if (dumpGraphs) {
+                    try {
+                        new DumpSir(new PrintWriter(new File(String.format("sir-before-reg-alloc_%s.dot", name))), sirGraph).dump();
+                    } catch (FileNotFoundException e) {
+                        e.printStackTrace();
+                    }
                 }
 
                 new NaiveRegisterAllocator(graphs.methodParameters().get(pair.getKey()), sirGraph).allocate();
 
-                try {
-                    new DumpSir(new PrintWriter(new File(String.format("sir-after-reg-alloc_%s.dot", name))), sirGraph).dump();
-                } catch (FileNotFoundException e) {
-                    e.printStackTrace();
+                if (dumpGraphs) {
+                    try {
+                        new DumpSir(new PrintWriter(new File(String.format("sir-after-reg-alloc_%s.dot", name))), sirGraph).dump();
+                    } catch (FileNotFoundException e) {
+                        e.printStackTrace();
+                    }
                 }
 
                 if (frontend.mainMethod().getLinkerName().equals(name)) {
@@ -269,6 +279,7 @@ public class MainCommand implements Callable<Integer> {
                 }
 
                 emitter.beginFunction(name, pair.getKey().getParameterTy().size(), pair.getKey().getReturnTy() instanceof VoidTy);
+
                 for (var block : sirGraph.getBlocks()) {
                     emitter.beginBlock(block);
 
@@ -312,8 +323,7 @@ public class MainCommand implements Callable<Integer> {
 
     @Override
     public Integer call() {
-        //return translate(false);
-        return backend();
+        return compile(false);
     }
 
     public static void main(String[] args) {
