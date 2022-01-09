@@ -60,11 +60,28 @@ public class CompilerMessageReporter {
     public void finish() {
         if (this.errorsReported + this.warningsReported > 0) {
             var out = new MessagePrinter(this.output, CompilerError.style, this.colors);
-            out.printWithStyle(String.format("%d error%s", this.errorsReported, this.errorsReported != 1 ? "s" : ""), CompilerError.style.primaryStyle);
-            out.printWithStyle(" and ", TextStyle.BOLD);
-            out.printWithStyle(String.format("%d warning%s", this.warningsReported, this.warningsReported != 1 ? "s" : ""), CompilerWarning.style.primaryStyle);
-            out.printWithStyle(" occurred while compiling.", TextStyle.BOLD);
-            out.println();
+
+            String errors = this.errorsReported != 0 ? String.format("%d error%s", this.errorsReported, this.errorsReported != 1 ? "s" : "") : "";
+            String warnings = this.warningsReported != 0 ? String.format("%d warning%s", this.warningsReported, this.warningsReported != 1 ? "s" : "") : "";
+
+
+            if (errors.length() > 0) {
+                out.printWithStyle(errors, CompilerError.style.primaryStyle);
+            }
+
+            if (errors.length() > 0 && warnings.length() > 0) {
+                out.printWithStyle(" and ", TextStyle.BOLD);
+            }
+
+            if (warnings.length() > 0) {
+                out.printWithStyle(String.format("%d warning%s", this.warningsReported, this.warningsReported != 1 ? "s" : ""), CompilerWarning.style.primaryStyle);
+            }
+
+            if (errors.length() > 0 || warnings.length() > 0) {
+                out.printWithStyle(" occurred while compiling.", TextStyle.BOLD);
+                out.println();
+            }
+
             this.output.flush();
         }
     }
