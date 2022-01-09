@@ -73,6 +73,29 @@ public class FirmToLlir implements NodeVisitor {
     /**
      * Due to the so called 'swap problem' phis that are used by other phis in the
      * same basic block need to use temporary values.
+     *
+     * e.g.
+     * x1 = ϕ(x1, x2);
+     * x2 = ϕ(x2, x1);
+     *
+     * The idea is, that for each such phi, we introduce a second virtual register which
+     * copies the value of the phi and is used instead of the register in which we accumulate
+     * the phis value.
+     *
+     * left predecessor bb:
+     * x1 = y1
+     * x2 = y2
+     *
+     * right predecessor bb:
+     * x1 = y2
+     * x2 = y1
+     *
+     * current bb:
+     * y1 = x1
+     * y2 = x2
+     *
+     * Any usage of the phi in llir will use the y{1,2} virtual registers.
+     *
      * We collect such phis in a pass before lowering.
      */
     private final HashSet<Node> temporariedPhis;
@@ -154,13 +177,13 @@ public class FirmToLlir implements NodeVisitor {
                     }
                 }
             }
-            //if (node instanceof Phi) {
-            //    for (var pred : node.getPreds()) {
-            //        if (pred instanceof Phi) {
-            //            this.temporariedPhis.add(pred);
-            //        }
-            //    }
-            //}
+            if (node instanceof Phi) {
+                for (var pred : node.getPreds()) {
+                    if (pred instanceof Phi && pred.getBlock().equals(node.getBlock())) {
+                        this.temporariedPhis.add(pred);
+                    }
+                }
+            }
         });
 
         // Create method parameter llir nodes
