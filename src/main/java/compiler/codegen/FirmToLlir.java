@@ -191,18 +191,20 @@ public class FirmToLlir implements NodeVisitor {
 
         var startNode = this.firmGraph.getStart();
 
+        // Method parameters are (at first) just virtual registers.
         var methodParamTys = Stream.concat(this.method.getContainingClass().stream(), this.method.getParameterTy().stream());
         this.methodParameters = methodParamTys.map(arg -> {
             var width = (arg instanceof ClassTy || arg instanceof ArrayTy) ? Register.Width.BIT64 : Register.Width.BIT32;
             return this.llirGraph.getVirtualRegGenerator().nextRegister(width);
         }).toList();
 
+        // Find the firm (proj) nodes which represent the method parameters in the firm graph and associate them with the corresponding
+        // input nodes of the start basic block.
         for (var proj : BackEdges.getOuts(startNode)) {
             if (proj.node.getMode().equals(Mode.getT())) {
                 for (var arg : BackEdges.getOuts(proj.node)) {
                     if (arg.node instanceof Anchor) continue;
 
-                    // As
                     var argProj = (Proj) arg.node;
                     var width = modeToRegisterWidth(argProj.getMode());
                     var argVirtReg = this.methodParameters.get(argProj.getNum());
@@ -243,7 +245,7 @@ public class FirmToLlir implements NodeVisitor {
             assert llirNode instanceof RegisterNode;
             var basicBlock = llirNode.getBasicBlock();
 
-            basicBlock.addOutput((RegisterNode) llirNode);
+            basicBlock.addOutput(llirNode);
         }
 
         // Finally add schedule dependencies where necessary.
@@ -319,6 +321,9 @@ public class FirmToLlir implements NodeVisitor {
         }
     }
 
+    /**
+     * Associates a firm node with a llir node.
+     */
     private void registerLlirNode(Node firmNode, LlirNode llirNode) {
         if (llirNode instanceof SideEffect sideEffect) {
             this.registerLlirNode(firmNode, llirNode, sideEffect);
@@ -418,7 +423,6 @@ public class FirmToLlir implements NodeVisitor {
      * Otherwise it will return the provided targetBlock.
      */
     private BasicBlock insertControlFlowEdge(Node start, Block targetBlock) {
-        var startBlock = (Block)start.getBlock();
 
         var targetBasicBlock = getBasicBlock(targetBlock);
 
@@ -476,8 +480,11 @@ public class FirmToLlir implements NodeVisitor {
 
         if (proj.getMode().equals(Mode.getX())) {
             // These nodes are handled by visit(Cond).
+            assert true;
         } else if (proj.getPred().equals(firmGraph.getStart())) {
-
+            // These projection nodes represent method parameters and are handled at the beginning of
+            // the lowering process.
+            assert true;
         } else if (proj.getMode().equals(Mode.getM())) {
             if (predNode instanceof Start) {
                 var llirBlock = this.blockMap.get((Block) proj.getBlock());

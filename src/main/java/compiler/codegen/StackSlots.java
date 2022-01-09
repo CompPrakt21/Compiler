@@ -6,7 +6,7 @@ import java.util.Map;
 public class StackSlots {
     private int currentOffset;
 
-    private Map<VirtualRegister, Integer> offsets;
+    private final Map<VirtualRegister, Integer> offsets;
 
     public StackSlots() {
         this.currentOffset = 0;

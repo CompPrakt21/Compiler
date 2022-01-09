@@ -8,15 +8,14 @@ import compiler.codegen.sir.SirGraph;
 import compiler.codegen.sir.instructions.*;
 
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 
 public class LlirToSir {
-    private LlirGraph llirGraph;
-    private ScheduleResult schedule;
+    private final LlirGraph llirGraph;
+    private final ScheduleResult schedule;
 
-    private Map<compiler.codegen.llir.BasicBlock, compiler.codegen.sir.BasicBlock> blockMap;
+    private final Map<compiler.codegen.llir.BasicBlock, compiler.codegen.sir.BasicBlock> blockMap;
 
     public LlirToSir(LlirGraph llirGraph, ScheduleResult schedule) {
         this.llirGraph = llirGraph;
@@ -74,17 +73,16 @@ public class LlirToSir {
     private Instruction transformInstruction(LlirNode node) {
         return switch (node) {
             case compiler.codegen.llir.nodes.AllocCallInstruction alloc -> new AllocCallInstruction(alloc.getTargetRegister(), alloc.getElemSize().getTargetRegister(), alloc.getNumElements().getTargetRegister());
-            case compiler.codegen.llir.nodes.BranchInstruction branch -> {
-                // Control flow edges are resolved at the end.
-                yield new BranchInstruction(branch.getPredicate(), null, null);
-            }
+            // Control flow edges are resolved at the end.
+            case compiler.codegen.llir.nodes.BranchInstruction branch ->
+                    new BranchInstruction(branch.getPredicate(), null, null);
             case compiler.codegen.llir.nodes.CmpInstruction cmp -> new CmpInstruction(cmp.getLhs().getTargetRegister(), cmp.getRhs().getTargetRegister());
             case compiler.codegen.llir.nodes.DivInstruction div -> new DivInstruction(div.getTargetRegister(), div.getDividend().getTargetRegister(), div.getDivisor().getTargetRegister(), switch (div.getType()) {
                 case Div -> DivInstruction.DivType.Div;
                 case Mod -> DivInstruction.DivType.Mod;
             });
             case compiler.codegen.llir.nodes.InputNode ignored -> throw new IllegalArgumentException("Input node not represented in SIR");
-            case compiler.codegen.llir.nodes.JumpInstruction jump -> new JumpInstruction(null);
+            case compiler.codegen.llir.nodes.JumpInstruction ignored -> new JumpInstruction(null);
             case compiler.codegen.llir.nodes.MemoryInputNode ignored -> throw new IllegalArgumentException("Memory input node not represented in SIR");
             case compiler.codegen.llir.nodes.MethodCallInstruction method -> {
                 var arguments = method.getArguments().stream().map(RegisterNode::getTargetRegister).toList();

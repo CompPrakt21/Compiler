@@ -15,10 +15,10 @@ import java.util.Optional;
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class NaiveRegisterAllocator {
 
-    private SirGraph graph;
-    private StackSlots stackSlots;
-    private FreeRegisterManager freeRegisters;
-    private List<VirtualRegister> methodParameters;
+    private final SirGraph graph;
+    private final StackSlots stackSlots;
+    private final FreeRegisterManager freeRegisters;
+    private final List<VirtualRegister> methodParameters;
 
     /**
      * The sub instruction which allocates stack space for local variables.
@@ -27,7 +27,7 @@ public class NaiveRegisterAllocator {
      * The same is true for when we free the allocated stack space before ret instructions.
      */
     private Optional<SubInstruction> allocateStackSpaceInstruction;
-    private List<AddInstruction> freeStackSpaceInstructions;
+    private final List<AddInstruction> freeStackSpaceInstructions;
 
     public NaiveRegisterAllocator(List<VirtualRegister> methodParameters, SirGraph graph) {
         this.methodParameters = methodParameters;
@@ -172,7 +172,7 @@ public class NaiveRegisterAllocator {
                 this.saveVirtualRegister(targetReg, lhsReg, newList);
 
                 this.freeRegisters.releaseRegister(lhsReg);
-                memRegs.forEach(reg -> this.freeRegisters.releaseRegister(reg));
+                memRegs.forEach(this.freeRegisters::releaseRegister);
             }
             case ReturnInstruction ret -> {
                 // Load return value into RAX/EAX
@@ -317,7 +317,7 @@ public class NaiveRegisterAllocator {
                 newList.add(movStore);
 
                 this.freeRegisters.releaseRegister(valueHardwareReg);
-                memRegs.forEach(reg -> this.freeRegisters.releaseRegister(reg));
+                memRegs.forEach(this.freeRegisters::releaseRegister);
             }
             case MovLoadInstruction movLoad -> {
                 var memRegs = this.concretizeOperand(movLoad.getAddress(), newList);
@@ -332,7 +332,7 @@ public class NaiveRegisterAllocator {
                 this.saveVirtualRegister(targetVirtReg, resultHardwareReg, newList);
 
                 this.freeRegisters.releaseRegister(resultHardwareReg);
-                memRegs.forEach(reg -> this.freeRegisters.releaseRegister(reg));
+                memRegs.forEach(this.freeRegisters::releaseRegister);
             }
             default -> throw new AssertionError("These instructions should not appear pre register allocation");
         }

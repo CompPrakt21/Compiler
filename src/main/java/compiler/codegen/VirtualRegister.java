@@ -49,18 +49,6 @@ public final class VirtualRegister extends Register {
             this.nextId = 1;
         }
 
-        public VirtualRegister next32Register() {
-            var reg = new VirtualRegister(this.nextId, Width.BIT32);
-            this.nextId += 1;
-            return reg;
-        }
-
-        public VirtualRegister next64Register() {
-            var reg = new VirtualRegister(this.nextId, Width.BIT64);
-            this.nextId += 1;
-            return reg;
-        }
-
         public VirtualRegister nextRegister(Width width) {
             var reg = new VirtualRegister(this.nextId, width);
             this.nextId += 1;

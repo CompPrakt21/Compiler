@@ -2,7 +2,7 @@ package compiler.codegen;
 
 import java.util.Optional;
 
-@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+@SuppressWarnings({"OptionalUsedAsFieldOrParameterType", "unused"})
 public final class MemoryLocation extends Operand {
     private Optional<Register> baseRegister;
     private int constant;

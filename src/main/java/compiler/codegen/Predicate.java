@@ -3,7 +3,7 @@ package compiler.codegen;
 public enum Predicate {
     GREATER_THAN("g"), GREATER_EQUAL("ge"), LESS_THAN("l"), LESS_EQUAL("le"), EQUAL("e"), NOT_EQUAL("ne");
 
-    private String suffix;
+    private final String suffix;
 
     Predicate(String suffix) {
                            this.suffix = suffix;

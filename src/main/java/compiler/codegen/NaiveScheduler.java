@@ -6,7 +6,6 @@ import compiler.codegen.llir.nodes.LlirNode;
 import compiler.codegen.llir.nodes.MemoryInputNode;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class NaiveScheduler {
     private List<LlirNode> scheduleList;
@@ -23,7 +22,7 @@ public class NaiveScheduler {
     }
 
     private enum Visited {
-        VISITED;
+        VISITED
     }
 
     private void scheduleBasicBlock(BasicBlock bb) {
