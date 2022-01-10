@@ -864,6 +864,7 @@ public class Translation {
                     graph = Optimization.constantFolding(graph);
                     graph = Optimization.eliminateRedundantSideEffects(graph);
                     graph = Optimization.eliminateRedundantPhis(graph);
+                    graph = Optimization.eliminateSingletonBlocks(graph);
 
                     this.methodGraphs.put(definedMethod, graph);
                     if (dumpGraphs) {

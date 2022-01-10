@@ -1,6 +1,7 @@
 package compiler;
 
 import firm.BackEdges;
+import firm.BlockWalker;
 import firm.Graph;
 import firm.Mode;
 import firm.nodes.*;
@@ -9,6 +10,8 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 public class Optimization {
     public static Graph constantFolding(Graph g) {
@@ -66,6 +69,7 @@ public class Optimization {
                     continue;
                 }
                 List<Node> outs = new ArrayList<>();
+                // this is ok because we're walking the graph in topological order
                 BackEdges.getOuts(divOrMod).forEach(e -> outs.add(e.node));
                 if (outs.size() > 1) {
                     continue;
@@ -96,6 +100,40 @@ public class Optimization {
                 n.setPred(i, first);
             }
         }
+        return g;
+    }
+
+    public static Graph eliminateSingletonBlocks(Graph g) {
+        BackEdges.enable(g);
+        g.walkBlocksPostorder(block -> {
+            List<Node> content = StreamSupport.stream(BackEdges.getOuts(block).spliterator(), false)
+                    .map(e -> e.node)
+                    .filter(n -> n.getBlock().equals(block))
+                    .collect(Collectors.toList());
+            if (content.size() != 1) {
+                return;
+            }
+            Node n = content.get(0);
+            if (!(n instanceof Jmp)) {
+                return;
+            }
+
+            List<Node> sources = new ArrayList<>();
+            block.getPreds().forEach(sources::add);
+            if (sources.size() != 1) {
+                return;
+            }
+            Node primarySource = sources.get(0);
+            List<BackEdges.Edge> targets = new ArrayList<>();
+            BackEdges.getOuts(n).forEach(targets::add);
+            if (targets.size() != 1) {
+                return;
+            }
+            BackEdges.Edge targetEdge = targets.get(0);
+            Block target = (Block) targetEdge.node;
+            target.setPred(targetEdge.pos, primarySource);
+        });
+        BackEdges.disable(g);
         return g;
     }
 }
