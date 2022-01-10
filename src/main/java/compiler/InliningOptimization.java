@@ -9,7 +9,7 @@ import java.util.stream.StreamSupport;
 
 public class InliningOptimization {
 
-    record Pair<Node, Integer>(Node node, int location){}
+    record Pair<X, Y>(X first, Y second){}
 
     private Graph graph;
     private ArrayDeque<Node> worklist = new ArrayDeque<>();
@@ -22,11 +22,35 @@ public class InliningOptimization {
     private Pair<Node, Integer> isNode = null; //replaced
     private Node callingProjIs = null; //needed
 
+
+    private ArrayList<Call> callNodes = new ArrayList<>();
+    private ArrayList<Proj> projNodes = new ArrayList<>();
+    private ArrayList<Pair<Call, Call>> AddressCallAndClassInstantiation = new ArrayList();
+
+
     public InliningOptimization(Graph g) {
         graph = g;
         BackEdges.enable(graph);
         NodeCollector c = new NodeCollector(worklist);
         graph.walkTopological(c);
+    }
+
+    private void findAllAddressCalls(ArrayDeque<Node> worklist) {
+
+        worklist.stream().filter(node -> node instanceof Proj proj && proj.getMode().equals(Mode.getIs())).forEach(node -> projNodes.add((Proj) node));
+        worklist.stream().filter(node -> node instanceof Call).forEach(node -> callNodes.add((Call) node));
+        for (Call callNode : callNodes) {
+            ArrayList<Node> temp = new ArrayList<>();
+            callNode.getPreds().forEach(node -> temp.add(node));
+            if (temp.stream().noneMatch(node -> node instanceof Address address && address.getEntity().getName().matches("(_System_out_(write|println|read|flush))")))
+                callNodes.remove(temp);
+        }
+
+    }
+
+    private void suitabilityFilter(ArrayList<Proj> addressNodes) {
+        addressNodes.stream().filter(proj -> proj.getPred() instanceof Proj proj1 && callNodes.contains(proj1.getPred().getPreds()));
+
     }
 
     public void collectNodes() {
