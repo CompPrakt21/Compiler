@@ -116,7 +116,7 @@ public class FirmToLlir implements NodeVisitor {
      * after any use of the original value (which is an input node).
      * This happens after the main construction.
      */
-    private final List<MovRegisterInstruction> phiRegMoves;
+    private final List<RegisterNode> phiRegMoves;
 
     /**
      * Remembers if node have been visited already.
@@ -805,7 +805,7 @@ public class FirmToLlir implements NodeVisitor {
                 if (pred instanceof Const c) {
                     var mov = predBb.newMovImmediateInto(c.getTarval().asInt(), register, modeToRegisterWidth(c.getMode()));
                     predBb.addOutput(mov);
-
+                    this.phiRegMoves.add(mov);
                 } else {
                     // Now we need to handle a few cases
 
