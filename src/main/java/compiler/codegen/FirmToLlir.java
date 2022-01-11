@@ -4,8 +4,7 @@ import compiler.TranslationResult;
 import compiler.codegen.llir.*;
 import compiler.codegen.llir.nodes.*;
 import compiler.semantic.resolution.DefinedMethod;
-import compiler.types.ArrayTy;
-import compiler.types.ClassTy;
+import compiler.types.*;
 import compiler.utils.GenericNodeWalker;
 import firm.*;
 import firm.nodes.*;
@@ -193,10 +192,9 @@ public class FirmToLlir implements NodeVisitor {
 
         // Method parameters are (at first) just virtual registers.
         var methodParamTys = Stream.concat(this.method.getContainingClass().stream(), this.method.getParameterTy().stream());
-        this.methodParameters = methodParamTys.map(arg -> {
-            var width = (arg instanceof ClassTy || arg instanceof ArrayTy) ? Register.Width.BIT64 : Register.Width.BIT32;
-            return this.llirGraph.getVirtualRegGenerator().nextRegister(width);
-        }).toList();
+        this.methodParameters = methodParamTys.map(arg ->
+            this.llirGraph.getVirtualRegGenerator().nextRegister(tyToRegisterWidth((Ty)arg))
+        ).toList();
 
         // Find the firm (proj) nodes which represent the method parameters in the firm graph and associate them with the corresponding
         // input nodes of the start basic block.
@@ -270,8 +268,24 @@ public class FirmToLlir implements NodeVisitor {
     private static Register.Width modeToRegisterWidth(Mode m) {
         if (m.equals(Mode.getP()) || m.equals(Mode.getLs()) || m.equals(Mode.getLu())) {
             return Register.Width.BIT64;
-        } else {
+        } else if (m.equals(Mode.getIu()) || m.equals(Mode.getIs())) {
             return Register.Width.BIT32;
+        } else if (m.equals(Mode.getBu())) {
+            return Register.Width.BIT8;
+        } else {
+            throw new IllegalArgumentException("No applicable mov width for mode.");
+        }
+    }
+
+    public static Register.Width tyToRegisterWidth(Ty ty) {
+        if (ty instanceof ClassTy || ty instanceof ArrayTy) {
+            return Register.Width.BIT64;
+        } else if (ty instanceof BoolTy) {
+            return Register.Width.BIT8;
+        } else if (ty instanceof IntTy) {
+            return Register.Width.BIT32;
+        }else {
+            throw new IllegalArgumentException();
         }
     }
 
@@ -290,10 +304,10 @@ public class FirmToLlir implements NodeVisitor {
         for (var method : translationResult.methodGraphs().keySet()) {
                 var graph = translationResult.methodGraphs().get(method);
 
-                //Dump.dumpGraph(graph, "before-lowering-to-llir");
+                Dump.dumpGraph(graph, "before-lowering-to-llir");
                 var f = new FirmToLlir(method, graph, translationResult);
                 f.lower();
-                LlirVerifier.verify(f.llirGraph);
+
                 methodLlirGraphs.put(method, f.llirGraph);
                 methodParameters.put(method, f.methodParameters);
         }
@@ -697,7 +711,7 @@ public class FirmToLlir implements NodeVisitor {
         var addrNode = (RegisterNode)getPredLlirNode(store, store.getPtr());
         var valueNode = (RegisterNode)getPredLlirNode(store, store.getValue());
 
-        var llirStore = bb.newMovStore(addrNode, valueNode, memNode);
+        var llirStore = bb.newMovStore(addrNode, valueNode, memNode, modeToRegisterWidth(store.getValue().getMode()));
         registerLlirNode(store, llirStore);
     }
 
@@ -789,7 +803,7 @@ public class FirmToLlir implements NodeVisitor {
 
                 // If the predecessor is constant, simply rematerialize the value.
                 if (pred instanceof Const c) {
-                    var mov = predBb.newMovImmediateInto(c.getTarval().asInt(), register);
+                    var mov = predBb.newMovImmediateInto(c.getTarval().asInt(), register, modeToRegisterWidth(c.getMode()));
                     predBb.addOutput(mov);
 
                 } else {

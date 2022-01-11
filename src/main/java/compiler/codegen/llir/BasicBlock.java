@@ -1,5 +1,6 @@
 package compiler.codegen.llir;
 
+import compiler.codegen.Register.Width;
 import compiler.codegen.Predicate;
 import compiler.codegen.Register;
 import compiler.codegen.llir.nodes.*;
@@ -108,8 +109,8 @@ public class BasicBlock {
         while (!queue.isEmpty()) {
             var node = queue.pop();
 
-            queue.addAll(node.getPreds().filter(p -> !result.contains(p)).collect(Collectors.toList()));
-            result.addAll(node.getPreds().collect(Collectors.toList()));
+            queue.addAll(node.getPreds().filter(p -> !result.contains(p)).toList());
+            result.addAll(node.getPreds().toList());
         }
 
         return result;
@@ -123,8 +124,8 @@ public class BasicBlock {
         return new MovImmediateInstruction(this, constant, width);
     }
 
-    public MovImmediateInstruction newMovImmediateInto(int constant, Register target) {
-        return new MovImmediateInstruction(this, constant, target);
+    public MovImmediateInstruction newMovImmediateInto(int constant, Register target, Register.Width width) {
+        return new MovImmediateInstruction(this, constant, target, width);
     }
 
     public MovRegisterInstruction newMovRegisterInto(Register target, RegisterNode source) {
@@ -159,8 +160,8 @@ public class BasicBlock {
         return new DivInstruction(this, dividend, divisor, sideEffect, DivInstruction.DivType.Mod);
     }
 
-    public MovStoreInstruction newMovStore(RegisterNode addr, RegisterNode value, SideEffect sideEffect) {
-        return new MovStoreInstruction(this, sideEffect, addr, value);
+    public MovStoreInstruction newMovStore(RegisterNode addr, RegisterNode value, SideEffect sideEffect, Register.Width width) {
+        return new MovStoreInstruction(this, sideEffect, addr, value, width);
     }
 
     public MovLoadInstruction newMovLoad(RegisterNode addr, SideEffect sideEffect, Register.Width outputWidth) {

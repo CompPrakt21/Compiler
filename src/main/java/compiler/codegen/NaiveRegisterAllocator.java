@@ -7,6 +7,7 @@ import compiler.semantic.resolution.DefinedMethod;
 import compiler.semantic.resolution.IntrinsicMethod;
 import compiler.types.VoidTy;
 
+import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -72,7 +73,7 @@ public class NaiveRegisterAllocator {
         var virtReg = (VirtualRegister) reg;
         var offset = this.stackSlots.get(virtReg);
         var hardwareReg = this.freeRegisters.requestRegister(virtReg.getWidth());
-        newList.add(new MovLoadInstruction(hardwareReg, new MemoryLocation(HardwareRegister.RBP, offset)));
+        newList.add(new MovInstruction(reg.getWidth(), hardwareReg, new MemoryLocation(HardwareRegister.RBP, offset)));
         return hardwareReg;
     }
 
@@ -81,42 +82,33 @@ public class NaiveRegisterAllocator {
         var offset = this.stackSlots.get(virtReg);
         var hardwareReg = this.freeRegisters.requestSpecificRegister(target).orElseThrow();
 
-        newList.add(new MovLoadInstruction(hardwareReg, new MemoryLocation(HardwareRegister.RBP, offset)));
+        newList.add(new MovInstruction(target.getWidth(), hardwareReg, new MemoryLocation(HardwareRegister.RBP, offset)));
 
         return hardwareReg;
     }
 
     private void saveVirtualRegister(VirtualRegister virtReg, HardwareRegister value, List<Instruction> newList)  {
         var offset = this.stackSlots.get(virtReg);
-        newList.add(new MovStoreInstruction(new MemoryLocation(HardwareRegister.RBP, offset), value));
+        newList.add(new MovInstruction(virtReg.getWidth(), new MemoryLocation(HardwareRegister.RBP, offset), value));
     }
 
     /**
      * replaces virtual registers in a memory loation with free hardware registers and adds the necessary load
      * instructions.
      */
-    private List<HardwareRegister> concretizeOperand(Operand operand, List<Instruction> newList) {
+    private List<HardwareRegister> concretizeMemoryLocation(MemoryLocation loc, List<Instruction> newList) {
         List<HardwareRegister> allocatedRegisters = new ArrayList<>();
 
-        switch (operand) {
-            case MemoryLocation loc -> {
+        if (loc.getBaseRegister().isPresent() && loc.getBaseRegister().get() instanceof VirtualRegister virtReg) {
+            var hardwareBaseReg = this.concretizeRegister(virtReg, newList);
+            loc.setBaseRegister(hardwareBaseReg);
+            allocatedRegisters.add(hardwareBaseReg);
+        }
 
-                if (loc.getBaseRegister().isPresent() && loc.getBaseRegister().get() instanceof VirtualRegister virtReg) {
-                    var hardwareBaseReg = this.concretizeRegister(virtReg, newList);
-                    loc.setBaseRegister(hardwareBaseReg);
-                    allocatedRegisters.add(hardwareBaseReg);
-                }
-
-                if (loc.getIndex().isPresent() && loc.getIndex().get() instanceof VirtualRegister virtReg) {
-                    var hardwareIndexReg = this.concretizeRegister(virtReg, newList);
-                    loc.setIndex(hardwareIndexReg);
-                    allocatedRegisters.add(hardwareIndexReg);
-                }
-            }
-            case VirtualRegister virtReg ->
-                allocatedRegisters.add(this.concretizeRegister(virtReg, newList));
-            case HardwareRegister ignored -> {}
-            case Constant ignored -> {}
+        if (loc.getIndex().isPresent() && loc.getIndex().get() instanceof VirtualRegister virtReg) {
+            var hardwareIndexReg = this.concretizeRegister(virtReg, newList);
+            loc.setIndex(hardwareIndexReg);
+            allocatedRegisters.add(hardwareIndexReg);
         }
 
         return allocatedRegisters;
@@ -156,12 +148,16 @@ public class NaiveRegisterAllocator {
             case BinaryInstruction binary -> {
                 var targetReg = (VirtualRegister) binary.getTarget();
                 var lhsReg= this.concretizeRegister(binary.getLhs(), newList);
-                var memRegs = this.concretizeOperand(binary.getRhs(), newList);
 
-                // if the operand is a memory location we replace virtual register inplace.
-                // otherwise we need to change it manually.
-                if (binary.getRhs() instanceof VirtualRegister) {
-                    binary.setRhs(memRegs.get(0));
+                var allocatedRegisters = new ArrayList<HardwareRegister>();
+
+                if (binary.getRhs() instanceof MemoryLocation rhs) {
+                    var memRegs = this.concretizeMemoryLocation(rhs, newList);
+                    allocatedRegisters.addAll(memRegs);
+                } else if (binary.getRhs() instanceof VirtualRegister rhs) {
+                    var rhsHardwareReg = this.concretizeRegister(rhs, newList);
+                    binary.setRhs(rhsHardwareReg);
+                    allocatedRegisters.add(rhsHardwareReg);
                 }
 
                 binary.setTarget(lhsReg);
@@ -172,7 +168,7 @@ public class NaiveRegisterAllocator {
                 this.saveVirtualRegister(targetReg, lhsReg, newList);
 
                 this.freeRegisters.releaseRegister(lhsReg);
-                memRegs.forEach(this.freeRegisters::releaseRegister);
+                allocatedRegisters.forEach(this.freeRegisters::releaseRegister);
             }
             case ReturnInstruction ret -> {
                 // Load return value into RAX/EAX
@@ -266,29 +262,33 @@ public class NaiveRegisterAllocator {
                     }
                 }
             }
-            case MovImmediateInstruction movImm -> {
-                var targetVirtReg = (VirtualRegister) movImm.getTarget();
-                var targetHardwareReg = this.freeRegisters.requestRegister(targetVirtReg.getWidth());
-                movImm.setTarget(targetHardwareReg);
-                newList.add(movImm);
-                this.saveVirtualRegister(targetVirtReg, targetHardwareReg, newList);
-                this.freeRegisters.releaseRegister(targetHardwareReg);
-            }
-            case MovRegInstruction movReg -> {
-                if (movReg.getSource() instanceof VirtualRegister virtRegSource) {
-                    var sourceHardwareReg = this.concretizeRegister(virtRegSource, newList);
-                    movReg.setSource(sourceHardwareReg);
-                    this.freeRegisters.releaseRegister(sourceHardwareReg);
+            case MovInstruction mov -> {
+                ArrayList<HardwareRegister> allocatedRegisters = new ArrayList<>();
+
+                if (mov.getSource() instanceof VirtualRegister source) {
+                    var sourceHardwareReg = this.concretizeRegister(source, newList);
+                    allocatedRegisters.add(sourceHardwareReg);
+                    mov.setSource(sourceHardwareReg);
+                } else if (mov.getSource() instanceof MemoryLocation source) {
+                    allocatedRegisters.addAll(this.concretizeMemoryLocation(source, newList));
                 }
 
-                newList.add(movReg);
-
-                if (movReg.getTarget() instanceof VirtualRegister virRegTarget) {
-                    var targetHardware = this.freeRegisters.requestRegister(virRegTarget.getWidth());
-                    this.saveVirtualRegister(virRegTarget, (HardwareRegister) movReg.getSource(), newList);
-                    movReg.setTarget(targetHardware);
-                    this.freeRegisters.releaseRegister(targetHardware);
+                switch (mov.getDestination()) {
+                    case MemoryLocation loc -> {
+                        allocatedRegisters.addAll(this.concretizeMemoryLocation(loc, newList));
+                        newList.add(mov);
+                    }
+                    case VirtualRegister virtualReg -> {
+                        var targetHardwareReg = this.freeRegisters.requestRegister(mov.getWidth());
+                        mov.setDestination(targetHardwareReg);
+                        newList.add(mov);
+                        allocatedRegisters.add(targetHardwareReg);
+                        this.saveVirtualRegister(virtualReg, targetHardwareReg, newList);
+                    }
+                    default -> throw new AssertionError("Unexpected mov destination");
                 }
+
+                allocatedRegisters.forEach(this.freeRegisters::releaseRegister);
             }
             case MovSignExtendInstruction movSX -> {
                 if (movSX.getInput() instanceof VirtualRegister virtRegInput) {
@@ -306,34 +306,6 @@ public class NaiveRegisterAllocator {
                     this.freeRegisters.releaseRegister(targetHardware);
                 }
             }
-            case MovStoreInstruction movStore -> {
-                var memRegs = this.concretizeOperand(movStore.getAddress(), newList);
-
-                var valueReg = (VirtualRegister)movStore.getValue();
-                var valueHardwareReg = this.concretizeRegister(valueReg, newList);
-
-                movStore.setValue(valueHardwareReg);
-
-                newList.add(movStore);
-
-                this.freeRegisters.releaseRegister(valueHardwareReg);
-                memRegs.forEach(this.freeRegisters::releaseRegister);
-            }
-            case MovLoadInstruction movLoad -> {
-                var memRegs = this.concretizeOperand(movLoad.getAddress(), newList);
-
-                var targetVirtReg = (VirtualRegister)movLoad.getTarget();
-
-                var resultHardwareReg = this.freeRegisters.requestRegister(targetVirtReg.getWidth());
-
-                movLoad.setTarget(resultHardwareReg);
-                newList.add(movLoad);
-
-                this.saveVirtualRegister(targetVirtReg, resultHardwareReg, newList);
-
-                this.freeRegisters.releaseRegister(resultHardwareReg);
-                memRegs.forEach(this.freeRegisters::releaseRegister);
-            }
             default -> throw new AssertionError("These instructions should not appear pre register allocation");
         }
     }
@@ -344,7 +316,7 @@ public class NaiveRegisterAllocator {
         // add function prolog
         if (bb == this.graph.getStartBlock()) {
             newList.add(new PushInstruction(HardwareRegister.RBP));
-            newList.add(new MovRegInstruction(HardwareRegister.RBP, HardwareRegister.RSP));
+            newList.add(new MovInstruction(Register.Width.BIT64, HardwareRegister.RBP, HardwareRegister.RSP));
             var stackSpace = new SubInstruction(HardwareRegister.RSP, HardwareRegister.RSP, new Constant(0));
             this.allocateStackSpaceInstruction = Optional.of(stackSpace);
             newList.add(stackSpace);

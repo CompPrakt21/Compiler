@@ -1,5 +1,6 @@
 package compiler.codegen.llir.nodes;
 
+import compiler.codegen.Register.Width;
 import compiler.codegen.llir.BasicBlock;
 import compiler.codegen.Register;
 
@@ -9,11 +10,13 @@ public final class MovStoreInstruction extends LlirNode implements SideEffect {
     private SideEffect sideEffect;
     private RegisterNode addrNode;
     private RegisterNode valueNode;
+    private Register.Width width;
 
-    public MovStoreInstruction(BasicBlock bb, SideEffect sideEffect, RegisterNode addrNode, RegisterNode valueNode) {
+    public MovStoreInstruction(BasicBlock bb, SideEffect sideEffect, RegisterNode addrNode, RegisterNode valueNode, Register.Width width) {
         super(bb);
         this.sideEffect = sideEffect;
         this.addrNode = addrNode;
+        this.width = width;
         assert addrNode.getTargetRegister().getWidth() == Register.Width.BIT64;
         this.valueNode = valueNode;
     }
@@ -28,6 +31,10 @@ public final class MovStoreInstruction extends LlirNode implements SideEffect {
 
     public RegisterNode getValueNode() {
         return valueNode;
+    }
+
+    public Register.Width getWidth() {
+        return this.width;
     }
 
     @Override

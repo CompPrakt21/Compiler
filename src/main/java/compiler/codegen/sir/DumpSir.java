@@ -29,11 +29,8 @@ public class DumpSir {
             case MethodCallInstruction method -> {
                 yield String.format("%s <- %s %s (%s)", method.getTarget(), method.getMnemonic(), method.getMethod().getLinkerName(), method.getArguments());
             }
-            case MovImmediateInstruction movImm -> String.format("%s <- %s %s", movImm.getTarget(), movImm.getMnemonic(), movImm.getImmediateValue());
-            case MovLoadInstruction movLoad -> String.format("%s <- %s %s", movLoad.getTarget(), movLoad.getMnemonic(), movLoad.getAddress().formatIntelSyntax());
-            case MovRegInstruction movReg -> String.format("%s <- %s %s", movReg.getTarget(), movReg.getMnemonic(), movReg.getSource());
+            case MovInstruction mov -> String.format("%s <- %s %s", mov.getDestination().formatIntelSyntax(), mov.getMnemonic(),  mov.getSource().formatIntelSyntax());
             case MovSignExtendInstruction movSX -> String.format("%s <- %s %s", movSX.getTarget(), movSX.getMnemonic(), movSX.getInput());
-            case MovStoreInstruction movStore -> String.format("%s %s %s", movStore.getMnemonic(), movStore.getAddress().formatIntelSyntax(), movStore.getValue());
             case ReturnInstruction ret -> String.format("%s %s", ret.getMnemonic(), ret.getReturnValue().map(Register::toString).orElse(""));
             case PushInstruction push -> String.format("%s %s", push.getMnemonic(), push.getRegister());
             case PopInstruction pop -> String.format("%s <- %s", pop.getRegister(), pop.getMnemonic());

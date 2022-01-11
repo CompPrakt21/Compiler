@@ -1,5 +1,6 @@
 package compiler;
 
+import compiler.codegen.Register.Width;
 import compiler.codegen.Register;
 import compiler.codegen.VirtualRegister;
 import compiler.codegen.llir.*;

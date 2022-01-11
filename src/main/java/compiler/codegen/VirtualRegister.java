@@ -31,6 +31,7 @@ public final class VirtualRegister extends Register {
     @Override
     public String getName() {
         var width = switch (this.getWidth()) {
+            case BIT8 -> "v(8)";
             case BIT32 -> "v";
             case BIT64 -> "V";
         };

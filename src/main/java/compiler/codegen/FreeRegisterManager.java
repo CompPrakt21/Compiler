@@ -27,7 +27,8 @@ public class FreeRegisterManager {
     }
 
     public HardwareRegister requestRegister(Register.Width width) {
-        return this.freeRegisters.pop().forWidth(width);
+        var reg = this.freeRegisters.pop().forWidth(width);
+        return reg;
     }
 
     public void releaseRegister(HardwareRegister register) {

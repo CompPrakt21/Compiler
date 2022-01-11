@@ -245,8 +245,9 @@ public class MainCommand implements Callable<Integer> {
 
                 if (dumpGraphs) {
                     try {
-                        new DumpScheduledLlir(new PrintWriter(new File(String.format("llir-after-schedule_%s.dot", name))))
-                                .dump(pair.getValue(), scheduleResult);
+                        new DumpLlir(new PrintWriter(new File(String.format("llir-after-schedule_%s.dot", name))))
+                                .withSchedule(scheduleResult)
+                                .dump(pair.getValue());
                     } catch (FileNotFoundException e) {
                         e.printStackTrace();
                     }

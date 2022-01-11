@@ -49,6 +49,14 @@ public class Emitter {
 
     }
 
+    private String movWidthSuffix(Register.Width width) {
+        return switch (width) {
+            case BIT8 -> "b";
+            case BIT32 -> "l";
+            case BIT64 -> "q";
+        };
+    }
+
     public void emitInstruction(Instruction instruction) {
         String asm;
         switch (instruction) {
@@ -84,31 +92,17 @@ public class Emitter {
             case MethodCallInstruction insn -> {
                 asm = String.format("\tcall %s", insn.getMethod().getLinkerName());
             }
-            case MovImmediateInstruction insn -> {
-                asm = String.format("\tmov $%d, %s",
-                        insn.getImmediateValue(),
-                        insn.getTarget().formatATTSyntax());
-
-            }
-            case MovLoadInstruction insn -> {
-                asm = String.format("\tmov %s, %s",
-                        insn.getAddress().formatATTSyntax(),
-                        insn.getTarget().formatATTSyntax());
-            }
-            case MovRegInstruction insn -> {
-                asm = String.format("\tmov %s, %s",
+            case MovInstruction insn -> {
+                asm = String.format("\tmov%s %s, %s",
+                        movWidthSuffix(insn.getWidth()),
                         insn.getSource().formatATTSyntax(),
-                        insn.getTarget().formatATTSyntax());
+                        insn.getDestination().formatATTSyntax());
+
             }
             case MovSignExtendInstruction insn -> {
                 asm = String.format("\tmovsx %s, %s",
                         insn.getInput().formatATTSyntax(),
                         insn.getTarget().formatATTSyntax());
-            }
-            case MovStoreInstruction insn -> {
-                asm = String.format("\tmov %s, %s",
-                        insn.getValue().formatATTSyntax(),
-                        insn.getAddress().formatATTSyntax());
             }
             case MulInstruction insn -> {
                 // We use mul here as molki always uses 64 bits >:(

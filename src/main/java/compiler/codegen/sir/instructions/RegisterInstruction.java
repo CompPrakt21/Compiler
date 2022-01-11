@@ -2,7 +2,7 @@ package compiler.codegen.sir.instructions;
 
 import compiler.codegen.Register;
 
-public abstract sealed class RegisterInstruction extends Instruction permits BinaryInstruction, CallInstruction, ConvertDoubleToQuadInstruction, DivInstruction, MovImmediateInstruction, MovLoadInstruction, MovRegInstruction, MovSignExtendInstruction {
+public abstract sealed class RegisterInstruction extends Instruction permits BinaryInstruction, CallInstruction, ConvertDoubleToQuadInstruction, DivInstruction, MovSignExtendInstruction {
     protected Register target;
 
     public RegisterInstruction(Register target) {

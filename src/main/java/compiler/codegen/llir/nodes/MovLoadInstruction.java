@@ -1,5 +1,6 @@
 package compiler.codegen.llir.nodes;
 
+import compiler.codegen.Register.Width;
 import compiler.codegen.llir.BasicBlock;
 import compiler.codegen.Register;
 
@@ -8,14 +9,20 @@ import java.util.stream.Stream;
 public final class MovLoadInstruction extends RegisterNode implements SideEffect {
     private SideEffect sideEffect;
     private RegisterNode addrNode;
+    private Register.Width width;
 
-    public MovLoadInstruction(BasicBlock bb, SideEffect sideEffect, RegisterNode addrNode, Register.Width outputWidth) {
+    public MovLoadInstruction(BasicBlock bb, SideEffect sideEffect, RegisterNode addrNode, Register.Width width) {
         super(bb);
         this.sideEffect = sideEffect;
         this.addrNode = addrNode;
+        this.width = width;
         assert addrNode.getTargetRegister().getWidth() == Register.Width.BIT64;
 
-        initTargetRegister(outputWidth);
+        initTargetRegister(width);
+    }
+
+    public Register.Width getWidth() {
+        return width;
     }
 
     @Override

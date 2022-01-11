@@ -88,11 +88,11 @@ public class LlirToSir {
                 var arguments = method.getArguments().stream().map(RegisterNode::getTargetRegister).toList();
                 yield new MethodCallInstruction(method.getTargetRegister(), method.getCalledMethod(), arguments);
             }
-            case compiler.codegen.llir.nodes.MovImmediateInstruction movImm -> new MovImmediateInstruction(movImm.getTargetRegister(), movImm.getImmediateValue());
-            case compiler.codegen.llir.nodes.MovLoadInstruction movLoad -> new MovLoadInstruction(movLoad.getTargetRegister(), new MemoryLocation(movLoad.getAddrNode().getTargetRegister()));
-            case compiler.codegen.llir.nodes.MovRegisterInstruction movReg -> new MovRegInstruction(movReg.getTargetRegister(), movReg.getSourceRegister().getTargetRegister());
+            case compiler.codegen.llir.nodes.MovImmediateInstruction movImm -> new MovInstruction(movImm.getWidth(), movImm.getTargetRegister(), new Constant(movImm.getImmediateValue()));
+            case compiler.codegen.llir.nodes.MovLoadInstruction movLoad -> new MovInstruction(movLoad.getWidth(), movLoad.getTargetRegister(), new MemoryLocation(movLoad.getAddrNode().getTargetRegister()));
+            case compiler.codegen.llir.nodes.MovRegisterInstruction movReg -> new MovInstruction(movReg.getTargetRegister().getWidth(), movReg.getTargetRegister(), movReg.getSourceRegister().getTargetRegister());
+            case compiler.codegen.llir.nodes.MovStoreInstruction movStore -> new MovInstruction(movStore.getWidth(), new MemoryLocation(movStore.getAddrNode().getTargetRegister()), movStore.getValueNode().getTargetRegister());
             case compiler.codegen.llir.nodes.MovSignExtendInstruction movSX -> new MovSignExtendInstruction(movSX.getTargetRegister(), movSX.getInput().getTargetRegister());
-            case compiler.codegen.llir.nodes.MovStoreInstruction movStore -> new MovStoreInstruction(new MemoryLocation(movStore.getAddrNode().getTargetRegister()), movStore.getValueNode().getTargetRegister());
             case compiler.codegen.llir.nodes.ReturnInstruction ret -> new ReturnInstruction(ret.getReturnValue().map(RegisterNode::getTargetRegister));
             case compiler.codegen.llir.nodes.AddInstruction add -> new AddInstruction(add.getTargetRegister(), add.getLhs().getTargetRegister(), add.getRhs().getTargetRegister());
             case compiler.codegen.llir.nodes.SubInstruction sub -> new SubInstruction(sub.getTargetRegister(), sub.getLhs().getTargetRegister(), sub.getRhs().getTargetRegister());

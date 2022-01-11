@@ -1,11 +1,15 @@
 package compiler.codegen.llir.nodes;
 
+import compiler.codegen.FirmToLlir;
 import compiler.codegen.llir.BasicBlock;
 import compiler.codegen.Register;
 import compiler.semantic.resolution.DefinedMethod;
 import compiler.semantic.resolution.MethodDefinition;
 import compiler.types.ArrayTy;
 import compiler.types.ClassTy;
+import compiler.types.Ty;
+import compiler.types.VoidTy;
+import firm.Firm;
 
 import java.util.List;
 import java.util.stream.Stream;
@@ -21,9 +25,11 @@ public final class MethodCallInstruction extends CallInstruction {
 
         assert !(calledMethod instanceof DefinedMethod) || args.get(0).getTargetRegister().getWidth() == Register.Width.BIT64;
         var returnTy = calledMethod.getReturnTy();
-        var wideOutput = returnTy instanceof ClassTy || returnTy instanceof ArrayTy;
 
-        initTargetRegister(wideOutput ? Register.Width.BIT64 : Register.Width.BIT32);
+        // If this method returns void, the returned register width doesn't matter.
+        var width = returnTy instanceof VoidTy ? Register.Width.BIT32 : FirmToLlir.tyToRegisterWidth((Ty) returnTy);
+
+        initTargetRegister(width);
     }
 
     public SideEffect getSideEffect() {
