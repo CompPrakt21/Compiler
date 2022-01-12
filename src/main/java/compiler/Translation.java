@@ -841,18 +841,28 @@ public class Translation {
             this.intrinsicEntities.put(intrinsicMethod, entity);
         }
 
+        ArrayList<Graph> graphs = new ArrayList<>();
+        ArrayDeque<String> names = new ArrayDeque<>();
         for (var classTy : frontend.classes()) {
             for (var methodDef : classTy.getMethods().values()) {
                 // We don't generate code for intrinsic methods.
                 if (methodDef instanceof DefinedMethod definedMethod) {
                     Graph graph = genGraphForMethod(definedMethod);
-                    graph = Optimization.constantFolding(graph);
-                    if (dumpGraphs) {
-                        Dump.dumpGraph(graph, methodDef.getName());
-                    }
+                    graphs.add(Optimization.constantFolding(graph));
+                    names.add(methodDef.getName());
+
+
                 }
             }
         }
+        graphs.forEach(graph -> {
+            InliningOptimization inliningOptimization = new InliningOptimization(graph);
+            inliningOptimization.collectNodes();
+            System.out.println("DONE");
+            if (dumpGraphs) {
+                Dump.dumpGraph(graph, names.pop());
+            }
+        });
 
         if (dumpGraphs) {
             try {
