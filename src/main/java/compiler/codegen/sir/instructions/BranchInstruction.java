@@ -1,7 +1,11 @@
 package compiler.codegen.sir.instructions;
 
 import compiler.codegen.Predicate;
+import compiler.codegen.Register;
 import compiler.codegen.sir.BasicBlock;
+
+import java.util.List;
+import java.util.Optional;
 
 public final class BranchInstruction extends ControlFlowInstruction {
 
@@ -38,5 +42,15 @@ public final class BranchInstruction extends ControlFlowInstruction {
     @Override
     public String getMnemonic() {
         return String.format("b%s", this.predicate.getSuffix());
+    }
+
+    @Override
+    public List<Register> getReadRegisters() {
+        return List.of();
+    }
+
+    @Override
+    public Optional<Register> getWrittenRegister() {
+        return Optional.empty();
     }
 }

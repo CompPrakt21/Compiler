@@ -8,6 +8,7 @@ import compiler.semantic.resolution.IntrinsicMethod;
 import compiler.types.VoidTy;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class OnTheFlyRegisterAllocator {
@@ -25,6 +26,7 @@ public class OnTheFlyRegisterAllocator {
      */
     private Optional<SubInstruction> allocateStackSpaceInstruction;
     private final List<AddInstruction> freeStackSpaceInstructions;
+    private RegisterLifetimes lifetimes;
 
     public OnTheFlyRegisterAllocator(List<VirtualRegister> methodParameters, SirGraph graph) {
         this.methodParameters = methodParameters;
@@ -47,6 +49,8 @@ public class OnTheFlyRegisterAllocator {
             paramOffset += Register.Width.BIT64.getByteSize();
         }
 
+        this.lifetimes = RegisterLifetimes.calculateLifetime(this.graph);
+
         for (var bb : this.graph.getBlocks()) {
             this.allocateBasicBlock(bb);
         }
@@ -65,97 +69,142 @@ public class OnTheFlyRegisterAllocator {
         this.scheduleBlocks();
     }
 
+    private HardwareRegister selectAndFreeTarget(
+            VirtualRegister register,
+            Optional<HardwareRegister.Group> target,
+            List<HardwareRegister.Group> preferred,
+            List<HardwareRegister.Group> disallowed,
+            Set<HardwareRegister.Group> keepAlive,
+            List<Instruction> newList
+    ) {
+        assert preferred.stream().noneMatch(disallowed::contains);
+
+        var mapping = this.freeRegisters.getMapping(register);
+
+        // First we need to select the register we need to place the result in
+        // and make sure it is free to be used.
+        Optional<HardwareRegister.Group> chosenTarget = Optional.empty();
+        if (target.isPresent()) {
+            chosenTarget = target;
+
+            // Make sure target is free (if the virtual register is already mapped to target, there is no need.)
+            if (!this.freeRegisters.isAvailable(target.get()) && !(mapping.isPresent() && target.get().equals(mapping.get().getGroup()))) {
+                assert !keepAlive.contains(target.get());
+                this.makeUnusedSpecificRegister(target.get().getRegister(register.getWidth()), newList);
+            }
+        } else if (mapping.isPresent()) {
+            // If it is already mapped we take it.
+            chosenTarget = mapping.map(HardwareRegister::getGroup);
+        } else {
+            // There is no obvious choice, so we search in the free registers for a suitable candidate.
+            for (var availableRegister : this.freeRegisters.availableRegisters()) {
+                if (disallowed.contains(availableRegister)) {
+                    continue;
+                }
+
+                if (preferred.contains(availableRegister)) {
+                    chosenTarget = Optional.of(availableRegister);
+                    break;
+                }
+
+                if (chosenTarget.isEmpty()) {
+                    chosenTarget = Optional.of(availableRegister);
+
+                    if (preferred.isEmpty()) break;
+                }
+            }
+
+            // No free register can be used, so lets choose any of the preferred or, if even that fails, any random register.
+            if (chosenTarget.isEmpty()) {
+                chosenTarget = preferred.stream()
+                        .filter(reg -> !keepAlive.contains(reg))
+                        .findFirst()
+                        .or(() -> this.freeRegisters.getMapping()
+                                .rightSet()
+                                .stream()
+                                .filter(reg -> !disallowed.contains(reg) && !keepAlive.contains(reg))
+                                .findFirst()
+                        );
+
+                this.makeUnusedSpecificRegister(chosenTarget.orElseThrow().getRegister(register.getWidth()), newList);
+            }
+        }
+
+        return chosenTarget.orElseThrow().getRegister(register.getWidth());
+    }
+
     /**
-     * Stores a mapped variable on the stack to free a hardware register.
+     * Map virtual register to hardware register so it can be used as the result register
+     * of some instruction.
      *
-     * @param except The set of virtual registers that need to remain live.
+     * @param register The virtual register to be used.
+     * @param target The hardware register it should be mapped to. If this is not empty, the return value will be its content.
+     * @param preferred If possible one of these hardware registers should be chosen.
+     * @param disallowed Under no circumstances should the target hardware register be one of these.
+     * @param keepAlive Registers must be unchanged. They might be used in other parts of the current instruction.
+     *                  It is assumed that they are not free.
      */
-    private void reduceRegisterPressure(List<Instruction> newList, Set<VirtualRegister> except) {
-        var removedReg= this.freeRegisters.getMapping().leftSet().stream().filter(virtReg -> !except.contains(virtReg)).findFirst().orElseThrow();
-        this.makeUnusedSpecificRegister(this.freeRegisters.getMapping(removedReg).orElseThrow(), newList);
-    }
+    private HardwareRegister initialiseVirtualRegister(
+            VirtualRegister register,
+            Optional<HardwareRegister.Group> target,
+            List<HardwareRegister.Group> preferred,
+            List<HardwareRegister.Group> disallowed,
+            Set<HardwareRegister.Group> keepAlive,
+            List<Instruction> newList
+    ) {
 
-    private void makeUnusedSpecificRegister(HardwareRegister register, List<Instruction> newList) {
-        if (!this.freeRegisters.isAvailable(register)) {
-            var associatedVirtRegister = this.freeRegisters.getMappedVirtualRegister(register.getGroup());
-            this.saveVirtualRegister(associatedVirtRegister, register.getGroup().getRegister(associatedVirtRegister.getWidth()), newList);
-            this.freeRegisters.freeMapping(associatedVirtRegister);
+        var targetRegister = this.selectAndFreeTarget(register, target, preferred, disallowed, keepAlive, newList);
+
+        // Due to phi nodes, some virtual register might be initialized multplie times.
+        if (this.freeRegisters.getMapping(register).isPresent()) {
+            this.freeRegisters.freeMapping(register);
         }
+        this.freeRegisters.createSpecificMapping(register, targetRegister).orElseThrow();
+
+        return targetRegister;
     }
 
-    private void freeAllRegisters(List<Instruction> newList, Set<VirtualRegister> except) {
-        List<VirtualRegister> regsToBeFreed = new ArrayList<>();
-        for (var virtReg : this.freeRegisters.getMapping().leftSet()) {
-            var hardwareReg = this.freeRegisters.getMapping(virtReg).orElseThrow();
+    /**
+     * Load the value that the virtual register is mapped to, into a hardware register.
+     * If virtual register is written, use initializeVirtualRegister.
+     *
+     * @param register The virtual register to be used.
+     * @param target The hardware register it should be mapped to. If this is not empty, the return value will be its content.
+     * @param preferred If possible one of these hardware registers should be chosen.
+     * @param disallowed Under no circumstances should the target hardware register be one of these.
+     * @param keepAlive Registers must be unchanged. They might be used in other parts of the current instruction.
+     *                  It is assumed that they are not free.
+     */
+    private HardwareRegister concretizeVirtualRegister(
+            VirtualRegister register,
+            Optional<HardwareRegister.Group> target,
+            List<HardwareRegister.Group> preferred,
+            List<HardwareRegister.Group> disallowed,
+            Set<HardwareRegister.Group> keepAlive,
+            List<Instruction> newList
+    ) {
 
-            this.saveVirtualRegister(virtReg, hardwareReg, newList);
+        var targetRegister = this.selectAndFreeTarget(register, target, preferred, disallowed, keepAlive, newList);
+        var mapping = this.freeRegisters.getMapping(register);
 
-            if (!except.contains(virtReg)) {
-                regsToBeFreed.add(virtReg);
-            }
-        }
+        // Now that we have the target and made sure it is free to be used we need to move the actual value into it.
 
-        regsToBeFreed.forEach(this.freeRegisters::freeMapping);
-    }
-
-    private HardwareRegister initialiseVirtualRegister(VirtualRegister virtReg, List<Instruction> newList, Set<VirtualRegister> except) {
-        var hardwareReg = this.freeRegisters.getOrCreateMapping(virtReg);
-
-        if (hardwareReg.isPresent()) {
-            return hardwareReg.get();
+        if (mapping.isPresent() && mapping.get().equals(targetRegister)) {
+            // Already mapped correctly no need to do anything.
+            return targetRegister;
+        } else if (mapping.isPresent()) {
+            // Mapped, but to wrong register.
+            newList.add(new MovInstruction(register.getWidth(), targetRegister, mapping.get()));
+            this.freeRegisters.freeMapping(register);
+            this.freeRegisters.createSpecificMapping(register, targetRegister);
         } else {
-            this.reduceRegisterPressure(newList, except);
-            return this.freeRegisters.getOrCreateMapping(virtReg).orElseThrow();
-        }
-    }
-
-    private HardwareRegister concretizeRegister(VirtualRegister virtReg, List<Instruction> newList, Set<VirtualRegister> except) {
-        var hasMapping = this.freeRegisters.getMapping(virtReg);
-
-        if (hasMapping.isPresent()) {
-            return hasMapping.get();
-        } else {
-
-            var hardwareReg = this.freeRegisters.createMapping(virtReg);
-            if (hardwareReg.isEmpty()) {
-                this.reduceRegisterPressure(newList, except);
-                hardwareReg = this.freeRegisters.createMapping(virtReg);
-            }
-
-            var reg = hardwareReg.orElseThrow();
-            var offset = this.stackSlots.get(virtReg);
-            newList.add(new MovInstruction(reg.getWidth(), reg, new MemoryLocation(HardwareRegister.RBP, offset)));
-            return reg;
-        }
-    }
-
-    private HardwareRegister concretizeRegisterInto(HardwareRegister target, VirtualRegister virtReg, List<Instruction> newList) {
-        assert target.getWidth() == virtReg.getWidth();
-
-        var hasMapping = this.freeRegisters.getMapping(virtReg);
-
-        // virtual register is already mapped to the correct hardware register.
-        if (hasMapping.isPresent() && hasMapping.get().equals(target)) {
-            return target;
+            // It needs to be loaded from memory.
+            var offset = this.stackSlots.get(register);
+            newList.add(new MovInstruction(register.getWidth(), targetRegister, new MemoryLocation(HardwareRegister.RBP, offset)));
+            this.freeRegisters.createSpecificMapping(register, targetRegister).orElseThrow();
         }
 
-
-        // Make sure target hardware register is free to be used
-        this.makeUnusedSpecificRegister(target, newList);
-
-        if (hasMapping.isPresent()) {
-            // if register is mapped to different virtual register a simple register move suffices
-            newList.add(new MovInstruction(virtReg.getWidth(), target, hasMapping.get()));
-            this.freeRegisters.freeHardwareRegister(hasMapping.get());
-        } else {
-            var offset = this.stackSlots.get(virtReg);
-            newList.add(new MovInstruction(virtReg.getWidth(), target, new MemoryLocation(HardwareRegister.RBP, offset)));
-        }
-
-        // In this case it will always create mapping
-        this.freeRegisters.getOrCreateSpecificMapping(virtReg, target).orElseThrow();
-
-        return target;
+        return targetRegister;
     }
 
     private void saveVirtualRegister(VirtualRegister virtReg, HardwareRegister value, List<Instruction> newList)  {
@@ -163,29 +212,87 @@ public class OnTheFlyRegisterAllocator {
         newList.add(new MovInstruction(virtReg.getWidth(), new MemoryLocation(HardwareRegister.RBP, offset), value));
     }
 
+    private void makeUnusedSpecificRegister(HardwareRegister register, List<Instruction> newList) {
+        if (!this.freeRegisters.isAvailable(register.getGroup())) {
+            var associatedVirtRegister = this.freeRegisters.getMappedVirtualRegister(register.getGroup());
+            this.saveVirtualRegister(associatedVirtRegister, register.getGroup().getRegister(associatedVirtRegister.getWidth()), newList);
+            this.freeRegisters.freeMapping(associatedVirtRegister);
+        }
+    }
+
+    private void freeAllRegisters(List<Instruction> newList) {
+        List<VirtualRegister> regsToBeFreed = new ArrayList<>();
+        for (var virtReg : this.freeRegisters.getMapping().leftSet()) {
+            var hardwareReg = this.freeRegisters.getMapping(virtReg).orElseThrow();
+
+            this.saveVirtualRegister(virtReg, hardwareReg, newList);
+
+            regsToBeFreed.add(virtReg);
+        }
+
+        regsToBeFreed.forEach(this.freeRegisters::freeMapping);
+    }
+
+    private HardwareRegister initialiseVirtualRegister(VirtualRegister virtReg, List<Instruction> newList, Set<HardwareRegister> keepAlive) {
+        Set<HardwareRegister.Group> a = keepAlive.stream().map(HardwareRegister::getGroup).collect(Collectors.toSet());
+        return this.initialiseVirtualRegister(virtReg, Optional.empty(), List.of(), List.of(), a, newList);
+    }
+
+    private HardwareRegister initialiseVirtualRegister(VirtualRegister virtReg, List<Instruction> newList, Set<HardwareRegister> keepAlive, HardwareRegister hint) {
+        Set<HardwareRegister.Group> a = keepAlive.stream().map(HardwareRegister::getGroup).collect(Collectors.toSet());
+        return this.initialiseVirtualRegister(virtReg, Optional.empty(), List.of(hint.getGroup()), List.of(), a, newList);
+    }
+
+    private HardwareRegister initialiseVirtualRegister(VirtualRegister virtReg, List<Instruction> newList, Set<HardwareRegister> keepAlive, Optional<HardwareRegister> dontChoose, HardwareRegister hint) {
+        Set<HardwareRegister.Group> a = keepAlive.stream().map(HardwareRegister::getGroup).collect(Collectors.toSet());
+        return this.initialiseVirtualRegister(virtReg, Optional.empty(), List.of(hint.getGroup()), dontChoose.stream().map(HardwareRegister::getGroup).toList(), a, newList);
+    }
+
+    private HardwareRegister concretizeRegister(VirtualRegister virtReg, List<Instruction> newList, Set<HardwareRegister> keepAlive) {
+        Set<HardwareRegister.Group> a = keepAlive.stream().map(HardwareRegister::getGroup).collect(Collectors.toSet());
+        return this.concretizeVirtualRegister(virtReg, Optional.empty(), List.of(), List.of(), a, newList);
+    }
+
+    private HardwareRegister concretizeRegisterInto(HardwareRegister target, VirtualRegister virtReg, List<Instruction> newList) {
+        return this.concretizeVirtualRegister(virtReg, Optional.of(target.getGroup()), List.of(), List.of(), Set.of(), newList);
+    }
+
     /**
      * replaces virtual registers in a memory loation with free hardware registers and adds the necessary load
      * instructions.
+     *
+     * @param except If register pressure needs to be reduced, no mapping with virtual registers in except will be freed.
      */
-    private List<VirtualRegister> concretizeMemoryLocation(MemoryLocation loc, List<Instruction> newList, Set<VirtualRegister> except) {
-        List<VirtualRegister> mappings = new ArrayList<>();
+    private List<HardwareRegister> concretizeMemoryLocation(MemoryLocation loc, List<Instruction> newList, Set<HardwareRegister> except) {
+        List<HardwareRegister> mappings = new ArrayList<>();
 
         if (loc.getBaseRegister().isPresent() && loc.getBaseRegister().get() instanceof VirtualRegister virtReg) {
             var hardwareBaseReg = this.concretizeRegister(virtReg, newList, except);
             loc.setBaseRegister(hardwareBaseReg);
-            mappings.add(virtReg);
+            mappings.add(hardwareBaseReg);
         }
 
         if (loc.getIndex().isPresent() && loc.getIndex().get() instanceof VirtualRegister virtReg) {
             var hardwareIndexReg = this.concretizeRegister(virtReg, newList, except);
             loc.setIndex(hardwareIndexReg);
-            mappings.add(virtReg);
+            mappings.add(hardwareIndexReg);
         }
 
         return mappings;
     }
 
-    private void allocateRegForInstruction(Instruction instr, List<Instruction> newList) {
+    /**
+     * Frees mapped virtual registers that have died.
+     * This method should be called after all read registers have been concretized,
+     * but before the written registers are initialized, to allow read registers that are dead to
+     * be reused immediately.
+     */
+    private void freeDeadVirtualRegisters(Set<VirtualRegister> liveRegs) {
+        var deadRegs = this.freeRegisters.getMapping().leftSet().stream().filter(virtReg -> !liveRegs.contains(virtReg)).toList();
+        deadRegs.forEach(this.freeRegisters::freeMapping);
+    }
+
+    private void allocateRegForInstruction(Instruction instr, Set<VirtualRegister> liveRegs, List<Instruction> newList) {
         switch (instr) {
             case DivInstruction div -> {
                 var dividendVirtReg = (VirtualRegister) div.getDividend();
@@ -197,7 +304,7 @@ public class OnTheFlyRegisterAllocator {
                 var implicitLowerDividendReg = this.freeRegisters.getHardwareRegister(HardwareRegister.EAX).orElseThrow();
                 var implicitUpperDividendReg = this.freeRegisters.getHardwareRegister(HardwareRegister.EDX).orElseThrow();
 
-                // The except set can be empty because implicitLowerDividendReg and implicitUpperDividendReg are not map, just taken out the freelist.
+                // The except set can be empty because implicitLowerDividendReg and implicitUpperDividendReg are not mapped, just taken out the freelist.
                 var dividendHardwareReg = this.concretizeRegister(dividendVirtReg, newList, Set.of());
                 var divisorHardwareReg= this.concretizeRegister(divisorVirtReg, newList, Set.of());
 
@@ -224,23 +331,41 @@ public class OnTheFlyRegisterAllocator {
                     }
                 }
 
+                this.freeDeadVirtualRegisters(liveRegs);
+
                 newList.add(div);
             }
             case BinaryInstruction binary -> {
+                var usedRegisters = new HashSet<HardwareRegister>();
+
                 var targetReg = (VirtualRegister) binary.getTarget();
                 var lhsVirtReg = (VirtualRegister) binary.getLhs();
 
                 var lhsReg= this.concretizeRegister(lhsVirtReg, newList, Set.of());
+                usedRegisters.add(lhsReg);
 
-                var targetHardwareReg = this.initialiseVirtualRegister(targetReg, newList, Set.of(lhsVirtReg));
-                newList.add(new MovInstruction(targetHardwareReg.getWidth(), targetHardwareReg, lhsReg));
-
+                Optional<HardwareRegister> mustStayLive = Optional.empty();
                 if (binary.getRhs() instanceof MemoryLocation rhs) {
-                    this.concretizeMemoryLocation(rhs, newList, Set.of(lhsVirtReg, targetReg));
+                    usedRegisters.addAll(this.concretizeMemoryLocation(rhs, newList, usedRegisters));
                 } else if (binary.getRhs() instanceof VirtualRegister rhs) {
-                    var rhsHardwareReg = this.concretizeRegister(rhs, newList, Set.of(lhsVirtReg, targetReg));
-                    assert targetHardwareReg.getGroup() != rhsHardwareReg.getGroup();
+                    var rhsHardwareReg = this.concretizeRegister(rhs, newList, usedRegisters);
+                    mustStayLive = Optional.of(rhsHardwareReg);
+                    usedRegisters.add(rhsHardwareReg);
                     binary.setRhs(rhsHardwareReg);
+                }
+
+                // If the rhs register is different from the lhs register, it is important that the target hardware register
+                // doesn't allocate the same hardware register as rhs (which might be dead), because it would get overwritten.
+                // However, if both operands are the same there this is allowed.
+                if (mustStayLive.isPresent() && lhsReg.equals(mustStayLive.get())) {
+                    mustStayLive = Optional.empty();
+                }
+
+                this.freeDeadVirtualRegisters(liveRegs);
+
+                var targetHardwareReg = this.initialiseVirtualRegister(targetReg, newList, usedRegisters, mustStayLive, lhsReg);
+                if (targetHardwareReg != lhsReg) {
+                    newList.add(new MovInstruction(targetHardwareReg.getWidth(), targetHardwareReg, lhsReg));
                 }
 
                 binary.setTarget(targetHardwareReg);
@@ -256,6 +381,8 @@ public class OnTheFlyRegisterAllocator {
                     ret.setReturnValue(hardwareReg);
                 }
 
+                this.freeDeadVirtualRegisters(liveRegs);
+
                 // Function epilog
                 var freeStackSpace = new AddInstruction(HardwareRegister.RSP, HardwareRegister.RSP, new Constant(0));
                 this.freeStackSpaceInstructions.add(freeStackSpace);
@@ -265,21 +392,23 @@ public class OnTheFlyRegisterAllocator {
                 newList.add(ret);
             }
             case JumpInstruction jump -> {
-                this.freeAllRegisters(newList, Set.of());
+                this.freeAllRegisters(newList);
                 newList.add(jump);
             }
             case CmpInstruction cmp -> {
                 var lhsVirtReg = (VirtualRegister) cmp.getLhs();
                 var lhsHardwareReg = this.concretizeRegister(lhsVirtReg, newList, Set.of());
                 var rhsVirtReg = (VirtualRegister) cmp.getRhs();
-                var rhsHardwareReg = this.concretizeRegister(rhsVirtReg, newList, Set.of(lhsVirtReg));
+                var rhsHardwareReg = this.concretizeRegister(rhsVirtReg, newList, Set.of(lhsHardwareReg));
+
+                this.freeDeadVirtualRegisters(liveRegs);
 
                 cmp.setLhs(lhsHardwareReg);
                 cmp.setRhs(rhsHardwareReg);
                 newList.add(cmp);
             }
             case BranchInstruction branch -> {
-                this.freeAllRegisters(newList, Set.of());
+                this.freeAllRegisters(newList);
                 newList.add(branch);
             }
             case AllocCallInstruction allocCall -> {
@@ -288,7 +417,9 @@ public class OnTheFlyRegisterAllocator {
                 var numElementsVirtReg = (VirtualRegister) allocCall.getNumElements();
                 var numElementsReg = this.concretizeRegisterInto(HardwareRegister.ESI, numElementsVirtReg, newList);
 
-                this.freeAllRegisters(newList, Set.of(objectSizeVirtReg, numElementsVirtReg));
+                // First free registers that have died, then save all others.
+                this.freeDeadVirtualRegisters(liveRegs);
+                this.freeAllRegisters(newList);
 
                 var virtRegTarget = (VirtualRegister) allocCall.getTarget();
 
@@ -313,9 +444,11 @@ public class OnTheFlyRegisterAllocator {
                             var argVirtReg = (VirtualRegister) methodCall.getArguments().get(0);
                             var argReg= this.concretizeRegisterInto(HardwareRegister.EDI, argVirtReg, newList);
                             methodCall.getArguments().set(0, argReg);
-                            this.freeAllRegisters(newList, Set.of(argVirtReg));
+                            this.freeDeadVirtualRegisters(liveRegs);
+                            this.freeAllRegisters(newList);
                         } else {
-                            this.freeAllRegisters(newList, Set.of());
+                            this.freeDeadVirtualRegisters(liveRegs);
+                            this.freeAllRegisters(newList);
                         }
 
                         newList.add(methodCall);
@@ -337,7 +470,8 @@ public class OnTheFlyRegisterAllocator {
                         }
                         var requiredStackSpace = methodCall.getArguments().size() * Register.Width.BIT64.getByteSize();
 
-                        this.freeAllRegisters(newList, Set.of());
+                        this.freeDeadVirtualRegisters(liveRegs);
+                        this.freeAllRegisters(newList);
 
                         // call function
                         newList.add(methodCall);
@@ -357,11 +491,11 @@ public class OnTheFlyRegisterAllocator {
                 }
             }
             case MovInstruction mov -> {
-                var usedRegisters = new HashSet<VirtualRegister>();
+                var usedRegisters = new HashSet<HardwareRegister>();
 
                 if (mov.getSource() instanceof VirtualRegister source) {
                     var sourceHardwareReg = this.concretizeRegister(source, newList, usedRegisters);
-                    usedRegisters.add(source);
+                    usedRegisters.add(sourceHardwareReg);
                     mov.setSource(sourceHardwareReg);
                 } else if (mov.getSource() instanceof MemoryLocation source) {
                     usedRegisters.addAll(this.concretizeMemoryLocation(source, newList, usedRegisters));
@@ -370,11 +504,13 @@ public class OnTheFlyRegisterAllocator {
                 switch (mov.getDestination()) {
                     case MemoryLocation loc -> {
                         usedRegisters.addAll(this.concretizeMemoryLocation(loc, newList, usedRegisters));
+                        this.freeDeadVirtualRegisters(liveRegs);
                         newList.add(mov);
                     }
                     case VirtualRegister virtualReg -> {
+                        this.freeDeadVirtualRegisters(liveRegs);
                         var targetHardwareReg = this.initialiseVirtualRegister(virtualReg, newList, usedRegisters);
-                        usedRegisters.add(virtualReg);
+                        usedRegisters.add(targetHardwareReg);
                         mov.setDestination(targetHardwareReg);
                         newList.add(mov);
                     }
@@ -382,17 +518,19 @@ public class OnTheFlyRegisterAllocator {
                 }
             }
             case MovSignExtendInstruction movSX -> {
-                var usedRegisters = new HashSet<VirtualRegister>();
+                var usedRegisters = new HashSet<HardwareRegister>();
 
                 if (movSX.getInput() instanceof VirtualRegister virtRegInput) {
                     var inputHardwareReg = this.concretizeRegister(virtRegInput, newList, usedRegisters);
-                    usedRegisters.add(virtRegInput);
+                    usedRegisters.add(inputHardwareReg);
                     movSX.setInput(inputHardwareReg);
                 }
 
+                this.freeDeadVirtualRegisters(liveRegs);
+
                 if (movSX.getTarget() instanceof VirtualRegister virRegTarget) {
                     var targetHardware = this.initialiseVirtualRegister(virRegTarget, newList, usedRegisters);
-                    usedRegisters.add(virRegTarget);
+                    usedRegisters.add(targetHardware);
                     movSX.setTarget(targetHardware);
                 }
 
@@ -417,8 +555,10 @@ public class OnTheFlyRegisterAllocator {
             newList.add(stackSpace);
         }
 
-        for (var instruction : bb.getInstructions()) {
-            this.allocateRegForInstruction(instruction, newList);
+        for (int i = 0; i < bb.getInstructions().size(); i++) {
+            var instruction = bb.getInstructions().get(i);
+            var liveRegisters = this.lifetimes.getLiveRegisters(bb, i);
+            this.allocateRegForInstruction(instruction, liveRegisters, newList);
         }
 
         bb.setInstructions(newList);

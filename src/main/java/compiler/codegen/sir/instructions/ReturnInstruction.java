@@ -2,6 +2,7 @@ package compiler.codegen.sir.instructions;
 
 import compiler.codegen.Register;
 
+import java.util.List;
 import java.util.Optional;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
@@ -23,5 +24,15 @@ public final class ReturnInstruction extends ControlFlowInstruction {
     @Override
     public String getMnemonic() {
         return "ret";
+    }
+
+    @Override
+    public List<Register> getReadRegisters() {
+        return returnValue.stream().toList();
+    }
+
+    @Override
+    public Optional<Register> getWrittenRegister() {
+        return Optional.empty();
     }
 }

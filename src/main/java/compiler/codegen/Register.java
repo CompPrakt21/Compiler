@@ -1,5 +1,7 @@
 package compiler.codegen;
 
+import java.util.List;
+
 public abstract sealed class Register extends Operand permits VirtualRegister, HardwareRegister {
 
     public enum Width {
@@ -31,5 +33,10 @@ public abstract sealed class Register extends Operand permits VirtualRegister, H
     @Override
     public String formatATTSyntax() {
         return "%" + this.getName();
+    }
+
+    @Override
+    public List<Register> getRegisters() {
+        return List.of(this);
     }
 }

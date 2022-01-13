@@ -2,6 +2,8 @@ package compiler.codegen.sir.instructions;
 
 import compiler.codegen.Register;
 
+import java.util.List;
+
 public final class ConvertDoubleToQuadInstruction extends RegisterInstruction {
 
     private Register doubleWord;
@@ -23,5 +25,10 @@ public final class ConvertDoubleToQuadInstruction extends RegisterInstruction {
     @Override
     public String getMnemonic() {
         return "cdq";
+    }
+
+    @Override
+    public List<Register> getReadRegisters() {
+        return List.of(this.doubleWord);
     }
 }

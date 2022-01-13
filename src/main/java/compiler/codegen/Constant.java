@@ -1,5 +1,7 @@
 package compiler.codegen;
 
+import java.util.List;
+
 public final class Constant extends Operand {
     private int value;
 
@@ -28,5 +30,10 @@ public final class Constant extends Operand {
     @Override
     public String formatATTSyntax() {
         return String.format("$%d", value);
+    }
+
+    @Override
+    public List<Register> getRegisters() {
+        return List.of();
     }
 }

@@ -2,6 +2,8 @@ package compiler.codegen.sir.instructions;
 
 import compiler.codegen.Register;
 
+import java.util.List;
+
 public final class AllocCallInstruction extends CallInstruction {
 
     private Register objectSize;
@@ -32,5 +34,10 @@ public final class AllocCallInstruction extends CallInstruction {
     @Override
     public String getMnemonic() {
         return "call <alloc>";
+    }
+
+    @Override
+    public List<Register> getReadRegisters() {
+        return List.of(this.objectSize, this.numElements);
     }
 }

@@ -80,7 +80,20 @@ public class RegisterManager {
         return hardwareReg.map(group -> group.getRegister(virtReg.getWidth()));
     }
 
+    public Optional<HardwareRegister> createSpecificMapping(VirtualRegister virtReg, HardwareRegister hardwareReg) {
+        //assert this.getMapping(virtReg).isEmpty();
+
+        var result = this.getHardwareRegister(hardwareReg);
+        if (result.isPresent()) {
+            this.virtualRegLocation.put(virtReg, hardwareReg.getGroup());
+        }
+
+        return result;
+    }
+
     public void freeMapping(VirtualRegister register) {
+        assert this.getMapping(register).isPresent();
+
         var reg = this.virtualRegLocation.removeLeft(register).orElseThrow();
 
         this.freeHardwareRegister(reg.getRegister(register.getWidth()));
@@ -94,12 +107,7 @@ public class RegisterManager {
             return Optional.of(alreadyMapped.getRegister(virtReg.getWidth()));
         }
 
-        var result = this.getHardwareRegister(hardwareReg);
-        if (result.isPresent()) {
-            this.virtualRegLocation.put(virtReg, hardwareReg.getGroup());
-        }
-
-        return result;
+        return this.createSpecificMapping(virtReg, hardwareReg);
     }
 
     public Optional<HardwareRegister> getHardwareRegister(HardwareRegister reg) {
@@ -136,11 +144,15 @@ public class RegisterManager {
         return this.virtualRegLocation;
     }
 
-    public boolean isAvailable(HardwareRegister reg) {
-        return this.freeRegisters.contains(reg.getGroup());
+    public boolean isAvailable(HardwareRegister.Group reg) {
+        return this.freeRegisters.contains(reg);
     }
 
     public VirtualRegister getMappedVirtualRegister(HardwareRegister.Group group) {
         return this.virtualRegLocation.getLeft(group);
+    }
+
+    public Collection<HardwareRegister.Group> availableRegisters() {
+        return this.freeRegisters;
     }
 }

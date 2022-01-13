@@ -28,4 +28,9 @@ public final class MethodCallInstruction extends CallInstruction {
     public String getMnemonic() {
         return "call";
     }
+
+    @Override
+    public List<Register> getReadRegisters() {
+        return this.arguments;
+    }
 }

@@ -1,6 +1,8 @@
 package compiler.codegen;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 @SuppressWarnings({"OptionalUsedAsFieldOrParameterType", "unused"})
 public final class MemoryLocation extends Operand {
@@ -127,5 +129,10 @@ public final class MemoryLocation extends Operand {
 
         s.append(")");
         return s.toString();
+    }
+
+    @Override
+    public List<Register> getRegisters() {
+        return Stream.concat(this.baseRegister.stream(), this.index.stream()).toList();
     }
 }

@@ -2,6 +2,8 @@ package compiler.codegen.sir.instructions;
 
 import compiler.codegen.Register;
 
+import java.util.List;
+
 public final class DivInstruction extends RegisterInstruction {
     private DivType type;
 
@@ -14,6 +16,11 @@ public final class DivInstruction extends RegisterInstruction {
             case Div -> "div";
             case Mod -> "div (mod)";
         };
+    }
+
+    @Override
+    public List<Register> getReadRegisters() {
+        return List.of(this.dividend, this.divisor);
     }
 
     public enum DivType {

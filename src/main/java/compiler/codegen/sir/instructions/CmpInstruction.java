@@ -2,6 +2,9 @@ package compiler.codegen.sir.instructions;
 
 import compiler.codegen.Register;
 
+import java.util.List;
+import java.util.Optional;
+
 public final class CmpInstruction extends Instruction {
     private Register lhs;
     private Register rhs;
@@ -30,5 +33,15 @@ public final class CmpInstruction extends Instruction {
     @Override
     public String getMnemonic() {
         return "cmp";
+    }
+
+    @Override
+    public List<Register> getReadRegisters() {
+        return List.of(this.lhs, this.rhs);
+    }
+
+    @Override
+    public Optional<Register> getWrittenRegister() {
+        return Optional.empty();
     }
 }

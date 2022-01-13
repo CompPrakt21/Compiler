@@ -2,6 +2,8 @@ package compiler.codegen.sir.instructions;
 
 import compiler.codegen.Register;
 
+import java.util.List;
+
 public final class MovSignExtendInstruction extends RegisterInstruction {
     private Register input;
 
@@ -21,5 +23,10 @@ public final class MovSignExtendInstruction extends RegisterInstruction {
     @Override
     public String getMnemonic() {
         return "mov-sx";
+    }
+
+    @Override
+    public List<Register> getReadRegisters() {
+        return List.of(this.input);
     }
 }

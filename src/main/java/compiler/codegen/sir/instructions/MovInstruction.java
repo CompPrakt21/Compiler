@@ -1,9 +1,11 @@
 package compiler.codegen.sir.instructions;
 
-import compiler.codegen.Constant;
+import compiler.codegen.*;
 import compiler.codegen.Register.Width;
-import compiler.codegen.Operand;
-import compiler.codegen.Register;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Stream;
 
 public final class MovInstruction extends Instruction {
     private Register.Width width;
@@ -11,6 +13,9 @@ public final class MovInstruction extends Instruction {
     private Operand source;
 
     public MovInstruction(Register.Width width, Operand destination, Operand source) {
+
+        assert !(destination instanceof Register dest) || !(source instanceof Register src) || dest != src;
+
         this.width = width;
         this.destination = destination;
         this.source = source;
@@ -19,6 +24,7 @@ public final class MovInstruction extends Instruction {
     }
 
     private boolean verify() {
+        //assert !(destination instanceof HardwareRegister dest) || !(source instanceof HardwareRegister src) || dest != src;
         return (this.destination instanceof Register || this.source instanceof Register)
                 && !(this.destination instanceof Constant);
     }
@@ -52,5 +58,23 @@ public final class MovInstruction extends Instruction {
     @Override
     public String getMnemonic() {
         return "mov";
+    }
+
+    @Override
+    public List<Register> getReadRegisters() {
+        if (this.destination instanceof MemoryLocation loc) {
+            return Stream.concat(this.source.getRegisters().stream(), loc.getRegisters().stream()).toList();
+        } else {
+            return this.source.getRegisters();
+        }
+    }
+
+    @Override
+    public Optional<Register> getWrittenRegister() {
+        if (this.destination instanceof Register reg) {
+            return Optional.of(reg);
+        } else {
+            return Optional.empty();
+        }
     }
 }

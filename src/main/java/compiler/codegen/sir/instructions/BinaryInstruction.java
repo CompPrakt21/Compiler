@@ -3,6 +3,9 @@ package compiler.codegen.sir.instructions;
 import compiler.codegen.Operand;
 import compiler.codegen.Register;
 
+import java.util.List;
+import java.util.stream.Stream;
+
 public abstract sealed class BinaryInstruction extends RegisterInstruction permits AddInstruction, SubInstruction, MulInstruction, XorInstruction {
     protected Register lhs;
     protected Operand rhs;
@@ -27,5 +30,10 @@ public abstract sealed class BinaryInstruction extends RegisterInstruction permi
 
     public void setRhs(Operand rhs) {
         this.rhs = rhs;
+    }
+
+    @Override
+    public List<Register> getReadRegisters() {
+        return Stream.concat(Stream.of(this.lhs), rhs.getRegisters().stream()).toList();
     }
 }
