@@ -8,7 +8,10 @@ import compiler.semantic.resolution.IntrinsicMethod;
 import compiler.types.VoidTy;
 
 import java.util.*;
+import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class OnTheFlyRegisterAllocator {
@@ -26,7 +29,13 @@ public class OnTheFlyRegisterAllocator {
      */
     private Optional<SubInstruction> allocateStackSpaceInstruction;
     private final List<AddInstruction> freeStackSpaceInstructions;
+
     private RegisterLifetimes lifetimes;
+
+    /**
+     * Hints in which hardware register(s) the virtual register will be needed.
+     */
+    private Map<VirtualRegister, List<HardwareRegister.Group>> registerHints;
 
     public OnTheFlyRegisterAllocator(List<VirtualRegister> methodParameters, SirGraph graph) {
         this.methodParameters = methodParameters;
@@ -35,6 +44,9 @@ public class OnTheFlyRegisterAllocator {
         this.freeStackSpaceInstructions = new ArrayList<>();
         this.stackSlots = new StackSlots();
         this.freeRegisters = new RegisterManager();
+
+        this.registerHints = null;
+        this.lifetimes = null;
     }
 
     /**
@@ -50,6 +62,7 @@ public class OnTheFlyRegisterAllocator {
         }
 
         this.lifetimes = RegisterLifetimes.calculateLifetime(this.graph);
+        this.registerHints = collectRegisterHints(this.graph);
 
         for (var bb : this.graph.getBlocks()) {
             this.allocateBasicBlock(bb);
@@ -77,8 +90,6 @@ public class OnTheFlyRegisterAllocator {
             Set<HardwareRegister.Group> keepAlive,
             List<Instruction> newList
     ) {
-        assert preferred.stream().noneMatch(disallowed::contains);
-
         var mapping = this.freeRegisters.getMapping(register);
 
         // First we need to select the register we need to place the result in
@@ -117,7 +128,7 @@ public class OnTheFlyRegisterAllocator {
             // No free register can be used, so lets choose any of the preferred or, if even that fails, any random register.
             if (chosenTarget.isEmpty()) {
                 chosenTarget = preferred.stream()
-                        .filter(reg -> !keepAlive.contains(reg))
+                        .filter(reg -> !disallowed.contains(reg) && !keepAlive.contains(reg))
                         .findFirst()
                         .or(() -> this.freeRegisters.getMapping()
                                 .rightSet()
@@ -235,26 +246,31 @@ public class OnTheFlyRegisterAllocator {
 
     private HardwareRegister initialiseVirtualRegister(VirtualRegister virtReg, List<Instruction> newList, Set<HardwareRegister> keepAlive) {
         Set<HardwareRegister.Group> a = keepAlive.stream().map(HardwareRegister::getGroup).collect(Collectors.toSet());
-        return this.initialiseVirtualRegister(virtReg, Optional.empty(), List.of(), List.of(), a, newList);
+        var pref = Optional.ofNullable(this.registerHints.get(virtReg)).orElseGet(List::of);
+        return this.initialiseVirtualRegister(virtReg, Optional.empty(), pref, List.of(), a, newList);
     }
 
     private HardwareRegister initialiseVirtualRegister(VirtualRegister virtReg, List<Instruction> newList, Set<HardwareRegister> keepAlive, HardwareRegister hint) {
         Set<HardwareRegister.Group> a = keepAlive.stream().map(HardwareRegister::getGroup).collect(Collectors.toSet());
-        return this.initialiseVirtualRegister(virtReg, Optional.empty(), List.of(hint.getGroup()), List.of(), a, newList);
+        var pref = Stream.concat(Optional.ofNullable(this.registerHints.get(virtReg)).orElseGet(List::of).stream(), Stream.of(hint.getGroup())).toList();
+        return this.initialiseVirtualRegister(virtReg, Optional.empty(), pref, List.of(), a, newList);
     }
 
     private HardwareRegister initialiseVirtualRegister(VirtualRegister virtReg, List<Instruction> newList, Set<HardwareRegister> keepAlive, Optional<HardwareRegister> dontChoose, HardwareRegister hint) {
         Set<HardwareRegister.Group> a = keepAlive.stream().map(HardwareRegister::getGroup).collect(Collectors.toSet());
-        return this.initialiseVirtualRegister(virtReg, Optional.empty(), List.of(hint.getGroup()), dontChoose.stream().map(HardwareRegister::getGroup).toList(), a, newList);
+        var pref = Stream.concat(Optional.ofNullable(this.registerHints.get(virtReg)).orElseGet(List::of).stream(), Stream.of(hint.getGroup())).toList();
+        return this.initialiseVirtualRegister(virtReg, Optional.empty(), pref, dontChoose.stream().map(HardwareRegister::getGroup).toList(), a, newList);
     }
 
     private HardwareRegister concretizeRegister(VirtualRegister virtReg, List<Instruction> newList, Set<HardwareRegister> keepAlive) {
         Set<HardwareRegister.Group> a = keepAlive.stream().map(HardwareRegister::getGroup).collect(Collectors.toSet());
-        return this.concretizeVirtualRegister(virtReg, Optional.empty(), List.of(), List.of(), a, newList);
+        var pref = Optional.ofNullable(this.registerHints.get(virtReg)).orElseGet(List::of);
+        return this.concretizeVirtualRegister(virtReg, Optional.empty(), pref, List.of(), a, newList);
     }
 
     private HardwareRegister concretizeRegisterInto(HardwareRegister target, VirtualRegister virtReg, List<Instruction> newList) {
-        return this.concretizeVirtualRegister(virtReg, Optional.of(target.getGroup()), List.of(), List.of(), Set.of(), newList);
+        var pref = Optional.ofNullable(this.registerHints.get(virtReg)).orElseGet(List::of);
+        return this.concretizeVirtualRegister(virtReg, Optional.of(target.getGroup()), pref, List.of(), Set.of(), newList);
     }
 
     /**
@@ -298,42 +314,36 @@ public class OnTheFlyRegisterAllocator {
                 var dividendVirtReg = (VirtualRegister) div.getDividend();
                 var divisorVirtReg = (VirtualRegister) div.getDivisor();
 
-                this.makeUnusedSpecificRegister(HardwareRegister.EAX, newList);
-                this.makeUnusedSpecificRegister(HardwareRegister.EDX, newList);
+                var divisorHardwareReg = this.concretizeRegister(divisorVirtReg, newList, Set.of());
 
-                var implicitLowerDividendReg = this.freeRegisters.getHardwareRegister(HardwareRegister.EAX).orElseThrow();
-                var implicitUpperDividendReg = this.freeRegisters.getHardwareRegister(HardwareRegister.EDX).orElseThrow();
-
-                // The except set can be empty because implicitLowerDividendReg and implicitUpperDividendReg are not mapped, just taken out the freelist.
-                var dividendHardwareReg = this.concretizeRegister(dividendVirtReg, newList, Set.of());
-                var divisorHardwareReg= this.concretizeRegister(divisorVirtReg, newList, Set.of());
-
-                newList.add(new MovInstruction(implicitLowerDividendReg.getWidth(), implicitLowerDividendReg, dividendHardwareReg));
-                newList.add(new ConvertDoubleToQuadInstruction(implicitUpperDividendReg, implicitLowerDividendReg));
-
-                var targetVirtReg = (VirtualRegister) div.getTarget();
-
-                div.setDividend(implicitLowerDividendReg);
-                div.setDivisor(divisorHardwareReg);
-
-                switch (div.getType()) {
-                    case Div -> {
-                        div.setTarget(implicitLowerDividendReg);
-                        this.freeRegisters.freeHardwareRegister(HardwareRegister.EAX);
-                        this.freeRegisters.getOrCreateSpecificMapping(targetVirtReg, implicitLowerDividendReg).orElseThrow();
-                        this.freeRegisters.freeHardwareRegister(HardwareRegister.EDX);
-                    }
-                    case Mod -> {
-                        div.setTarget(implicitUpperDividendReg);
-                        this.freeRegisters.freeHardwareRegister(HardwareRegister.EDX);
-                        this.freeRegisters.getOrCreateSpecificMapping(targetVirtReg, implicitUpperDividendReg).orElseThrow();
-                        this.freeRegisters.freeHardwareRegister(HardwareRegister.EAX);
-                    }
+                HardwareRegister dividendHardwareReg;
+                if (!liveRegs.contains(dividendVirtReg)) {
+                    // We can load dividend directly into EAX because it is dead after this instruction.
+                    dividendHardwareReg = this.concretizeRegisterInto(HardwareRegister.EAX, dividendVirtReg, newList);
+                } else {
+                    dividendHardwareReg = this.concretizeRegister(dividendVirtReg, newList, Set.of(divisorHardwareReg));
+                    newList.add(new MovInstruction(dividendHardwareReg.getWidth(), HardwareRegister.EAX, dividendHardwareReg));
                 }
+
+                this.makeUnusedSpecificRegister(HardwareRegister.EDX, newList);
 
                 this.freeDeadVirtualRegisters(liveRegs);
 
+                newList.add(new ConvertDoubleToQuadInstruction(HardwareRegister.EDX, HardwareRegister.EAX));
                 newList.add(div);
+
+                var targetVirtReg = (VirtualRegister) div.getTarget();
+                var targetHardwareReg = switch (div.getType()) {
+                    case Div -> HardwareRegister.EAX;
+                    case Mod -> HardwareRegister.EDX;
+                };
+
+                this.freeRegisters.createSpecificMapping(targetVirtReg, targetHardwareReg);;
+
+                div.setTarget(targetHardwareReg);
+                div.setDividend(dividendHardwareReg);
+                div.setDivisor(divisorHardwareReg);
+
             }
             case BinaryInstruction binary -> {
                 var usedRegisters = new HashSet<HardwareRegister>();
@@ -589,5 +599,46 @@ public class OnTheFlyRegisterAllocator {
             }
             case ReturnInstruction ignored -> {}
         }
+    }
+
+    private static Map<VirtualRegister, List<HardwareRegister.Group>> collectRegisterHints(SirGraph graph) {
+        Map<VirtualRegister, List<HardwareRegister.Group>> result = new HashMap<>();
+
+        BiConsumer<VirtualRegister, HardwareRegister.Group> add = (VirtualRegister reg, HardwareRegister.Group hint) -> {
+            result.putIfAbsent(reg, new ArrayList<>());
+            var l = result.get(reg);
+            if (!l.contains(hint)) {
+                l.add(hint);
+            }
+        };
+
+        for (var bb : graph.getBlocks()) {
+            for (var instr : bb.getInstructions()) {
+                switch (instr) {
+                    case ReturnInstruction ret -> {
+                        if (ret.getReturnValue().isPresent()) {
+                            add.accept((VirtualRegister) ret.getReturnValue().get(), HardwareRegister.Group.A);
+                        }
+                    }
+                    case AllocCallInstruction alloc -> {
+                        add.accept((VirtualRegister) alloc.getObjectSize(), HardwareRegister.Group.DI);
+                        add.accept((VirtualRegister) alloc.getNumElements(), HardwareRegister.Group.SI);
+                    }
+                    case MethodCallInstruction call -> {
+                        if (call.getMethod() instanceof IntrinsicMethod) {
+                            if (!call.getArguments().isEmpty()) {
+                                add.accept((VirtualRegister) call.getArguments().get(0), HardwareRegister.Group.DI);
+                            }
+                        }
+                    }
+                    case DivInstruction div -> {
+                        add.accept((VirtualRegister) div.getDividend(), HardwareRegister.Group.D);
+                    }
+                    default -> {}
+                }
+            }
+        }
+
+        return result;
     }
 }
