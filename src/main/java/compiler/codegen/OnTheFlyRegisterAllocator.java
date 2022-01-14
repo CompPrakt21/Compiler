@@ -21,6 +21,16 @@ public class OnTheFlyRegisterAllocator {
     private final List<VirtualRegister> methodParameters;
 
     /**
+     * Stores whether a virtual register has a *new* result.
+     * The a virtual register gets initialized with a new value (for example the result of calculation)
+     * we might need to save the value to the stack if the hardware register is needed elsewhere.
+     * However, if its value is just the loaded value from the stack and doesn't change,
+     * (Which is likely because we are lowering from SSA)
+     * there is no need to save it again to the stack.
+     */
+    private final Map<VirtualRegister, Boolean> dirty;
+
+    /**
      * The sub instruction which allocates stack space for local variables.
      * After register allocation is finished (and all required virtual registers are spilled)
      * we know how much stackspace we need and update this value.
@@ -43,6 +53,7 @@ public class OnTheFlyRegisterAllocator {
         this.freeStackSpaceInstructions = new ArrayList<>();
         this.stackSlots = new StackSlots();
         this.freeRegisters = new RegisterManager();
+        this.dirty = new HashMap<>();
 
         this.registerHints = null;
         this.lifetimes = null;
@@ -163,10 +174,12 @@ public class OnTheFlyRegisterAllocator {
 
         var targetRegister = this.selectAndFreeTarget(register, target, preferred, disallowed, keepAlive, newList);
 
-        // Due to phi nodes, some virtual register might be initialized multplie times.
+        // Due to phi nodes, some virtual register might be initialized multple times.
         if (this.freeRegisters.getMapping(register).isPresent()) {
             this.freeRegisters.freeMapping(register);
         }
+        // Only registers which get written to *new* values are initialised.
+        this.dirty.put(register, true);
         this.freeRegisters.createSpecificMapping(register, targetRegister).orElseThrow();
 
         return targetRegister;
@@ -209,6 +222,9 @@ public class OnTheFlyRegisterAllocator {
             // It needs to be loaded from memory.
             var offset = this.stackSlots.get(register);
             newList.add(new MovInstruction(register.getWidth(), targetRegister, new MemoryLocation(HardwareRegister.RBP, offset)));
+            // This value is loaded from the stack.
+            // If it needs to be free'd, don't write it back again to the stack.
+            this.dirty.put(register, false);
             this.freeRegisters.createSpecificMapping(register, targetRegister).orElseThrow();
         }
 
@@ -216,8 +232,12 @@ public class OnTheFlyRegisterAllocator {
     }
 
     private void saveVirtualRegister(VirtualRegister virtReg, HardwareRegister value, List<Instruction> newList)  {
-        var offset = this.stackSlots.get(virtReg);
-        newList.add(new MovInstruction(virtReg.getWidth(), new MemoryLocation(HardwareRegister.RBP, offset), value));
+        assert this.dirty.containsKey(virtReg);
+        if (this.dirty.get(virtReg)) {
+            var offset = this.stackSlots.get(virtReg);
+            newList.add(new MovInstruction(virtReg.getWidth(), new MemoryLocation(HardwareRegister.RBP, offset), value));
+        }
+        this.dirty.remove(virtReg);
     }
 
     private void makeUnusedSpecificRegister(HardwareRegister register, List<Instruction> newList) {
@@ -296,6 +316,7 @@ public class OnTheFlyRegisterAllocator {
      */
     private void freeDeadVirtualRegisters(Set<VirtualRegister> liveRegs) {
         var deadRegs = this.freeRegisters.getMapping().leftSet().stream().filter(virtReg -> !liveRegs.contains(virtReg)).toList();
+        deadRegs.forEach(this.dirty::remove);
         deadRegs.forEach(this.freeRegisters::freeMapping);
     }
 
@@ -329,6 +350,7 @@ public class OnTheFlyRegisterAllocator {
                     case Mod -> HardwareRegister.EDX;
                 };
 
+                this.dirty.put(targetVirtReg, true);
                 this.freeRegisters.createSpecificMapping(targetVirtReg, targetHardwareReg);
 
                 div.setTarget(targetHardwareReg);
@@ -433,7 +455,8 @@ public class OnTheFlyRegisterAllocator {
 
                 allocCall.setTarget(HardwareRegister.RAX);
 
-                this.freeRegisters.getOrCreateSpecificMapping(virtRegTarget, HardwareRegister.RAX).orElseThrow();
+                this.dirty.put(virtRegTarget, true);
+                this.freeRegisters.createSpecificMapping(virtRegTarget, HardwareRegister.RAX).orElseThrow();
             }
             case MethodCallInstruction methodCall -> {
                 switch (methodCall.getMethod()) {
@@ -457,7 +480,8 @@ public class OnTheFlyRegisterAllocator {
                             var targetVirtReg = (VirtualRegister)methodCall.getTarget();
                             // The only intrinsic function that has a return value is System.in.read which returns a 32bit int.
                             methodCall.setTarget(HardwareRegister.EAX);
-                            this.freeRegisters.getOrCreateSpecificMapping(targetVirtReg, HardwareRegister.EAX);
+                            this.dirty.put(targetVirtReg, true);
+                            this.freeRegisters.createSpecificMapping(targetVirtReg, HardwareRegister.EAX);
                         }
                     }
                     case DefinedMethod method -> {
@@ -481,7 +505,8 @@ public class OnTheFlyRegisterAllocator {
 
                             var targetHardwareReg = HardwareRegister.RAX.forWidth(targetVirtReg.getWidth());
                             methodCall.setTarget(targetHardwareReg);
-                            this.freeRegisters.getOrCreateSpecificMapping(targetVirtReg, targetHardwareReg);
+                            this.dirty.put(targetVirtReg, true);
+                            this.freeRegisters.createSpecificMapping(targetVirtReg, targetHardwareReg);
                         }
 
                         // free stack space

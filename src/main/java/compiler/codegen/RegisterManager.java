@@ -5,8 +5,14 @@ import compiler.utils.BiMap;
 import java.util.*;
 
 public class RegisterManager {
+    /**
+     * Unmapped hardware registers.
+     */
     private final ArrayDeque<HardwareRegister.Group> freeRegisters;
 
+    /**
+     * Current mapping between virtual and hardware registers.
+     */
     private final BiMap<VirtualRegister, HardwareRegister.Group> virtualRegLocation;
 
     public RegisterManager() {
