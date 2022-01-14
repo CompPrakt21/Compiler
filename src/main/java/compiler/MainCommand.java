@@ -266,6 +266,7 @@ public class MainCommand implements Callable<Integer> {
 
                 //new NaiveRegisterAllocator(graphs.methodParameters().get(pair.getKey()), sirGraph).allocate();
                 new OnTheFlyRegisterAllocator(graphs.methodParameters().get(pair.getKey()), sirGraph).allocate();
+                new PeepholeOptimizer(sirGraph).optimize();
 
                 if (dumpGraphs) {
                     try {
