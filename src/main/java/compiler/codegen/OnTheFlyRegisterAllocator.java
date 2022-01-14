@@ -9,7 +9,6 @@ import compiler.types.VoidTy;
 
 import java.util.*;
 import java.util.function.BiConsumer;
-import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -92,8 +91,6 @@ public class OnTheFlyRegisterAllocator {
     ) {
         var mapping = this.freeRegisters.getMapping(register);
 
-        // First we need to select the register we need to place the result in
-        // and make sure it is free to be used.
         Optional<HardwareRegister.Group> chosenTarget = Optional.empty();
         if (target.isPresent()) {
             chosenTarget = target;
@@ -250,15 +247,9 @@ public class OnTheFlyRegisterAllocator {
         return this.initialiseVirtualRegister(virtReg, Optional.empty(), pref, List.of(), a, newList);
     }
 
-    private HardwareRegister initialiseVirtualRegister(VirtualRegister virtReg, List<Instruction> newList, Set<HardwareRegister> keepAlive, HardwareRegister hint) {
+    private HardwareRegister initialiseVirtualRegister(VirtualRegister virtReg, List<Instruction> newList, Set<HardwareRegister> keepAlive, Optional<HardwareRegister> dontChoose, Set<HardwareRegister> hint) {
         Set<HardwareRegister.Group> a = keepAlive.stream().map(HardwareRegister::getGroup).collect(Collectors.toSet());
-        var pref = Stream.concat(Optional.ofNullable(this.registerHints.get(virtReg)).orElseGet(List::of).stream(), Stream.of(hint.getGroup())).toList();
-        return this.initialiseVirtualRegister(virtReg, Optional.empty(), pref, List.of(), a, newList);
-    }
-
-    private HardwareRegister initialiseVirtualRegister(VirtualRegister virtReg, List<Instruction> newList, Set<HardwareRegister> keepAlive, Optional<HardwareRegister> dontChoose, HardwareRegister hint) {
-        Set<HardwareRegister.Group> a = keepAlive.stream().map(HardwareRegister::getGroup).collect(Collectors.toSet());
-        var pref = Stream.concat(Optional.ofNullable(this.registerHints.get(virtReg)).orElseGet(List::of).stream(), Stream.of(hint.getGroup())).toList();
+        List<HardwareRegister.Group> pref = Stream.concat(Optional.ofNullable(this.registerHints.get(virtReg)).orElseGet(List::of).stream(), hint.stream().map(HardwareRegister::getGroup)).toList();
         return this.initialiseVirtualRegister(virtReg, Optional.empty(), pref, dontChoose.stream().map(HardwareRegister::getGroup).toList(), a, newList);
     }
 
@@ -338,7 +329,7 @@ public class OnTheFlyRegisterAllocator {
                     case Mod -> HardwareRegister.EDX;
                 };
 
-                this.freeRegisters.createSpecificMapping(targetVirtReg, targetHardwareReg);;
+                this.freeRegisters.createSpecificMapping(targetVirtReg, targetHardwareReg);
 
                 div.setTarget(targetHardwareReg);
                 div.setDividend(dividendHardwareReg);
@@ -373,7 +364,7 @@ public class OnTheFlyRegisterAllocator {
 
                 this.freeDeadVirtualRegisters(liveRegs);
 
-                var targetHardwareReg = this.initialiseVirtualRegister(targetReg, newList, usedRegisters, mustStayLive, lhsReg);
+                var targetHardwareReg = this.initialiseVirtualRegister(targetReg, newList, usedRegisters, mustStayLive, Set.of(lhsReg));
                 if (targetHardwareReg != lhsReg) {
                     newList.add(new MovInstruction(targetHardwareReg.getWidth(), targetHardwareReg, lhsReg));
                 }
@@ -454,12 +445,10 @@ public class OnTheFlyRegisterAllocator {
                             var argVirtReg = (VirtualRegister) methodCall.getArguments().get(0);
                             var argReg= this.concretizeRegisterInto(HardwareRegister.EDI, argVirtReg, newList);
                             methodCall.getArguments().set(0, argReg);
-                            this.freeDeadVirtualRegisters(liveRegs);
-                            this.freeAllRegisters(newList);
-                        } else {
-                            this.freeDeadVirtualRegisters(liveRegs);
-                            this.freeAllRegisters(newList);
                         }
+
+                        this.freeDeadVirtualRegisters(liveRegs);
+                        this.freeAllRegisters(newList);
 
                         newList.add(methodCall);
                         this.freeRegisters.clearAllMappings();
@@ -519,7 +508,9 @@ public class OnTheFlyRegisterAllocator {
                     }
                     case VirtualRegister virtualReg -> {
                         this.freeDeadVirtualRegisters(liveRegs);
-                        var targetHardwareReg = this.initialiseVirtualRegister(virtualReg, newList, usedRegisters);
+                        // We hint that we want to use the same register as the source, to increase chance that this move will have the same source and
+                        // destination, so that the peephole optimizer can remove this move.
+                        var targetHardwareReg = this.initialiseVirtualRegister(virtualReg, newList, usedRegisters, Optional.empty(), usedRegisters);
                         usedRegisters.add(targetHardwareReg);
                         mov.setDestination(targetHardwareReg);
                         newList.add(mov);
@@ -631,9 +622,7 @@ public class OnTheFlyRegisterAllocator {
                             }
                         }
                     }
-                    case DivInstruction div -> {
-                        add.accept((VirtualRegister) div.getDividend(), HardwareRegister.Group.D);
-                    }
+                    case DivInstruction div -> add.accept((VirtualRegister) div.getDividend(), HardwareRegister.Group.D);
                     default -> {}
                 }
             }
