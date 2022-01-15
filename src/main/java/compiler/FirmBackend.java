@@ -36,7 +36,6 @@ public class FirmBackend {
         try {
             var execFilename = "a.out";
 
-            Backend.lowerForTarget();
             Backend.createAssembler(asmOutputFile.getAbsolutePath(), this.frontend.inputFile().getName());
 
             ProcessBuilder pb = new ProcessBuilder("gcc", "-o", execFilename, this.asmOutputFile.getAbsolutePath(), this.runtimeFile.getAbsolutePath());
