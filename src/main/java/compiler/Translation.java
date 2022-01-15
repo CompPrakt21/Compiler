@@ -848,13 +848,14 @@ public class Translation {
                 // We don't generate code for intrinsic methods.
                 if (methodDef instanceof DefinedMethod definedMethod) {
                     Graph graph = genGraphForMethod(definedMethod);
-                    graphs.add(Optimization.constantFolding(graph));
+                    graphs.add(graph);
                     names.add(methodDef.getName());
-
 
                 }
             }
         }
+        Backend.lowerForTarget();
+        graphs.replaceAll(graph -> Optimization.constantFolding(graph));
         graphs.forEach(graph -> {
             InliningOptimization inliningOptimization = new InliningOptimization(graph);
             inliningOptimization.collectNodes();
@@ -863,6 +864,7 @@ public class Translation {
                 Dump.dumpGraph(graph, names.pop());
             }
         });
+        graphs.forEach(BackEdges::disable);
 
         if (dumpGraphs) {
             try {
