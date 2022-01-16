@@ -6,10 +6,8 @@ import firm.Graph;
 import firm.Mode;
 import firm.nodes.*;
 
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.function.*;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -43,6 +41,7 @@ public class Optimization {
     }
 
     public static Graph eliminateRedundantSideEffects(Graph g) {
+        // TODO: Const normalization?
         ArrayDeque<Node> nodes = new ArrayDeque<>();
         g.walkTopological(new NodeCollector(nodes));
         BackEdges.enable(g);
@@ -133,6 +132,124 @@ public class Optimization {
             Block target = (Block) targetEdge.node;
             target.setPred(targetEdge.pos, primarySource);
         });
+        BackEdges.disable(g);
+        return g;
+    }
+
+    private static Optional<Node> commOp(Node left, Node right, BiFunction<Node, Node, Node> simplify) {
+        return Optional.ofNullable(simplify.apply(left, right)).or(
+                () -> Optional.ofNullable(simplify.apply(right, left)));
+    }
+
+    public static Graph simplifyArithmeticExpressions(Graph g) {
+        // Ops: +, -, *, /, %, xor?, !
+        // Simplifications at a glance:
+        // --x = x
+        // !!x = x
+        // x + 0 = x
+        // x + (-y) = x - y
+        // x - 0 = x
+        // 0 - x = -x
+        // x - x = 0
+        // x - (-y) = x + y
+        // (-x) - y = -(x + y)
+        // x * 1 = x
+        // x * (-y) = -(x * y)
+        // x * +-2^k = optimized [TODO]
+        // +-2^k * x = optimized [TODO]
+        // Div and Mod are TODO
+        // x / 1 = x
+        // x / x = 1
+        // x / (-y) = -(x / y)
+        // (-x) / y = -(x / y)
+        // x / +-2^k = optimized
+        // (-x) % y = -(x % y)
+        // x % (-y) = x % y
+        // x % x = 0
+        // x % 2^k = optimized
+        // TODO: Negative literals
+        ArrayDeque<Node> worklist = new ArrayDeque<>();
+        g.walkTopological(new NodeCollector(worklist));
+        BackEdges.enable(g);
+        while (!worklist.isEmpty()) {
+            Node n = worklist.removeFirst();
+            Mode mode = n.getMode();
+            Node b = n.getBlock();
+            List<BackEdges.Edge> parents = new ArrayList<>();
+            BackEdges.getOuts(n).forEach(parents::add);
+            Node nn;
+            boolean nChanged = false;
+            do {
+                nn = null;
+                if (n instanceof Minus m1 && m1.getOp() instanceof Minus m2) {
+                    // --x = x
+                    nn = m2.getOp();
+                } else if (n instanceof Not n1 && n1.getOp() instanceof Not n2) {
+                    // !!x = x
+                    nn = n2.getOp();
+                } else if (n instanceof Add a) {
+                    Node left = a.getLeft();
+                    Node right = a.getRight();
+                    // x + 0 = x
+                    Supplier<Optional<Node>> r1 = () -> commOp(left, right, (l, r) ->
+                            r instanceof Const c && c.getTarval().isNull() ?
+                                    l : null);
+                    // x + (-y) = x - y
+                    Supplier<Optional<Node>> r2 = () -> commOp(left, right, (l, r) ->
+                            r instanceof Minus m ?
+                                    g.newSub(b, l, m.getOp()) : null);
+                    nn = r1.get().or(r2).orElse(null);
+                } else if (n instanceof Sub s) {
+                    Node l = s.getLeft();
+                    Node r = s.getRight();
+                    if (r instanceof Const c && c.getTarval().isNull()) {
+                        // x - 0 = x
+                        nn = l;
+                    } else if (l instanceof Const c && c.getTarval().isNull()) {
+                        // 0 - x = -x
+                        nn = g.newMinus(b, r);
+                    } else if (l.equals(r)) {
+                        // x - x = 0
+                        nn = g.newConst(0, mode);
+                    } else if (r instanceof Minus m) {
+                        // x - (-y) = x + y
+                        nn = g.newAdd(b, l, m.getOp());
+                    } else if (l instanceof Minus m) {
+                        // (-x) - y = -(x + y)
+                        Node addNode = g.newAdd(b, m.getOp(), r);
+                        nn = g.newMinus(b, addNode);
+                        worklist.addLast(addNode);
+                    }
+                } else if (n instanceof Mul m) {
+                    Node left = m.getLeft();
+                    Node right = m.getRight();
+                    // x * 1 = x
+                    Supplier<Optional<Node>> r1 = () -> commOp(left, right, (l, r) ->
+                            r instanceof Const c && c.getTarval().isOne() ?
+                                    l : null);
+                    // x * (-y) = -(x * y)
+                    Supplier<Optional<Node>> r2 = () -> commOp(left, right, (l, r) -> {
+                        if (r instanceof Minus min) {
+                            Node mulNode = g.newMul(b, l, min.getOp());
+                            worklist.addLast(mulNode);
+                            return g.newMinus(b, mulNode);
+                        }
+                        return null;
+                    });
+                    nn = r1.get().or(r2).orElse(null);
+                }
+                if (nn != null) {
+                    n = nn;
+                    nChanged = true;
+                }
+            } while (nn != null);
+            if (nChanged) {
+                for (BackEdges.Edge e : parents) {
+                    e.node.setPred(e.pos, n);
+                    worklist.addLast(e.node);
+                }
+            }
+        }
         BackEdges.disable(g);
         return g;
     }

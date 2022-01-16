@@ -861,6 +861,7 @@ public class Translation {
                 if (methodDef instanceof DefinedMethod definedMethod) {
 
                     Graph graph = genGraphForMethod(definedMethod);
+                    graph = Optimization.simplifyArithmeticExpressions(graph);
                     graph = Optimization.constantFolding(graph);
                     graph = Optimization.eliminateRedundantSideEffects(graph);
                     graph = Optimization.eliminateRedundantPhis(graph);
