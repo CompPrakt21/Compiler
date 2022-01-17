@@ -397,8 +397,8 @@ public class NameResolution {
                 resolveExpression(lval);
                 resolveExpression(rval);
 
-                var lvalTyRes = this.expressionTypes.get(lval).get();
-                var rvalTyRes = this.expressionTypes.get(rval).get();
+                var lvalTyRes = this.expressionTypes.get(lval).orElseThrow();
+                var rvalTyRes = this.expressionTypes.get(rval).orElseThrow();
 
                 if (lvalTyRes instanceof Ty lvalTy && rvalTyRes instanceof Ty rvalTy) {
                     if (lvalTy.comparable(rvalTy)) {
@@ -586,6 +586,8 @@ public class NameResolution {
                 // If its not Ty, then resolveClassType reported an error.
                 if (classTyRes instanceof Ty classTy) {
                     this.expressionTypes.set(newObject, classTy);
+                } else {
+                    this.expressionTypes.set(newObject, new UnresolveableTy());
                 }
             }
         }
