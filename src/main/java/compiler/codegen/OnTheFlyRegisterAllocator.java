@@ -100,6 +100,7 @@ public class OnTheFlyRegisterAllocator {
             Set<HardwareRegister.Group> keepAlive,
             List<Instruction> newList
     ) {
+        assert target.isEmpty() || !disallowed.contains(target.get());
         var mapping = this.freeRegisters.getMapping(register);
 
         Optional<HardwareRegister.Group> chosenTarget = Optional.empty();
@@ -111,8 +112,9 @@ public class OnTheFlyRegisterAllocator {
                 assert !keepAlive.contains(target.get());
                 this.makeUnusedSpecificRegister(target.get().getRegister(register.getWidth()), newList);
             }
-        } else if (mapping.isPresent()) {
+        } else if (mapping.isPresent() && !disallowed.contains(mapping.get().getGroup())) {
             // If it is already mapped we take it.
+
             chosenTarget = mapping.map(HardwareRegister::getGroup);
         } else {
             // There is no obvious choice, so we search in the free registers for a suitable candidate.
@@ -149,7 +151,22 @@ public class OnTheFlyRegisterAllocator {
             }
         }
 
-        return chosenTarget.orElseThrow().getRegister(register.getWidth());
+        var targetRegister = chosenTarget.orElseThrow().getRegister(register.getWidth());
+
+        // Register is mapped, but the currently mapped hardware register is disallowed.
+        // Therefore we need to move the value into a new (allowed) hardware register.
+        // Ideally the mapping should be created by the calling functions, but they don't have the information
+        // that the value is actually in a different register.
+        // This might break initializeVirtualRegister...
+        if (mapping.isPresent() && disallowed.contains(mapping.get().getGroup())) {
+            var width = register.getWidth();
+
+            newList.add(new MovInstruction(width, targetRegister, mapping.get()));
+            this.freeRegisters.freeMapping(register);
+            this.freeRegisters.createSpecificMapping(register, targetRegister);
+        }
+
+        return targetRegister;
     }
 
     /**
@@ -279,6 +296,12 @@ public class OnTheFlyRegisterAllocator {
         return this.concretizeVirtualRegister(virtReg, Optional.empty(), pref, List.of(), a, newList);
     }
 
+    private HardwareRegister concretizeRegisterWithout(VirtualRegister virtReg, List<Instruction> newList, List<HardwareRegister> disallowed, Set<HardwareRegister> keepAlive) {
+        Set<HardwareRegister.Group> a = keepAlive.stream().map(HardwareRegister::getGroup).collect(Collectors.toSet());
+        List<HardwareRegister.Group> d = disallowed.stream().map(HardwareRegister::getGroup).toList();
+        return this.concretizeVirtualRegister(virtReg, Optional.empty(), List.of(), d, a, newList);
+    }
+
     private HardwareRegister concretizeRegisterInto(HardwareRegister target, VirtualRegister virtReg, List<Instruction> newList) {
         var pref = Optional.ofNullable(this.registerHints.get(virtReg)).orElseGet(List::of);
         return this.concretizeVirtualRegister(virtReg, Optional.of(target.getGroup()), pref, List.of(), Set.of(), newList);
@@ -326,14 +349,15 @@ public class OnTheFlyRegisterAllocator {
                 var dividendVirtReg = (VirtualRegister) div.getDividend();
                 var divisorVirtReg = (VirtualRegister) div.getDivisor();
 
-                var divisorHardwareReg = this.concretizeRegister(divisorVirtReg, newList, Set.of());
+                var divisorHardwareReg = this.concretizeRegisterWithout(divisorVirtReg, newList, List.of(HardwareRegister.EDX, HardwareRegister.EAX), Set.of());
 
                 HardwareRegister dividendHardwareReg;
                 if (!liveRegs.contains(dividendVirtReg)) {
                     // We can load dividend directly into EAX because it is dead after this instruction.
                     dividendHardwareReg = this.concretizeRegisterInto(HardwareRegister.EAX, dividendVirtReg, newList);
                 } else {
-                    dividendHardwareReg = this.concretizeRegister(dividendVirtReg, newList, Set.of(divisorHardwareReg));
+                    dividendHardwareReg = this.concretizeRegisterWithout(dividendVirtReg, newList, List.of(HardwareRegister.EAX, HardwareRegister.EDX), Set.of(divisorHardwareReg));
+                    this.makeUnusedSpecificRegister(HardwareRegister.EAX, newList);
                     newList.add(new MovInstruction(dividendHardwareReg.getWidth(), HardwareRegister.EAX, dividendHardwareReg));
                 }
 
