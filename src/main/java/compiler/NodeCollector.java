@@ -1,5 +1,6 @@
 package compiler;
 
+import firm.Graph;
 import firm.nodes.*;
 
 import java.util.ArrayDeque;
@@ -136,4 +137,10 @@ public class NodeCollector implements MiniJavaNodeVisitor {
 
     @Override
     public void visit(firm.nodes.Unknown unknown) { worklist.addLast(unknown); }
+
+    public static ArrayDeque<Node> run(Graph g) {
+        ArrayDeque<Node> nodes = new ArrayDeque<>();
+        g.walkTopological(new NodeCollector(nodes));
+        return nodes;
+    }
 }

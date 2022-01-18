@@ -1,18 +1,56 @@
 package compiler;
 
+import compiler.utils.FirmUtils;
 import firm.BackEdges;
 import firm.BlockWalker;
 import firm.Graph;
 import firm.Mode;
+import firm.bindings.binding_irgraph;
+import firm.bindings.binding_irnode;
 import firm.nodes.*;
 
+import java.nio.Buffer;
 import java.util.*;
 import java.util.function.*;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 public class Optimization {
-    public static Graph constantFolding(Graph g) {
+
+    private Graph g;
+    private Map<Block, List<Phi>> blockPhis;
+
+    public Optimization(Graph g) {
+        this.g = g;
+    }
+
+    private void updateBlockPhis() {
+        ArrayDeque<Node> nodes = NodeCollector.run(g);
+        blockPhis = new HashMap<>();
+        for (Node n : nodes) {
+            if (n instanceof Block b) {
+                blockPhis.putIfAbsent(b, new ArrayList<>());
+                continue;
+            }
+            if (!(n instanceof Phi p)) {
+                continue;
+            }
+            Block b = (Block) n.getBlock();
+            blockPhis.putIfAbsent(b, new ArrayList<>());
+            blockPhis.get(b).add(p);
+        }
+    }
+
+    public static void optimizeFull(Graph g) {
+        Optimization o = new Optimization(g);
+        o.simplifyArithmeticExpressions();
+        o.constantFolding();
+        o.eliminateRedundantSideEffects();
+        o.eliminateRedundantPhis();
+        o.eliminateSingletonBlocks();
+    }
+
+    public void constantFolding() {
         Map<Node, DataFlow.ConstantValue> values = DataFlow.analyzeConstantFolding(g);
         record Change(Node node, int predIdx, Node folded) { }
         List<Change> changes = new ArrayList<>();
@@ -37,13 +75,11 @@ public class Optimization {
         for (Change c : changes) {
             c.node.setPred(c.predIdx, c.folded);
         }
-        return g;
     }
 
-    public static Graph eliminateRedundantSideEffects(Graph g) {
+    public void eliminateRedundantSideEffects() {
         // TODO: Const normalization?
-        ArrayDeque<Node> nodes = new ArrayDeque<>();
-        g.walkTopological(new NodeCollector(nodes));
+        ArrayDeque<Node> nodes = NodeCollector.run(g);
         BackEdges.enable(g);
         for (Node n : nodes) {
             for (int i = 0; i < n.getPredCount(); i++) {
@@ -67,9 +103,8 @@ public class Optimization {
                 if (divisor.getTarval().asInt() == 0) {
                     continue;
                 }
-                List<Node> outs = new ArrayList<>();
                 // this is ok because we're walking the graph in topological order
-                BackEdges.getOuts(divOrMod).forEach(e -> outs.add(e.node));
+                List<Node> outs = FirmUtils.backEdgeTargets(divOrMod);
                 if (outs.size() > 1) {
                     continue;
                 }
@@ -77,20 +112,17 @@ public class Optimization {
             }
         }
         BackEdges.disable(g);
-        return g;
     }
 
-    public static Graph eliminateRedundantPhis(Graph g) {
-        ArrayDeque<Node> nodes = new ArrayDeque<>();
-        g.walkTopological(new NodeCollector(nodes));
+    public void eliminateRedundantPhis() {
+        ArrayDeque<Node> nodes = NodeCollector.run(g);
         for (Node n : nodes) {
             for (int i = 0; i < n.getPredCount(); i++) {
                 Node pred = n.getPred(i);
                 if (!(pred instanceof Phi p)) {
                     continue;
                 }
-                List<Node> in = new ArrayList<>();
-                p.getPreds().forEach(in::add);
+                List<Node> in = FirmUtils.preds(p);
                 assert in.size() > 0;
                 Node first = in.get(0);
                 if (!in.stream().allMatch(input -> first.equals(input))) {
@@ -99,10 +131,10 @@ public class Optimization {
                 n.setPred(i, first);
             }
         }
-        return g;
     }
 
-    public static Graph eliminateSingletonBlocks(Graph g) {
+    public void eliminateSingletonBlocks() {
+        updateBlockPhis();
         BackEdges.enable(g);
         g.walkBlocksPostorder(block -> {
             List<Node> content = StreamSupport.stream(BackEdges.getOuts(block).spliterator(), false)
@@ -116,24 +148,32 @@ public class Optimization {
             if (!(n instanceof Jmp)) {
                 return;
             }
-
-            List<Node> sources = new ArrayList<>();
-            block.getPreds().forEach(sources::add);
-            if (sources.size() != 1) {
+            List<Node> sources = FirmUtils.preds(block);
+            if (sources.size() == 0) {
                 return;
             }
-            Node primarySource = sources.get(0);
-            List<BackEdges.Edge> targets = new ArrayList<>();
-            BackEdges.getOuts(n).forEach(targets::add);
+            Node primarySource = sources.remove(0);
+            List<BackEdges.Edge> targets = FirmUtils.backEdges(n);
             if (targets.size() != 1) {
                 return;
             }
             BackEdges.Edge targetEdge = targets.get(0);
             Block target = (Block) targetEdge.node;
-            target.setPred(targetEdge.pos, primarySource);
+            List<Node> targetPreds = FirmUtils.preds(target);
+            targetPreds.set(targetEdge.pos, primarySource);
+            targetPreds.addAll(sources);
+            FirmUtils.setPreds(target, targetPreds);
+            List<Phi> phis = blockPhis.get(target);
+            for (Phi p : phis) {
+                List<Node> phiPreds = FirmUtils.preds(p);
+                Node predToDuplicate = phiPreds.get(targetEdge.pos);
+                for (int i = 0; i < sources.size(); i++) {
+                    phiPreds.add(predToDuplicate);
+                }
+                FirmUtils.setPreds(p, phiPreds);
+            }
         });
         BackEdges.disable(g);
-        return g;
     }
 
     private static Optional<Node> commOp(Node left, Node right, BiFunction<Node, Node, Node> simplify) {
@@ -141,7 +181,7 @@ public class Optimization {
                 () -> Optional.ofNullable(simplify.apply(right, left)));
     }
 
-    public static Graph simplifyArithmeticExpressions(Graph g) {
+    public void simplifyArithmeticExpressions() {
         // Ops: +, -, *, /, %, xor?, !
         // Simplifications at a glance:
         // --x = x
@@ -168,15 +208,13 @@ public class Optimization {
         // x % x = 0
         // x % 2^k = optimized
         // TODO: Negative literals
-        ArrayDeque<Node> worklist = new ArrayDeque<>();
-        g.walkTopological(new NodeCollector(worklist));
+        ArrayDeque<Node> worklist = NodeCollector.run(g);
         BackEdges.enable(g);
         while (!worklist.isEmpty()) {
             Node n = worklist.removeFirst();
             Mode mode = n.getMode();
             Node b = n.getBlock();
-            List<BackEdges.Edge> parents = new ArrayList<>();
-            BackEdges.getOuts(n).forEach(parents::add);
+            List<BackEdges.Edge> parents = FirmUtils.backEdges(n);
             Node nn;
             boolean nChanged = false;
             do {
@@ -251,6 +289,5 @@ public class Optimization {
             }
         }
         BackEdges.disable(g);
-        return g;
     }
 }

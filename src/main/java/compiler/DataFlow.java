@@ -287,9 +287,7 @@ public class DataFlow {
 
     public static Map<Node, ConstantValue> analyzeConstantFolding(Graph g) {
         BackEdges.enable(g);
-        ArrayDeque<Node> worklist = new ArrayDeque<>();
-        NodeCollector c = new NodeCollector(worklist);
-        g.walkTopological(c);
+        ArrayDeque<Node> worklist = NodeCollector.run(g);
         Map<Node, ConstantValue> values = worklist.stream()
                 .collect(Collectors.toMap(node -> node, node -> new Unknown()));
         ConstantFolder f = new ConstantFolder(values);
