@@ -1,10 +1,7 @@
 package compiler;
 
 import compiler.utils.FirmUtils;
-import firm.BackEdges;
-import firm.BlockWalker;
-import firm.Graph;
-import firm.Mode;
+import firm.*;
 import firm.bindings.binding_irgraph;
 import firm.bindings.binding_irnode;
 import firm.nodes.*;
@@ -228,15 +225,24 @@ public class Optimization {
                     Node left = a.getLeft();
                     Node right = a.getRight();
                     // x + 0 = x
-                    Supplier<Optional<Node>> r1 = () -> commOp(left, right, (l, r) ->
-                            r instanceof Const c && c.getTarval().isNull() ?
-                                    l : null);
+                    Supplier<Optional<Node>> r1 = () -> commOp(left, right, (l, r) -> {
+                        if (r instanceof Const c && c.getTarval().isNull()) {
+                            if (c.getMode().isReference()) {
+                                // x + NULL = NULL
+                                return c;
+                            }
+                            return l;
+                        }
+                        return null;
+                    });
                     // x + (-y) = x - y
                     Supplier<Optional<Node>> r2 = () -> commOp(left, right, (l, r) ->
                             r instanceof Minus m ?
                                     g.newSub(b, l, m.getOp()) : null);
                     nn = r1.get().or(r2).orElse(null);
                 } else if (n instanceof Sub s) {
+                    // Subtraction behaves incorrectly w.r.t. pointers too, but we never generate
+                    // Sub nodes with mode P, so this is fine. We shouldn't simplify to a Sub node either.
                     Node l = s.getLeft();
                     Node r = s.getRight();
                     if (r instanceof Const c && c.getTarval().isNull()) {
@@ -288,5 +294,7 @@ public class Optimization {
             }
         }
         BackEdges.disable(g);
+        // We changed the control structure, so better be careful ...
+        g.confirmProperties(binding_irgraph.ir_graph_properties_t.IR_GRAPH_PROPERTIES_NONE);
     }
 }
