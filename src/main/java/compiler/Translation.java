@@ -15,6 +15,7 @@ import firm.*;
 import firm.bindings.binding_ircons;
 import firm.nodes.Block;
 import firm.nodes.Call;
+import firm.nodes.Const;
 import firm.nodes.Node;
 
 import java.io.IOException;
@@ -171,7 +172,7 @@ public class Translation {
         };
     }
 
-    private Node translateDiv(Node lhs, Node rhs) {
+    private Node translateDivOrMod(Node lhs, Node rhs, BinaryOpExpression.BinaryOp op) {
         Node negConst = construction.newConst(-2147483648, Mode.getIs());
         Node cmp = createCompareBinOpNode(BinaryOpExpression.BinaryOp.Equal, lhs, negConst);
 
@@ -190,7 +191,12 @@ public class Translation {
         divBlock.mature();
         construction.setCurrentBlock(divBlock);
 
-        Node div = construction.newDiv(construction.getCurrentMem(), lhs, rhs, binding_ircons.op_pin_state.op_pin_state_pinned);
+        Node div = switch (op) {
+            case Division -> construction.newDiv(construction.getCurrentMem(), lhs, rhs, binding_ircons.op_pin_state.op_pin_state_pinned);
+            case Modulo -> construction.newMod(construction.getCurrentMem(), lhs, rhs, binding_ircons.op_pin_state.op_pin_state_exc_pinned);
+            default -> throw new IllegalArgumentException("Invalid operator");
+        };
+
         Node memProj = construction.newProj(div, Mode.getM(), 0);
         Node divRes = construction.newProj(div, Mode.getIs(), 1);
         construction.setCurrentMem(memProj);
@@ -199,7 +205,12 @@ public class Translation {
         nextBlock.addPred(divJmp);
         nextBlock.mature();
         construction.setCurrentBlock(nextBlock);
-        Node resPhi = construction.newPhi(new Node[]{negConst, divRes}, Mode.getIs());
+
+        Node resPhi = switch (op) {
+            case Division -> construction.newPhi(new Node[]{ negConst, divRes }, Mode.getIs());
+            case Modulo -> construction.newPhi(new Node[]{ construction.newConst(0, Mode.getIs()), divRes }, Mode.getIs());
+            default -> throw new IllegalArgumentException("Invalid operator");
+        };
 
         return resPhi;
     }
@@ -211,14 +222,8 @@ public class Translation {
             case Addition -> construction.newAdd(lhs, rhs);
             case Subtraction -> construction.newSub(lhs, rhs);
             case Multiplication -> construction.newMul(lhs, rhs);
-            case Division -> translateDiv(lhs, rhs);
-            case Modulo -> {
-                Node div = construction.newMod(construction.getCurrentMem(), lhs, rhs, binding_ircons.op_pin_state.op_pin_state_pinned);
-                Node memProj = construction.newProj(div, Mode.getM(), 0);
-                Node resProj = construction.newProj(div, Mode.getIs(), 1);
-                construction.setCurrentMem(memProj);
-                yield resProj;
-            }
+            case Division -> this.translateDivOrMod(lhs, rhs, BinaryOpExpression.BinaryOp.Division);
+            case Modulo -> this.translateDivOrMod(lhs, rhs, BinaryOpExpression.BinaryOp.Modulo);
             default -> throw new AssertionError("not an arith bitop");
         };
     }
