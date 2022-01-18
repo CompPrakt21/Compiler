@@ -76,7 +76,8 @@ public class LlirToSir {
             // Control flow edges are resolved at the end.
             case compiler.codegen.llir.nodes.BranchInstruction branch ->
                     new BranchInstruction(branch.getPredicate(), null, null);
-            case compiler.codegen.llir.nodes.CmpInstruction cmp -> new CmpInstruction(cmp.getLhs().getTargetRegister(), cmp.getRhs().getTargetRegister());
+            case compiler.codegen.llir.nodes.CmpInstruction cmp -> new CmpInstruction(cmp.getLhs().getTargetRegister(), toSirOperand(cmp.getRhs()));
+            case compiler.codegen.llir.nodes.CmpFromMemInstruction cmp -> new CmpInstruction(cmp.getLhs().getTargetRegister(), toSirOperand(cmp.getRhs()));
             case compiler.codegen.llir.nodes.DivInstruction div -> new DivInstruction(div.getTargetRegister(), div.getDividend().getTargetRegister(), div.getDivisor().getTargetRegister(), switch (div.getType()) {
                 case Div -> DivInstruction.DivType.Div;
                 case Mod -> DivInstruction.DivType.Mod;
@@ -89,15 +90,28 @@ public class LlirToSir {
                 yield new MethodCallInstruction(method.getTargetRegister(), method.getCalledMethod(), arguments);
             }
             case compiler.codegen.llir.nodes.MovImmediateInstruction movImm -> new MovInstruction(movImm.getWidth(), movImm.getTargetRegister(), new Constant(movImm.getImmediateValue()));
-            case compiler.codegen.llir.nodes.MovLoadInstruction movLoad -> new MovInstruction(movLoad.getWidth(), movLoad.getTargetRegister(), new MemoryLocation(movLoad.getAddrNode().getTargetRegister()));
+            case compiler.codegen.llir.nodes.MovLoadInstruction movLoad -> new MovInstruction(movLoad.getWidth(), movLoad.getTargetRegister(), toSirOperand(movLoad.getAddress()));
             case compiler.codegen.llir.nodes.MovRegisterInstruction movReg -> new MovInstruction(movReg.getTargetRegister().getWidth(), movReg.getTargetRegister(), movReg.getSourceRegister().getTargetRegister());
-            case compiler.codegen.llir.nodes.MovStoreInstruction movStore -> new MovInstruction(movStore.getWidth(), new MemoryLocation(movStore.getAddrNode().getTargetRegister()), movStore.getValueNode().getTargetRegister());
+            case compiler.codegen.llir.nodes.MovStoreInstruction movStore -> new MovInstruction(movStore.getWidth(), toSirOperand(movStore.getAddress()), movStore.getValueNode().getTargetRegister());
             case compiler.codegen.llir.nodes.MovSignExtendInstruction movSX -> new MovSignExtendInstruction(movSX.getTargetRegister(), movSX.getInput().getTargetRegister());
             case compiler.codegen.llir.nodes.ReturnInstruction ret -> new ReturnInstruction(ret.getReturnValue().map(RegisterNode::getTargetRegister));
-            case compiler.codegen.llir.nodes.AddInstruction add -> new AddInstruction(add.getTargetRegister(), add.getLhs().getTargetRegister(), add.getRhs().getTargetRegister());
-            case compiler.codegen.llir.nodes.SubInstruction sub -> new SubInstruction(sub.getTargetRegister(), sub.getLhs().getTargetRegister(), sub.getRhs().getTargetRegister());
-            case compiler.codegen.llir.nodes.MulInstruction mul -> new MulInstruction(mul.getTargetRegister(), mul.getLhs().getTargetRegister(), mul.getRhs().getTargetRegister());
-            case compiler.codegen.llir.nodes.XorInstruction xor -> new XorInstruction(xor.getTargetRegister(), xor.getLhs().getTargetRegister(), xor.getRhs().getTargetRegister());
+            case compiler.codegen.llir.nodes.AddInstruction add -> new AddInstruction(add.getTargetRegister(), add.getLhs().getTargetRegister(), toSirOperand(add.getRhs()));
+            case compiler.codegen.llir.nodes.SubInstruction sub -> new SubInstruction(sub.getTargetRegister(), sub.getLhs().getTargetRegister(), toSirOperand(sub.getRhs()));
+            case compiler.codegen.llir.nodes.MulInstruction mul -> new MulInstruction(mul.getTargetRegister(), mul.getLhs().getTargetRegister(), toSirOperand(mul.getRhs()));
+            case compiler.codegen.llir.nodes.XorInstruction xor -> new XorInstruction(xor.getTargetRegister(), xor.getLhs().getTargetRegister(), toSirOperand(xor.getRhs()));
+            case compiler.codegen.llir.nodes.AddFromMemInstruction add -> new AddInstruction(add.getTargetRegister(), add.getLhs().getTargetRegister(), toSirOperand(add.getRhs()));
+            case compiler.codegen.llir.nodes.MulFromMemInstruction mul -> new MulInstruction(mul.getTargetRegister(), mul.getLhs().getTargetRegister(), toSirOperand(mul.getRhs()));
+            case compiler.codegen.llir.nodes.XorFromMemInstruction xor -> new XorInstruction(xor.getTargetRegister(), xor.getLhs().getTargetRegister(), toSirOperand(xor.getRhs()));
+            case compiler.codegen.llir.nodes.SubFromMemInstruction sub -> new SubInstruction(sub.getTargetRegister(), sub.getLhs().getTargetRegister(), toSirOperand(sub.getRhs()));
+            case compiler.codegen.llir.nodes.LoadEffectiveAddressInstruction lea -> new LoadEffectiveAddressInstruction(lea.getTargetRegister(), (MemoryLocation) toSirOperand(lea.getLoc()));
+        };
+    }
+
+    private static Operand toSirOperand(compiler.codegen.llir.nodes.Operand op) {
+        return switch (op) {
+            case compiler.codegen.llir.nodes.Constant c -> new Constant(c.getValue());
+            case RegisterNode r -> r.getTargetRegister();
+            case compiler.codegen.llir.nodes.MemoryLocation loc -> new MemoryLocation(loc.getBaseRegister().map(RegisterNode::getTargetRegister), loc.getConstant(), loc.getIndex().map(RegisterNode::getTargetRegister), loc.getScale());
         };
     }
 

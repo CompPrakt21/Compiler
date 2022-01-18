@@ -3,6 +3,7 @@ package compiler.codegen;
 import compiler.TranslationResult;
 import compiler.codegen.llir.*;
 import compiler.codegen.llir.nodes.*;
+import compiler.codegen.llir.nodes.MemoryLocation;
 import compiler.semantic.resolution.DefinedMethod;
 import compiler.types.*;
 import compiler.utils.GenericNodeWalker;
@@ -14,50 +15,50 @@ import java.util.stream.Stream;
 
 public class FirmToLlir implements NodeVisitor {
 
-    private final TranslationResult translation;
+    protected final TranslationResult translation;
 
     /**
      * Maps firm blocks to their corresponding BasicBlocks in the LlirGraph.
      */
-    private final HashMap<Block, BasicBlock> blockMap;
+    protected final HashMap<Block, BasicBlock> blockMap;
 
     /**
      * Stores the number of incoming and outgoing edges of a block.
      * We need this to determine whether an edge is critical.
      */
-    private static class BlockEdges{ int incoming; int outgoing; }
-    private final HashMap<Block, BlockEdges> blockEdges;
+    protected static class BlockEdges{ int incoming; int outgoing; }
+    protected final HashMap<Block, BlockEdges> blockEdges;
 
     /**
      * On critical edges we need to insert basic blocks to resolve phi nodes.
      * We store them in this hashmap where the key consists of the target block (which contains the phi)
      * and the edge index. (phiNode.getPred(idx))
      */
-    private record Edge(Block target, int idx) {}
-    private final HashMap<Edge, BasicBlock> insertedBlocks;
+    protected record Edge(Block target, int idx) {}
+    protected final HashMap<Edge, BasicBlock> insertedBlocks;
 
     /**
      * Maps firm nodes to their corresponding LlirNodes.
      *
      * A firm node might (in the future) have a different corresponding llir node for its value and its sideeffect.
      */
-    private final HashMap<Node, LlirNode> valueNodeMap;
-    private final HashMap<Node, SideEffect> sideEffectNodeMap;
+    protected final HashMap<Node, LlirNode> valueNodeMap;
+    protected final HashMap<Node, SideEffect> sideEffectNodeMap;
 
     /**
      * The current LlirGraph we are constructing.
      */
-    private final LlirGraph llirGraph;
+    protected final LlirGraph llirGraph;
 
     /**
      * The virtual registers used as method parameters.
      */
-    private List<VirtualRegister> methodParameters;
+    protected List<VirtualRegister> methodParameters;
 
     /**
      * Remembers nodes that are to be marked as output nodes.
      */
-    private final HashMap<Node, Register> markedOutNodes;
+    protected final HashMap<Node, Register> markedOutNodes;
 
     /**
      * Every visited firm phi node (except memory phis), with its accumulating register.
@@ -122,13 +123,13 @@ public class FirmToLlir implements NodeVisitor {
     /**
      * Remembers if node have been visited already.
      */
-    private final HashSet<Node> visited;
+    protected final HashSet<Node> visited;
 
-    private final Graph firmGraph;
+    protected final Graph firmGraph;
 
-    private final DefinedMethod method;
+    protected final DefinedMethod method;
 
-    private FirmToLlir(DefinedMethod method, Graph firmGraph, TranslationResult translation) {
+    protected FirmToLlir(DefinedMethod method, Graph firmGraph, TranslationResult translation) {
         this.blockEdges = new HashMap<>();
         this.insertedBlocks = new HashMap<>();
         this.blockMap = new HashMap<>();
@@ -153,8 +154,7 @@ public class FirmToLlir implements NodeVisitor {
         this.blockMap.put(firmGraph.getStartBlock(), llirGraph.getStartBlock());
     }
 
-    private void lower() {
-        BackEdges.enable(this.firmGraph);
+    protected void lower() {
 
         // Generate all basic blocks
         this.firmGraph.walkBlocksPostorder(block -> {
@@ -236,7 +236,14 @@ public class FirmToLlir implements NodeVisitor {
             for (var pred : node.getPreds()) {
                 if (pred.getMode().equals(Mode.getM()) && !pred.getBlock().equals(node.getBlock())) {
                     var predBB = getBasicBlock(pred);
-                    predBB.addOutput(valueNodeMap.get(pred));
+
+                    if (valueNodeMap.containsKey(pred)) {
+                        predBB.addOutput(valueNodeMap.get(pred));
+                    }
+                    if (sideEffectNodeMap.containsKey(pred)) {
+                        predBB.addOutput(sideEffectNodeMap.get(pred).asLlirNode());
+                    }
+
                 }
             }
         });
@@ -269,7 +276,7 @@ public class FirmToLlir implements NodeVisitor {
         });
     }
 
-    private static Register.Width modeToRegisterWidth(Mode m) {
+    protected static Register.Width modeToRegisterWidth(Mode m) {
         if (m.equals(Mode.getP()) || m.equals(Mode.getLs()) || m.equals(Mode.getLu())) {
             return Register.Width.BIT64;
         } else if (m.equals(Mode.getIu()) || m.equals(Mode.getIs())) {
@@ -308,8 +315,9 @@ public class FirmToLlir implements NodeVisitor {
         for (var method : translationResult.methodGraphs().keySet()) {
                 var graph = translationResult.methodGraphs().get(method);
 
-                //Dump.dumpGraph(graph, "before-lowering-to-llir");
-                var f = new FirmToLlir(method, graph, translationResult);
+                Dump.dumpGraph(graph, "before-lowering-to-llir");
+                //var f = new FirmToLlir(method, graph, translationResult);
+                var f = new InstructionSelection(method, graph, translationResult);
                 f.lower();
 
                 methodLlirGraphs.put(method, f.llirGraph);
@@ -319,7 +327,7 @@ public class FirmToLlir implements NodeVisitor {
         return new LoweringResult(methodLlirGraphs, methodParameters);
     }
 
-    private void registerLlirNode(Node firmNode, LlirNode llirNode, SideEffect sideEffect) {
+    protected void registerLlirNode(Node firmNode, LlirNode llirNode, SideEffect sideEffect) {
         this.valueNodeMap.put(firmNode, llirNode);
 
         if (sideEffect != null) {
@@ -330,12 +338,18 @@ public class FirmToLlir implements NodeVisitor {
     /**
      * Associates a firm node with a llir node.
      */
-    private void registerLlirNode(Node firmNode, LlirNode llirNode) {
+    protected void registerLlirNode(Node firmNode, LlirNode llirNode) {
         if (llirNode instanceof SideEffect sideEffect) {
             this.registerLlirNode(firmNode, llirNode, sideEffect);
         } else {
             this.registerLlirNode(firmNode, llirNode, null);
         }
+    }
+
+    protected void registerSideEffect(Node sideEffect, SideEffect llirNode) {
+        assert sideEffect.getMode().equals(Mode.getM());
+
+        this.sideEffectNodeMap.put(sideEffect, llirNode);
     }
 
     /**
@@ -355,7 +369,7 @@ public class FirmToLlir implements NodeVisitor {
      * The returned node is in the same basic block as `node`, adding an input node
      * to the current basic block if the predecessor is in a different basic block.
      */
-    private LlirNode getPredLlirNode(Node node, Node predNode) {
+    protected LlirNode getPredLlirNode(Node node, Node predNode) {
         var currentBlock = getBasicBlock(node);
 
         if (predNode instanceof Const constant) {
@@ -401,7 +415,7 @@ public class FirmToLlir implements NodeVisitor {
         }
     }
 
-    private SideEffect getPredSideEffectNode(Node node, Node predNode) {
+    protected SideEffect getPredSideEffectNode(Node node, Node predNode) {
         var currentBlock = getBasicBlock(node);
         var predBlock = getBasicBlock(predNode);
         var predLlirNode = this.sideEffectNodeMap.get(predNode);
@@ -409,12 +423,11 @@ public class FirmToLlir implements NodeVisitor {
         if (currentBlock.equals(predBlock)) {
             return predLlirNode;
         } else {
-
             return currentBlock.getMemoryInput();
         }
     }
 
-    private BasicBlock getBasicBlock(Node n) {
+    protected BasicBlock getBasicBlock(Node n) {
         var firmBlock = n instanceof Block b ? b : (Block) n.getBlock();
         var block = this.blockMap.get(firmBlock);
         assert block != null;
@@ -490,19 +503,9 @@ public class FirmToLlir implements NodeVisitor {
         }
     }
 
-    private void visitNode(Node n) {
+    protected void visitNode(Node n) {
         if (!this.visited.contains(n)) {
             this.visited.add(n);
-
-            for (var pred : n.getPreds()) {
-                // Ignore keep predecssors.
-                if (n instanceof End) continue;
-                if (n instanceof Phi) {
-                    this.phiPredQueue.push(pred);
-                } else {
-                    this.visitNode(pred);
-                }
-            }
 
             n.accept(this);
         }
@@ -522,6 +525,8 @@ public class FirmToLlir implements NodeVisitor {
     }
 
     public void visit(Proj proj) {
+        this.visitNode(proj.getPred());
+
         var predNode = proj.getPred();
 
         if (proj.getMode().equals(Mode.getX())) {
@@ -549,11 +554,15 @@ public class FirmToLlir implements NodeVisitor {
             } else {
                 throw new AssertionError("Pred of proj node should have been visited before");
             }
-
         }
     }
 
     public void visit(Return ret) {
+        this.visitNode(ret.getMem());
+        if (ret.getPredCount() > 1) {
+            this.visitNode(ret.getPred(1));
+        }
+
         var bb = getBasicBlock(ret);
 
         Optional<RegisterNode> llirDataPred = Optional.empty();
@@ -569,6 +578,9 @@ public class FirmToLlir implements NodeVisitor {
     }
 
     public void visit(Add add) {
+        this.visitNode(add.getLeft());
+        this.visitNode(add.getRight());
+
         var bb = getBasicBlock(add);
 
         var lhs = (RegisterNode)getPredLlirNode(add, add.getLeft());
@@ -579,6 +591,8 @@ public class FirmToLlir implements NodeVisitor {
     }
 
     public void visit(Minus minus) {
+        this.visitNode(minus.getOp());
+
         var bb = getBasicBlock(minus);
 
         var llirPred = (RegisterNode) getPredLlirNode(minus, minus.getOp());
@@ -590,6 +604,9 @@ public class FirmToLlir implements NodeVisitor {
     }
 
     public void visit(Sub sub) {
+        this.visitNode(sub.getLeft());
+        this.visitNode(sub.getRight());
+
         var bb = getBasicBlock(sub);
 
         var lhs = (RegisterNode)getPredLlirNode(sub, sub.getLeft());
@@ -600,6 +617,9 @@ public class FirmToLlir implements NodeVisitor {
     }
 
     public void visit(Eor xor) {
+        this.visitNode(xor.getLeft());
+        this.visitNode(xor.getRight());
+
         var bb = getBasicBlock(xor);
 
         var lhs = (RegisterNode)getPredLlirNode(xor, xor.getLeft());
@@ -610,6 +630,9 @@ public class FirmToLlir implements NodeVisitor {
     }
 
     public void visit(Mul mul) {
+        this.visitNode(mul.getLeft());
+        this.visitNode(mul.getRight());
+
         var bb = getBasicBlock(mul);
 
         var lhs = (RegisterNode)getPredLlirNode(mul, mul.getLeft());
@@ -620,6 +643,10 @@ public class FirmToLlir implements NodeVisitor {
     }
 
     public void visit(Div div) {
+        this.visitNode(div.getLeft());
+        this.visitNode(div.getRight());
+        this.visitNode(div.getMem());
+
         var bb = getBasicBlock(div);
 
         var mem = getPredSideEffectNode(div, div.getMem());
@@ -632,6 +659,10 @@ public class FirmToLlir implements NodeVisitor {
     }
 
     public void visit(Mod mod) {
+        this.visitNode(mod.getLeft());
+        this.visitNode(mod.getRight());
+        this.visitNode(mod.getMem());
+
         var bb = getBasicBlock(mod);
 
         var mem = getPredSideEffectNode(mod, mod.getMem());
@@ -653,16 +684,21 @@ public class FirmToLlir implements NodeVisitor {
     }
 
      public void visit(Cmp cmp) {
+         this.visitNode(cmp.getLeft());
+         this.visitNode(cmp.getRight());
+
         var bb = getBasicBlock(cmp);
 
         var lhs = (RegisterNode) getPredLlirNode(cmp, cmp.getLeft());
         var rhs = (RegisterNode) getPredLlirNode(cmp, cmp.getRight());
 
-        var llirCmp = bb.newCmp(lhs, rhs);
+        var llirCmp = bb.newCmp(lhs, rhs, false);
         this.registerLlirNode(cmp, llirCmp);
     }
 
     public void visit(Not not) {
+        this.visitNode(not.getOp());
+
         var llirNode = getPredLlirNode(not, not.getOp());
         registerLlirNode(not, llirNode);
     }
@@ -686,12 +722,18 @@ public class FirmToLlir implements NodeVisitor {
     }
 
     public void visit(Cond cond) {
+        this.visitNode(cond.getSelector());
+
         var bb = getBasicBlock(cond);
 
         var cmpPred = cond.getSelector();
-        var llirCmp = (CmpInstruction) getPredLlirNode(cond, cmpPred);
+        var llirCmp = (CmpLikeInstruction) getPredLlirNode(cond, cmpPred);
 
         var predicate = getCmpPredicate(cmpPred);
+
+        if (llirCmp.hasReversedArguments()) {
+            predicate = predicate.withSwappedArguments();
+        }
 
         Proj trueProj = null;
         Proj falseProj = null;
@@ -723,6 +765,8 @@ public class FirmToLlir implements NodeVisitor {
     }
 
     public void visit(Conv node) {
+        this.visitNode(node.getOp());
+
         var bb = getBasicBlock(node);
 
         var pred = (RegisterNode)getPredLlirNode(node, node.getOp());
@@ -736,28 +780,44 @@ public class FirmToLlir implements NodeVisitor {
     }
 
     public void visit(Store store) {
+        this.visitNode(store.getPtr());
+        this.visitNode(store.getValue());
+        this.visitNode(store.getMem());
+
         var bb = getBasicBlock(store);
 
         var memNode = getPredSideEffectNode(store, store.getMem());
         var addrNode = (RegisterNode)getPredLlirNode(store, store.getPtr());
         var valueNode = (RegisterNode)getPredLlirNode(store, store.getValue());
 
-        var llirStore = bb.newMovStore(addrNode, valueNode, memNode, modeToRegisterWidth(store.getValue().getMode()));
+        var llirStore = bb.newMovStore(MemoryLocation.base(addrNode), valueNode, memNode, modeToRegisterWidth(store.getValue().getMode()));
         registerLlirNode(store, llirStore);
     }
 
     public void visit(Load load) {
+        this.visitNode(load.getPtr());
+        this.visitNode(load.getMem());
+
         var bb = getBasicBlock(load);
         var memNode = getPredSideEffectNode(load, load.getMem());
         var addrNode = (RegisterNode)getPredLlirNode(load, load.getPtr());
 
         Mode outputMode = load.getLoadMode();
 
-        var llirLoad = bb.newMovLoad(addrNode, memNode, modeToRegisterWidth(outputMode));
+        var llirLoad = bb.newMovLoad(MemoryLocation.base(addrNode), memNode, modeToRegisterWidth(outputMode));
         registerLlirNode(load, llirLoad);
     }
 
     public void visit(Call call) {
+        for (var pred : call.getPreds()) {
+            if (pred.equals(call.getMem())) continue;
+            if (pred.equals(call.getPtr())) continue;
+
+            this.visitNode(pred);
+        }
+
+        this.visitNode(call.getMem());
+
         var bb = getBasicBlock(call);
         var memNode = getPredSideEffectNode(call, call.getMem());
 
@@ -811,6 +871,10 @@ public class FirmToLlir implements NodeVisitor {
     }
 
     public void visit(Phi phi) {
+        for (var pred : phi.getPreds()) {
+            this.phiPredQueue.push(pred);
+        }
+
         var bb = getBasicBlock(phi);
 
         if (phi.getMode().equals(Mode.getM())) {

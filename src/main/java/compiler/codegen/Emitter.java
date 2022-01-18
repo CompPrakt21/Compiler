@@ -138,6 +138,9 @@ public class Emitter {
                 assert insn.getDoubleWord().equals(HardwareRegister.EAX);
                 asm = "\tcdq";
             }
+            case LoadEffectiveAddressInstruction lea -> {
+                asm = String.format("\tlea %s, %s", lea.getLoc().formatATTSyntax(), lea.getTarget().formatATTSyntax());
+            }
             default -> throw new IllegalArgumentException("Instruction not emitable: " + instruction);
         }
 

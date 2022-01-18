@@ -314,6 +314,19 @@ public class NaiveRegisterAllocator {
                     this.freeRegisters.freeMapping(virRegTarget);
                 }
             }
+            case LoadEffectiveAddressInstruction lea -> {
+                var freeList = this.concretizeMemoryLocation(lea.getLoc(), newList);
+
+                newList.add(lea);
+
+                if (lea.getTarget() instanceof VirtualRegister virRegTarget) {
+                    var targetHardware = this.freeRegisters.getOrCreateMapping(virRegTarget).orElseThrow();
+                    this.saveVirtualRegister(virRegTarget, targetHardware, newList);
+                    lea.setTarget(targetHardware);
+                    this.freeRegisters.freeMapping(virRegTarget);
+                }
+                freeList.forEach(this.freeRegisters::freeMapping);
+            }
             default -> throw new AssertionError("These instructions should not appear pre register allocation");
         }
     }

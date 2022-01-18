@@ -1,13 +1,11 @@
 package compiler.codegen.llir;
 
-import compiler.codegen.Register.Width;
 import compiler.codegen.Predicate;
 import compiler.codegen.Register;
 import compiler.codegen.llir.nodes.*;
 import compiler.semantic.resolution.MethodDefinition;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class BasicBlock {
@@ -136,20 +134,36 @@ public class BasicBlock {
         return new MovSignExtendInstruction(this, input);
     }
 
-    public AddInstruction newAdd(RegisterNode lhs, RegisterNode rhs) {
+    public AddInstruction newAdd(RegisterNode lhs, SimpleOperand rhs) {
         return new AddInstruction(this, lhs, rhs);
     }
 
-    public SubInstruction newSub(RegisterNode lhs, RegisterNode rhs) {
+    public AddFromMemInstruction newAddFromMem(RegisterNode lhs, MemoryLocation rhs, SideEffect sideEffect) {
+        return new AddFromMemInstruction(this, lhs, rhs, sideEffect);
+    }
+
+    public SubInstruction newSub(RegisterNode lhs, SimpleOperand rhs) {
         return new SubInstruction(this, lhs, rhs);
     }
 
-    public MulInstruction newMul(RegisterNode lhs, RegisterNode rhs) {
+    public SubFromMemInstruction newSubFromMem(RegisterNode lhs, MemoryLocation rhs, SideEffect sideEffect) {
+        return new SubFromMemInstruction(this, lhs, rhs, sideEffect);
+    }
+
+    public MulInstruction newMul(RegisterNode lhs, SimpleOperand rhs) {
         return new MulInstruction(this, lhs, rhs);
     }
 
-    public XorInstruction newXor(RegisterNode lhs, RegisterNode rhs) {
+    public MulFromMemInstruction newMulFromMem(RegisterNode lhs, MemoryLocation rhs, SideEffect sideEffect) {
+        return new MulFromMemInstruction(this, lhs, rhs, sideEffect);
+    }
+
+    public XorInstruction newXor(RegisterNode lhs, SimpleOperand rhs) {
         return new XorInstruction(this, lhs, rhs);
+    }
+
+    public XorFromMemInstruction newXorFromMem(RegisterNode lhs, MemoryLocation rhs, SideEffect sideEffect) {
+        return new XorFromMemInstruction(this, lhs, rhs, sideEffect);
     }
 
     public DivInstruction newDiv(RegisterNode dividend, RegisterNode divisor, SideEffect sideEffect) {
@@ -160,12 +174,16 @@ public class BasicBlock {
         return new DivInstruction(this, dividend, divisor, sideEffect, DivInstruction.DivType.Mod);
     }
 
-    public MovStoreInstruction newMovStore(RegisterNode addr, RegisterNode value, SideEffect sideEffect, Register.Width width) {
+    public MovStoreInstruction newMovStore(MemoryLocation addr, RegisterNode value, SideEffect sideEffect, Register.Width width) {
         return new MovStoreInstruction(this, sideEffect, addr, value, width);
     }
 
-    public MovLoadInstruction newMovLoad(RegisterNode addr, SideEffect sideEffect, Register.Width outputWidth) {
-        return new MovLoadInstruction(this, sideEffect, addr, outputWidth);
+    public MovLoadInstruction newMovLoad(MemoryLocation loc, SideEffect sideEffect, Register.Width outputWidth) {
+        return new MovLoadInstruction(this, sideEffect, loc, outputWidth);
+    }
+
+    public LoadEffectiveAddressInstruction newLoadEffectiveAddress(Register.Width width, MemoryLocation loc) {
+        return new LoadEffectiveAddressInstruction(this, width, loc);
     }
 
     public InputNode newInput(Register register) {
@@ -180,11 +198,15 @@ public class BasicBlock {
         return new ReturnInstruction(this, returnValue);
     }
 
-    public CmpInstruction newCmp(RegisterNode lhs, RegisterNode rhs) {
-        return new CmpInstruction(this, lhs, rhs);
+    public CmpInstruction newCmp(RegisterNode lhs, SimpleOperand rhs, boolean reversedArguments) {
+        return new CmpInstruction(this, lhs, rhs, reversedArguments);
     }
 
-    public BranchInstruction newBranch(Predicate predicate, CmpInstruction cmp, BasicBlock trueBlock, BasicBlock falseBlock) {
+    public CmpFromMemInstruction newCmpFromMem(RegisterNode lhs, MemoryLocation rhs, boolean reversedArguments, SideEffect sideEffect) {
+        return new CmpFromMemInstruction(this, lhs, rhs, reversedArguments, sideEffect);
+    }
+
+    public BranchInstruction newBranch(Predicate predicate, CmpLikeInstruction cmp, BasicBlock trueBlock, BasicBlock falseBlock) {
         return new BranchInstruction(this, predicate, cmp, trueBlock, falseBlock);
     }
 

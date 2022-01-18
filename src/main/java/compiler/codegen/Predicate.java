@@ -20,6 +20,20 @@ public enum Predicate {
         };
     }
 
+    /**
+     * @return How the predicate needs to change if the arguments of cmp are swapped.
+     */
+    public Predicate withSwappedArguments() {
+        return switch (this) {
+            case GREATER_THAN -> LESS_THAN;
+            case GREATER_EQUAL -> LESS_EQUAL;
+            case LESS_EQUAL -> GREATER_EQUAL;
+            case LESS_THAN -> GREATER_THAN;
+            case EQUAL -> EQUAL;
+            case NOT_EQUAL -> NOT_EQUAL;
+        };
+    }
+
     public String getSuffix() {
                             return suffix;
                                           }

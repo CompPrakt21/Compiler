@@ -4,7 +4,7 @@ import compiler.codegen.llir.BasicBlock;
 
 public final class XorInstruction extends BinaryInstruction {
 
-    public XorInstruction(BasicBlock bb, RegisterNode lhs, RegisterNode rhs) {
+    public XorInstruction(BasicBlock bb, RegisterNode lhs, SimpleOperand rhs) {
         super(bb, lhs, rhs);
     }
 

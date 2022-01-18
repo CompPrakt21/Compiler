@@ -9,9 +9,9 @@ public final class BranchInstruction extends ControlFlowNode {
 
     private Predicate predicate;
 
-    private CmpInstruction cmp;
+    private CmpLikeInstruction cmp;
 
-    public BranchInstruction(BasicBlock bb, Predicate predicate, CmpInstruction cmp, BasicBlock trueBlock, BasicBlock falseBlock) {
+    public BranchInstruction(BasicBlock bb, Predicate predicate, CmpLikeInstruction cmp, BasicBlock trueBlock, BasicBlock falseBlock) {
         super(bb);
         this.predicate = predicate;
         this.cmp = cmp;
@@ -33,7 +33,7 @@ public final class BranchInstruction extends ControlFlowNode {
 
     @Override
     public Stream<LlirNode> getPreds() {
-        return Stream.concat(super.getPreds(), Stream.of(this.cmp));
+        return Stream.concat(super.getPreds(), Stream.of((LlirNode)this.cmp));
     }
 
     @Override

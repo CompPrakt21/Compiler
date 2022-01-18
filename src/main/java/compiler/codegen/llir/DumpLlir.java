@@ -168,6 +168,11 @@ public class DumpLlir {
             case MovImmediateInstruction mov -> String.format("%s 0x%x", mov.getMnemonic(), mov.getImmediateValue());
             case MethodCallInstruction call -> String.format("%s %s", call.getMnemonic(), call.getCalledMethod().getLinkerName());
             case AllocCallInstruction call -> String.format("%s <alloc>", call.getMnemonic());
+            case BinaryFromMemInstruction bin -> String.format("%s %s %s", bin.getMnemonic(), bin.getLhs().getTargetRegister(), bin.getRhs().formatIntelSyntax());
+            case BinaryInstruction bin -> String.format("%s %s %s", bin.getMnemonic(), bin.getLhs().getTargetRegister(), bin.getRhs().formatIntelSyntax());
+            case LoadEffectiveAddressInstruction lea -> String.format("%s %s", lea.getMnemonic(), lea.getLoc().formatIntelSyntax());
+            case MovLoadInstruction mov -> String.format("%s %s", mov.getMnemonic(), mov.getAddress().formatIntelSyntax());
+            case CmpFromMemInstruction cmp -> String.format("%s %s %s", cmp.getMnemonic(), cmp.getLhs().getTargetRegister(), cmp.getRhs().formatIntelSyntax());
             default -> node.getMnemonic();
         };
     }
@@ -201,8 +206,22 @@ public class DumpLlir {
 
     private static Stream<PredWithLabel> getPredsWithLabel(LlirNode node) {
         return switch (node) {
-            case BinaryInstruction a -> Stream.of(new PredWithLabel(a.getLhs(), "lhs"), new PredWithLabel(a.getRhs(), "rhs"));
-            case CmpInstruction a -> Stream.of(new PredWithLabel(a.getLhs(), "lhs"), new PredWithLabel(a.getRhs(), "rhs"));
+            case BinaryInstruction a -> Stream.concat(Stream.of(new PredWithLabel(a.getLhs(), "lhs")), a.getRhs().getRegisters().stream().map(r -> new PredWithLabel(r, "rhs")));
+            case BinaryFromMemInstruction a -> Stream.concat(Stream.of(new PredWithLabel(a.getLhs(), "lhs"), new PredWithLabel(a.getSideEffect().asLlirNode(), "mem")), a.getRhs().getRegisters().stream().map(r -> new PredWithLabel(r, "rhs")));
+            case CmpInstruction a -> Stream.concat(Stream.of(new PredWithLabel(a.getLhs(), "lhs")), a.getRhs().getRegisters().stream().map(reg -> new PredWithLabel(reg, "rhs")));
+            case CmpFromMemInstruction a -> Stream.concat(Stream.of(new PredWithLabel(a.getLhs(), "lhs")), a.getRhs().getRegisters().stream().map(reg -> new PredWithLabel(reg, "rhs")));
+            case MovStoreInstruction mov -> Stream.concat(Stream.of(new PredWithLabel(mov.getSideEffect().asLlirNode(), "mem"), new PredWithLabel(mov.getValueNode(), "val")), mov.getAddress().getRegisters().stream().map(reg -> new PredWithLabel(reg, "")));
+            case MovLoadInstruction mov -> Stream.concat(Stream.of(new PredWithLabel(mov.getSideEffect().asLlirNode(), "mem")), mov.getAddress().getRegisters().stream().map(reg -> new PredWithLabel(reg, "")));
+            case CallInstruction call -> {
+                var result = new ArrayList<PredWithLabel>();
+                result.add(new PredWithLabel(call.getSideEffect().asLlirNode(), "mem"));
+
+                for (int i = 0; i < call.getArguments().size(); i++) {
+                    result.add(new PredWithLabel(call.getArguments().get(i), String.format("a%s", i)));
+                }
+
+                yield result.stream();
+            }
             default -> node.getPreds().map(l -> new PredWithLabel(l, ""));
         };
     }

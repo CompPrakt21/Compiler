@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Stream;
 
-public abstract sealed class LlirNode permits CmpInstruction, ControlFlowNode, MemoryInputNode, MovStoreInstruction, RegisterNode {
+public abstract sealed class LlirNode permits CmpFromMemInstruction, CmpInstruction, ControlFlowNode, MemoryInputNode, MovStoreInstruction, RegisterNode {
     private static long nextId = 1;
 
     private final long id;

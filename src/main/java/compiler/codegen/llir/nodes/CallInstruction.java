@@ -15,6 +15,10 @@ public abstract sealed class CallInstruction extends RegisterNode  implements Si
 
     public abstract List<RegisterNode> getArguments();
 
+    public SideEffect getSideEffect() {
+        return sideEffect;
+    }
+
     @Override
     public String getMnemonic() {
         return "call";

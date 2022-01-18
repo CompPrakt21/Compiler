@@ -3,7 +3,9 @@ package compiler.codegen.llir.nodes;
 import compiler.codegen.llir.BasicBlock;
 import compiler.codegen.Register;
 
-public sealed abstract class RegisterNode extends LlirNode permits BinaryInstruction, CallInstruction, DivInstruction, InputNode, MovImmediateInstruction, MovLoadInstruction, MovRegisterInstruction, MovSignExtendInstruction {
+import java.util.List;
+
+public sealed abstract class RegisterNode extends LlirNode implements SimpleOperand permits BinaryFromMemInstruction, BinaryInstruction, CallInstruction, DivInstruction, InputNode, LoadEffectiveAddressInstruction, MovImmediateInstruction, MovLoadInstruction, MovRegisterInstruction, MovSignExtendInstruction {
     protected Register targetRegister;
 
     public RegisterNode(BasicBlock bb) {
@@ -33,5 +35,15 @@ public sealed abstract class RegisterNode extends LlirNode permits BinaryInstruc
 
     public void setTargetRegister(Register targetRegister) {
         this.targetRegister = targetRegister;
+    }
+
+    @Override
+    public String formatIntelSyntax() {
+        return this.targetRegister.formatIntelSyntax();
+    }
+
+    @Override
+    public List<RegisterNode> getRegisters() {
+        return List.of(this);
     }
 }

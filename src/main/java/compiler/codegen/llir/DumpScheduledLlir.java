@@ -22,10 +22,12 @@ public class DumpScheduledLlir {
 
     private String formatNode(LlirNode node) {
         return switch (node) {
-            case BinaryInstruction binary -> String.format("%s <- %s %s %s", binary.getTargetRegister(), binary.getMnemonic(), binary.getLhs().getTargetRegister(), binary.getRhs().getTargetRegister());
+            case BinaryInstruction binary -> String.format("%s <- %s %s %s", binary.getTargetRegister(), binary.getMnemonic(), binary.getLhs().getTargetRegister(), binary.getRhs().formatIntelSyntax());
+            case BinaryFromMemInstruction binary -> String.format("%s <- %s %s %s", binary.getTargetRegister(), binary.getMnemonic(), binary.getLhs().getTargetRegister(), binary.getRhs().formatIntelSyntax());
             case AllocCallInstruction alloc -> String.format("%s <- %s <alloc> (%s %s)", alloc.getTargetRegister(), alloc.getMnemonic(), alloc.getNumElements().getTargetRegister(), alloc.getElemSize().getTargetRegister());
             case BranchInstruction branch -> String.format("%s", branch.getMnemonic());
-            case CmpInstruction cmp -> String.format("%s %s %s", cmp.getMnemonic(), cmp.getLhs().getTargetRegister(), cmp.getRhs().getTargetRegister());
+            case CmpInstruction cmp -> String.format("%s %s %s", cmp.getMnemonic(), cmp.getLhs().getTargetRegister(), cmp.getRhs().formatIntelSyntax());
+            case CmpFromMemInstruction cmp -> String.format("%s %s %s", cmp.getMnemonic(), cmp.getLhs().getTargetRegister(), cmp.getRhs().formatIntelSyntax());
             case DivInstruction div -> String.format("%s <- %s %s %s", div.getTargetRegister(), div.getMnemonic(), div.getDividend().getTargetRegister(), div.getDivisor().getTargetRegister());
             case InputNode ignored -> throw new IllegalArgumentException("Input nodes should not be scheduled.");
             case JumpInstruction jump -> String.format("%s", jump.getMnemonic());
@@ -35,10 +37,11 @@ public class DumpScheduledLlir {
                 yield String.format("%s <- %s %s (%s)", method.getTargetRegister(), method.getMnemonic(), method.getCalledMethod().getLinkerName(), arguments);
             }
             case MovImmediateInstruction movImm -> String.format("%s <- %s %s", movImm.getTargetRegister(), movImm.getMnemonic(), movImm.getImmediateValue());
-            case MovLoadInstruction movLoad -> String.format("%s <- %s [%s]", movLoad.getTargetRegister(), movLoad.getMnemonic(), movLoad.getAddrNode().getTargetRegister());
+            case MovLoadInstruction movLoad -> String.format("%s <- %s [%s]", movLoad.getTargetRegister(), movLoad.getMnemonic(), movLoad.getAddress().formatIntelSyntax());
             case MovRegisterInstruction movReg -> String.format("%s <- %s %s", movReg.getTargetRegister(), movReg.getMnemonic(), movReg.getSourceRegister().getTargetRegister());
             case MovSignExtendInstruction movSX -> String.format("%s <- %s %s", movSX.getTargetRegister(), movSX.getMnemonic(), movSX.getInput().getTargetRegister());
-            case MovStoreInstruction movStore -> String.format("%s [%s] %s", movStore.getMnemonic(), movStore.getAddrNode().getTargetRegister(), movStore.getValueNode().getTargetRegister());
+            case MovStoreInstruction movStore -> String.format("%s [%s] %s", movStore.getMnemonic(), movStore.getAddress().formatIntelSyntax(), movStore.getValueNode().getTargetRegister());
+            case LoadEffectiveAddressInstruction lea -> String.format("%s %s", lea.getMnemonic(), lea.getLoc().formatIntelSyntax());
             case ReturnInstruction ret -> String.format("%s", ret.getMnemonic());
         };
     }

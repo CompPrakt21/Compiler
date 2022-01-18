@@ -33,6 +33,16 @@ public final class MemoryLocation extends Operand {
         assert verify();
     }
 
+    public MemoryLocation(Optional<Register> baseRegister, int constant, Optional<Register> index, int scale) {
+        this();
+        this.baseRegister = baseRegister;
+        this.constant = constant;
+        this.index = index;
+        this.scale = scale;
+
+        assert verify();
+    }
+
     private boolean verify() {
         var scaleIsPowerOfTwo = scale != 0 && ((scale & (scale - 1)) == 0);
         var eitherBaseOrConstant =  this.baseRegister.isPresent() || constant != 0;

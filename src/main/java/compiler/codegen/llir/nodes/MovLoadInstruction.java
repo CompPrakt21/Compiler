@@ -8,15 +8,14 @@ import java.util.stream.Stream;
 
 public final class MovLoadInstruction extends RegisterNode implements SideEffect {
     private SideEffect sideEffect;
-    private RegisterNode addrNode;
+    private MemoryLocation address;
     private Register.Width width;
 
-    public MovLoadInstruction(BasicBlock bb, SideEffect sideEffect, RegisterNode addrNode, Register.Width width) {
+    public MovLoadInstruction(BasicBlock bb, SideEffect sideEffect, MemoryLocation address, Register.Width width) {
         super(bb);
         this.sideEffect = sideEffect;
-        this.addrNode = addrNode;
+        this.address = address;
         this.width = width;
-        assert addrNode.getTargetRegister().getWidth() == Register.Width.BIT64;
 
         initTargetRegister(width);
     }
@@ -27,16 +26,20 @@ public final class MovLoadInstruction extends RegisterNode implements SideEffect
 
     @Override
     public Stream<LlirNode> getPreds() {
-        return Stream.concat(super.getPreds(), Stream.of(sideEffect.asLlirNode(), addrNode));
+        return Stream.concat(super.getPreds(), Stream.concat(Stream.of(sideEffect.asLlirNode()), this.address.getRegisters().stream()));
     }
 
-    public RegisterNode getAddrNode() {
-        return addrNode;
+    public SideEffect getSideEffect() {
+        return sideEffect;
+    }
+
+    public MemoryLocation getAddress() {
+        return address;
     }
 
     @Override
     public int getPredSize() {
-        return super.getPredSize() + 2;
+        return super.getPredSize() + 1 + this.address.getRegisters().size();
     }
 
     @Override

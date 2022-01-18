@@ -284,7 +284,7 @@ public class OnTheFlyRegisterAllocator {
         return this.initialiseVirtualRegister(virtReg, Optional.empty(), pref, List.of(), a, newList);
     }
 
-    private HardwareRegister initialiseVirtualRegister(VirtualRegister virtReg, List<Instruction> newList, Set<HardwareRegister> keepAlive, Optional<HardwareRegister> dontChoose, Set<HardwareRegister> hint) {
+    private HardwareRegister initialiseVirtualRegister(VirtualRegister virtReg, List<Instruction> newList, Set<HardwareRegister> keepAlive, List<HardwareRegister> dontChoose, Set<HardwareRegister> hint) {
         Set<HardwareRegister.Group> a = keepAlive.stream().map(HardwareRegister::getGroup).collect(Collectors.toSet());
         List<HardwareRegister.Group> pref = Stream.concat(Optional.ofNullable(this.registerHints.get(virtReg)).orElseGet(List::of).stream(), hint.stream().map(HardwareRegister::getGroup)).toList();
         return this.initialiseVirtualRegister(virtReg, Optional.empty(), pref, dontChoose.stream().map(HardwareRegister::getGroup).toList(), a, newList);
@@ -391,21 +391,23 @@ public class OnTheFlyRegisterAllocator {
                 var lhsReg= this.concretizeRegister(lhsVirtReg, newList, Set.of());
                 usedRegisters.add(lhsReg);
 
-                Optional<HardwareRegister> mustStayLive = Optional.empty();
+                List<HardwareRegister> mustStayLive = List.of();
                 if (binary.getRhs() instanceof MemoryLocation rhs) {
-                    usedRegisters.addAll(this.concretizeMemoryLocation(rhs, newList, usedRegisters));
+                    var memLocRegs = this.concretizeMemoryLocation(rhs, newList, usedRegisters);
+                    usedRegisters.addAll(memLocRegs);
+                    mustStayLive = memLocRegs;
                 } else if (binary.getRhs() instanceof VirtualRegister rhs) {
                     var rhsHardwareReg = this.concretizeRegister(rhs, newList, usedRegisters);
-                    mustStayLive = Optional.of(rhsHardwareReg);
+                    mustStayLive = List.of(rhsHardwareReg);
                     usedRegisters.add(rhsHardwareReg);
                     binary.setRhs(rhsHardwareReg);
                 }
 
-                // If the rhs register is different from the lhs register, it is important that the target hardware register
-                // doesn't allocate the same hardware register as rhs (which might be dead), because it would get overwritten.
-                // However, if both operands are the same there this is allowed.
-                if (mustStayLive.isPresent() && lhsReg.equals(mustStayLive.get())) {
-                    mustStayLive = Optional.empty();
+                // If there is a rhs register different from the lhs register, it is important that the target hardware register
+                // doesn't allocate the same register because it would get overwritten by the mov inserted before the binary instruction.
+                // However, if they are the same virtual register this is ok.
+                if (!mustStayLive.isEmpty()) {
+                    mustStayLive = mustStayLive.stream().filter(r -> !r.equals(lhsReg)).toList();
                 }
 
                 this.freeDeadVirtualRegisters(liveRegs);
@@ -445,13 +447,17 @@ public class OnTheFlyRegisterAllocator {
             case CmpInstruction cmp -> {
                 var lhsVirtReg = (VirtualRegister) cmp.getLhs();
                 var lhsHardwareReg = this.concretizeRegister(lhsVirtReg, newList, Set.of());
-                var rhsVirtReg = (VirtualRegister) cmp.getRhs();
-                var rhsHardwareReg = this.concretizeRegister(rhsVirtReg, newList, Set.of(lhsHardwareReg));
+
+                if (cmp.getRhs() instanceof MemoryLocation rhs) {
+                    this.concretizeMemoryLocation(rhs, newList, Set.of(lhsHardwareReg));
+                } else if (cmp.getRhs() instanceof VirtualRegister rhs) {
+                    var rhsHardwareReg = this.concretizeRegister(rhs, newList, Set.of(lhsHardwareReg));
+                    cmp.setRhs(rhsHardwareReg);
+                }
 
                 this.freeDeadVirtualRegisters(liveRegs);
 
                 cmp.setLhs(lhsHardwareReg);
-                cmp.setRhs(rhsHardwareReg);
                 newList.add(cmp);
             }
             case BranchInstruction branch -> {
@@ -557,9 +563,16 @@ public class OnTheFlyRegisterAllocator {
                     }
                     case VirtualRegister virtualReg -> {
                         this.freeDeadVirtualRegisters(liveRegs);
+
+                        // If virtualReg accumulates the phi values, it might be already mapped and is updated.
+                        // In this case we need to set the dirty bit, so it gets saved at the end of the basic block.
+                        var mapping = this.freeRegisters.getMapping(virtualReg);
+
                         // We hint that we want to use the same register as the source, to increase chance that this move will have the same source and
                         // destination, so that the peephole optimizer can remove this move.
-                        var targetHardwareReg = this.initialiseVirtualRegister(virtualReg, newList, usedRegisters, Optional.empty(), usedRegisters);
+                        var targetHardwareReg = mapping.orElseGet(() -> this.initialiseVirtualRegister(virtualReg, newList, usedRegisters, List.of(), usedRegisters));
+                        mapping.ifPresent(ignored -> this.dirty.put(virtualReg, true));
+
                         usedRegisters.add(targetHardwareReg);
                         mov.setDestination(targetHardwareReg);
                         newList.add(mov);
@@ -585,6 +598,19 @@ public class OnTheFlyRegisterAllocator {
                 }
 
                 newList.add(movSX);
+            }
+            case LoadEffectiveAddressInstruction lea -> {
+                var usedRegisters = new HashSet<HardwareRegister>();
+                usedRegisters.addAll(this.concretizeMemoryLocation(lea.getLoc(), newList, Set.of()));
+
+                newList.add(lea);
+                this.freeDeadVirtualRegisters(liveRegs);
+
+                if (lea.getTarget() instanceof VirtualRegister virRegTarget) {
+                    var targetHardware = this.initialiseVirtualRegister(virRegTarget, newList, usedRegisters);
+                    usedRegisters.add(targetHardware);
+                    lea.setTarget(targetHardware);
+                }
             }
             default -> throw new AssertionError("These instructions should not appear pre register allocation");
         }

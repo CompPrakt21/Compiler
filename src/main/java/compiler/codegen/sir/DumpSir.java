@@ -21,10 +21,10 @@ public class DumpSir {
     private String formatInstruction(Instruction instr) {
         return switch (instr) {
             case DivInstruction div -> String.format("%s <- %s %s %s", div.getTarget(), div.getMnemonic(), div.getDividend(), div.getDivisor());
-            case BinaryInstruction binary -> String.format("%s <- %s %s %s", binary.getTarget(), binary.getMnemonic(), binary.getLhs(), binary.getRhs());
+            case BinaryInstruction binary -> String.format("%s <- %s %s %s", binary.getTarget(), binary.getMnemonic(), binary.getLhs(), binary.getRhs().formatIntelSyntax());
             case AllocCallInstruction alloc -> String.format("%s <- %s (%s %s)", alloc.getTarget(), alloc.getMnemonic(), alloc.getNumElements(), alloc.getObjectSize());
             case BranchInstruction branch -> String.format("%s", branch.getMnemonic());
-            case CmpInstruction cmp -> String.format("%s %s %s", cmp.getMnemonic(), cmp.getLhs(), cmp.getRhs());
+            case CmpInstruction cmp -> String.format("%s %s %s", cmp.getMnemonic(), cmp.getLhs(), cmp.getRhs().formatIntelSyntax());
             case JumpInstruction jump -> String.format("%s", jump.getMnemonic());
             case MethodCallInstruction method -> {
                 yield String.format("%s <- %s %s (%s)", method.getTarget(), method.getMnemonic(), method.getMethod().getLinkerName(), method.getArguments());
@@ -36,6 +36,7 @@ public class DumpSir {
             case PopInstruction pop -> String.format("%s <- %s", pop.getRegister(), pop.getMnemonic());
             case LeaveInstruction leave -> String.format("%s", leave.getMnemonic());
             case ConvertDoubleToQuadInstruction cdq -> String.format("%s <- %s %s", cdq.getTarget(), cdq.getMnemonic(), cdq.getDoubleWord());
+            case LoadEffectiveAddressInstruction lea -> String.format("%s <- %s %s", lea.getTarget(), lea.getMnemonic(), lea.getLoc().formatIntelSyntax());
         };
     }
     private void printTarget(BasicBlock start, BasicBlock end, String label) {

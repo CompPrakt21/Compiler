@@ -8,16 +8,15 @@ import java.util.stream.Stream;
 
 public final class MovStoreInstruction extends LlirNode implements SideEffect {
     private SideEffect sideEffect;
-    private RegisterNode addrNode;
+    private MemoryLocation addr;
     private RegisterNode valueNode;
     private Register.Width width;
 
-    public MovStoreInstruction(BasicBlock bb, SideEffect sideEffect, RegisterNode addrNode, RegisterNode valueNode, Register.Width width) {
+    public MovStoreInstruction(BasicBlock bb, SideEffect sideEffect, MemoryLocation addr, RegisterNode valueNode, Register.Width width) {
         super(bb);
         this.sideEffect = sideEffect;
-        this.addrNode = addrNode;
+        this.addr = addr;
         this.width = width;
-        assert addrNode.getTargetRegister().getWidth() == Register.Width.BIT64;
         this.valueNode = valueNode;
     }
 
@@ -25,8 +24,8 @@ public final class MovStoreInstruction extends LlirNode implements SideEffect {
         return sideEffect;
     }
 
-    public RegisterNode getAddrNode() {
-        return addrNode;
+    public MemoryLocation getAddress() {
+        return addr;
     }
 
     public RegisterNode getValueNode() {
@@ -39,12 +38,12 @@ public final class MovStoreInstruction extends LlirNode implements SideEffect {
 
     @Override
     public Stream<LlirNode> getPreds() {
-        return Stream.concat(super.getPreds(), Stream.of(sideEffect.asLlirNode(), this.addrNode, this.valueNode));
+        return Stream.concat(super.getPreds(), Stream.concat(Stream.of(sideEffect.asLlirNode(), this.valueNode), this.addr.getRegisters().stream()));
     }
 
     @Override
     public int getPredSize() {
-        return super.getPredSize() + 3;
+        return super.getPredSize() + 2 + this.addr.getRegisters().size();
     }
 
     @Override

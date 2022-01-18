@@ -1,15 +1,17 @@
 package compiler.codegen.sir.instructions;
 
+import compiler.codegen.Operand;
 import compiler.codegen.Register;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 public final class CmpInstruction extends Instruction {
     private Register lhs;
-    private Register rhs;
+    private Operand rhs;
 
-    public CmpInstruction(Register lhs, Register rhs) {
+    public CmpInstruction(Register lhs, Operand rhs) {
         this.lhs = lhs;
         this.rhs = rhs;
     }
@@ -22,11 +24,11 @@ public final class CmpInstruction extends Instruction {
         this.lhs = lhs;
     }
 
-    public Register getRhs() {
+    public Operand getRhs() {
         return rhs;
     }
 
-    public void setRhs(Register rhs) {
+    public void setRhs(Operand rhs) {
         this.rhs = rhs;
     }
 
@@ -37,7 +39,7 @@ public final class CmpInstruction extends Instruction {
 
     @Override
     public List<Register> getReadRegisters() {
-        return List.of(this.lhs, this.rhs);
+        return Stream.concat(Stream.of(lhs), rhs.getRegisters().stream()).toList();
     }
 
     @Override
