@@ -3,7 +3,6 @@ package compiler;
 import compiler.ast.Program;
 import compiler.codegen.*;
 import compiler.codegen.llir.DumpLlir;
-import compiler.codegen.llir.DumpScheduledLlir;
 import compiler.codegen.llir.LlirGraph;
 import compiler.codegen.sir.DumpSir;
 import compiler.codegen.sir.SirGraph;
@@ -21,6 +20,7 @@ import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Parameters;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Spec;
+import picocli.CommandLine.Unmatched;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -40,6 +40,9 @@ public class MainCommand implements Callable<Integer> {
 
     @Parameters(paramLabel = "FILE", scope = CommandLine.ScopeType.INHERIT, description = "The file to operate on.")
     File file;
+
+    @Unmatched
+    String[] unmatchedArgs = new String[0];
 
     @Spec
     CommandSpec spec;
@@ -221,7 +224,10 @@ public class MainCommand implements Callable<Integer> {
 
     @SuppressWarnings("unused")
     @Command(name = "--compile", description = "Compile to binary.")
-    public Integer compile(@Option(names = "--dump", description = "Dump the resulting FIRM graphs.") boolean dumpGraphs) {
+    public Integer compile(
+            @Option(names = "--dump", description = "Dump the resulting FIRM graphs.") boolean dumpGraphs,
+            @Option(names = "-O0", description = "Set optimization level 0 (NOOP for now).") boolean o0,
+            @Option(names = "-O1", description = "Set optimization level 1 (NOOP for now).") boolean o1) {
         return callWithChecked(file, (reporter, frontend) -> {
 
             var translationResult = new Translation(frontend).translate(false);
@@ -325,7 +331,7 @@ public class MainCommand implements Callable<Integer> {
 
     @Override
     public Integer call() {
-        return compile(false);
+        return spec.subcommands().get("--compile").execute(unmatchedArgs);
     }
 
     public static void main(String[] args) {

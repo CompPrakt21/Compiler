@@ -13,12 +13,12 @@ repositories {
 }
 
 dependencies {
-    implementation("info.picocli:picocli:4.6.1")
+    implementation("info.picocli:picocli:4.6.2")
     implementation("net.java.dev.jna:jna:4.5.2")
     implementation("com.github.Firmwehr:jFirm:b970d57751")
-    testImplementation("org.junit.jupiter:junit-jupiter-api:5.6.2")
-    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.7.0")
-    testImplementation("org.mockito:mockito-core:3.6.0")
+    testImplementation("org.junit.jupiter:junit-jupiter-api:5.8.2")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.8.2")
+    testImplementation("org.mockito:mockito-core:4.2.0")
 }
 
 application {
