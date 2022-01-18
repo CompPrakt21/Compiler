@@ -265,7 +265,8 @@ public class DataFlow {
     }
 
     public static Map<Node, ConstantValue> analyzeConstantFolding(Graph g) {
-        BackEdges.enable(g);
+        if (!BackEdges.enabled(g))
+            BackEdges.enable(g);
         ArrayDeque<Node> worklist = new ArrayDeque<>();
         NodeCollector c = new NodeCollector(worklist);
         g.walkTopological(c);

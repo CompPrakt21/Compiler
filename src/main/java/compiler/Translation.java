@@ -855,17 +855,15 @@ public class Translation {
             }
         }
         Backend.lowerForTarget();
-        graphs.replaceAll(graph -> Optimization.constantFolding(graph));
+        graphs.replaceAll(Optimization::constantFolding);
         graphs.forEach(graph -> {
             InliningOptimization inliningOptimization = new InliningOptimization(graph);
             inliningOptimization.collectNodes();
-            System.out.println("DONE");
             if (dumpGraphs) {
                 Dump.dumpGraph(graph, names.pop());
             }
         });
         graphs.forEach(BackEdges::disable);
-
         if (dumpGraphs) {
             try {
                 Dump.dumpTypeGraph("types.vcg");

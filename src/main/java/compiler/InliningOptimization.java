@@ -87,19 +87,13 @@ public class InliningOptimization {
         assert(sourceParameters.size() == remoteParameters.size());
         assert (resultNode != null && aboveMemoryNodeBeforeAddressCall != null && remoteFirstMemoryNode != null);
 
-        System.out.println("resultNode " + resultNode + " aboveMemoryNodeBeforeAddressCall " + aboveMemoryNodeBeforeAddressCall + " belowMemoryNodeAfterAddressCall " + belowMemoryNodeAfterAddressCall +
-                " sourceParameters " + sourceParameters + " remoteParameters " + remoteParameters + " remoteResultNode " + remoteResultNode + " remoteLastMemoryNode " + remoteLastMemoryNode + " remoteFirstMemoryNode " + remoteFirstMemoryNode);
-
         Iterator<Node> predsIterator = callNode.getPreds().iterator();
-        StreamSupport.stream(callNode.getPreds().spliterator(), false).forEach(node -> System.out.println(node));
-        for (int i = 0; i < callNode.getPredCount(); i++) {
+         for (int i = 0; i < callNode.getPredCount(); i++) {
             Node node = predsIterator.next();
             if (node.equals(resultNode.get())) {
                 callNode.setPred(i, remoteResultNode);
-                System.out.println("Found resultNode");
             } else if  (node.equals(belowMemoryNodeAfterAddressCall)) {
                 callNode.setPred(i, remoteLastMemoryNode);
-                System.out.println("Found lastMemoryNOde");
             }
         }
         remoteFirstMemoryNode.setPred(aboveMemoryNodeBeforeAddressCall);
