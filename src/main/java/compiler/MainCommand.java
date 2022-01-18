@@ -247,7 +247,8 @@ public class MainCommand implements Callable<Integer> {
                     }
                 }
 
-                var scheduleResult = NaiveScheduler.schedule(pair.getValue());
+                //var scheduleResult = NaiveScheduler.schedule(pair.getValue());
+                var scheduleResult = ErshovScheduler.schedule(pair.getValue());
 
                 if (dumpGraphs) {
                     try {

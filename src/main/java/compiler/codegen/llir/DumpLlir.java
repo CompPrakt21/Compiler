@@ -109,11 +109,14 @@ public class DumpLlir {
             if (this.schedule.isPresent()) {
                 var schedule = this.schedule.get().schedule().get(node.getBasicBlock());
                 var nodeScheduleIdx = schedule.indexOf(node);
-                var targetScheduleIdx = nodeScheduleIdx + 1;
 
-                if (targetScheduleIdx < schedule.size()) {
-                    var target = schedule.get(targetScheduleIdx);
-                    this.edges.add(String.format("\t%s -> %s[color=purple, style=dashed, constraint=false]", node.getID(), target.getID()));
+                if (nodeScheduleIdx != -1) {
+                    var targetScheduleIdx = nodeScheduleIdx + 1;
+
+                    if (targetScheduleIdx < schedule.size()) {
+                        var target = schedule.get(targetScheduleIdx);
+                        this.edges.add(String.format("\t%s -> %s[color=purple, style=dashed, constraint=false]", node.getID(), target.getID()));
+                    }
                 }
             }
 
@@ -155,7 +158,7 @@ public class DumpLlir {
             default -> getNodeLabel(node);
         };
 
-        this.visitedNodes.put(node, String.format("\t%s[label=\"%s\", shape=%s, color=%s]", node.getID(), label, shape, color));
+        this.visitedNodes.put(node, String.format("\t%s[label=\"%s\t#%s\", shape=%s, color=%s]", node.getID(), label, node.getID(), shape, color));
 
         node.getScheduleDependencies().forEach(pred -> this.edges.add(String.format("%s -> %s [style=dotted]", node.getID(), pred.getID())));
     }
