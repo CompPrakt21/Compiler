@@ -220,7 +220,7 @@ public class Translation {
         Node rhs = translateExpr(expr.getRhs());
         return switch (expr.getOperator()) {
             case Addition -> construction.newAdd(lhs, rhs);
-            case Subtraction -> construction.newSub(lhs, rhs);
+            case Subtraction -> construction.newAdd(lhs, construction.newMinus(rhs));
             case Multiplication -> construction.newMul(lhs, rhs);
             case Division -> this.translateDivOrMod(lhs, rhs, BinaryOpExpression.BinaryOp.Division);
             case Modulo -> this.translateDivOrMod(lhs, rhs, BinaryOpExpression.BinaryOp.Modulo);

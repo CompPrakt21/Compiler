@@ -83,6 +83,9 @@ public interface MiniJavaNodeVisitor extends NodeVisitor {
     default void visit(Shrs shrs) { err(shrs); }
 
     @Override
+    default void visit(Sub sub) { err(sub); }
+
+    @Override
     default void visit(Switch aSwitch) { err(aSwitch); }
 
     @Override

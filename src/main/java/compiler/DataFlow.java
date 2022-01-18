@@ -3,7 +3,6 @@ package compiler;
 import firm.*;
 import firm.nodes.*;
 
-import java.lang.annotation.Target;
 import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.List;
@@ -11,7 +10,6 @@ import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 
 public class DataFlow {
 
@@ -280,11 +278,6 @@ public class DataFlow {
         @Override
         public void visit(Store store) {
             block(store);
-        }
-
-        @Override
-        public void visit(Sub sub) {
-            biEval(TargetValue::sub, sub, sub.getLeft(), sub.getRight());
         }
 
         @Override

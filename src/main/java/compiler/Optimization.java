@@ -3,10 +3,8 @@ package compiler;
 import compiler.utils.FirmUtils;
 import firm.*;
 import firm.bindings.binding_irgraph;
-import firm.bindings.binding_irnode;
 import firm.nodes.*;
 
-import java.nio.Buffer;
 import java.util.*;
 import java.util.function.*;
 import java.util.stream.Collectors;
@@ -170,6 +168,8 @@ public class Optimization {
             }
         });
         BackEdges.disable(g);
+        // We changed the control structure, so better be careful ...
+        g.confirmProperties(binding_irgraph.ir_graph_properties_t.IR_GRAPH_PROPERTIES_NONE);
     }
 
     private static Optional<Node> commOp(Node left, Node right, BiFunction<Node, Node, Node> simplify) {
@@ -184,11 +184,6 @@ public class Optimization {
         // !!x = x
         // x + 0 = x
         // x + (-y) = x - y
-        // x - 0 = x
-        // 0 - x = -x
-        // x - x = 0
-        // x - (-y) = x + y
-        // (-x) - y = -(x + y)
         // x * 1 = x
         // x * (-y) = -(x * y)
         // x * +-2^k = optimized [TODO]
@@ -225,7 +220,7 @@ public class Optimization {
                     Node left = a.getLeft();
                     Node right = a.getRight();
                     // x + 0 = x
-                    Supplier<Optional<Node>> r1 = () -> commOp(left, right, (l, r) -> {
+                    Optional<Node> r1 = commOp(left, right, (l, r) -> {
                         if (r instanceof Const c && c.getTarval().isNull()) {
                             if (c.getMode().isReference()) {
                                 // x + NULL = NULL
@@ -235,34 +230,14 @@ public class Optimization {
                         }
                         return null;
                     });
-                    // x + (-y) = x - y
-                    Supplier<Optional<Node>> r2 = () -> commOp(left, right, (l, r) ->
-                            r instanceof Minus m ?
-                                    g.newSub(b, l, m.getOp()) : null);
-                    nn = r1.get().or(r2).orElse(null);
-                } else if (n instanceof Sub s) {
-                    // Subtraction behaves incorrectly w.r.t. pointers too, but we never generate
-                    // Sub nodes with mode P, so this is fine. We shouldn't simplify to a Sub node either.
-                    Node l = s.getLeft();
-                    Node r = s.getRight();
-                    if (r instanceof Const c && c.getTarval().isNull()) {
-                        // x - 0 = x
-                        nn = l;
-                    } else if (l instanceof Const c && c.getTarval().isNull()) {
-                        // 0 - x = -x
-                        nn = g.newMinus(b, r);
-                    } else if (l.equals(r)) {
-                        // x - x = 0
-                        nn = g.newConst(0, mode);
-                    } else if (r instanceof Minus m) {
-                        // x - (-y) = x + y
-                        nn = g.newAdd(b, l, m.getOp());
-                    } else if (l instanceof Minus m) {
-                        // (-x) - y = -(x + y)
-                        Node addNode = g.newAdd(b, m.getOp(), r);
-                        nn = g.newMinus(b, addNode);
-                        worklist.addLast(addNode);
-                    }
+                    // (-x) + (-y) = -(x + y)
+                    Supplier<Node> r2 = () -> {
+                        if (left instanceof Minus l && right instanceof Minus r) {
+                            return g.newMinus(b, g.newAdd(b, l.getOp(), r.getOp()));
+                        }
+                        return null;
+                    };
+                    nn = r1.orElseGet(r2);
                 } else if (n instanceof Mul m) {
                     Node left = m.getLeft();
                     Node right = m.getRight();
@@ -294,7 +269,5 @@ public class Optimization {
             }
         }
         BackEdges.disable(g);
-        // We changed the control structure, so better be careful ...
-        g.confirmProperties(binding_irgraph.ir_graph_properties_t.IR_GRAPH_PROPERTIES_NONE);
     }
 }
