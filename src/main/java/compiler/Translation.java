@@ -854,8 +854,8 @@ public class Translation {
                 }
             }
         }
-        Backend.lowerForTarget();
         graphs.replaceAll(Optimization::constantFolding);
+        boolean repeat;
         graphs.forEach(graph -> {
             InliningOptimization inliningOptimization = new InliningOptimization(graph);
             inliningOptimization.collectNodes();
