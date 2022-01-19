@@ -1,6 +1,9 @@
 package compiler;
 
-import firm.*;
+import firm.BackEdges;
+import firm.Graph;
+import firm.Mode;
+import firm.TargetValue;
 import firm.nodes.*;
 
 import java.util.ArrayDeque;
@@ -21,7 +24,7 @@ public class DataFlow {
                 case Constant c ->
                         switch (other) {
                             case Unknown u -> c;
-                            case Constant c2 -> c.value.compare(c2.value) == Relation.Equal ? c : Variable.value;
+                            case Constant c2 -> c.value.compare(c2.value).value() == 1 ? c : Variable.value;
                             case Variable v -> v;
                             default -> throw new AssertionError("Impossible case");
                         };
@@ -78,24 +81,18 @@ public class DataFlow {
             this.values = values;
         }
 
-        private void partialEval(Function<List<ConstantValue>, ConstantValue> eval, Node parent, Node... children) {
+        private void evalAux(Function<List<TargetValue>, ConstantValue> eval, Node parent, Node... children) {
             if (Arrays.stream(children).anyMatch(n -> values.get(n) instanceof Unknown)) {
                 values.put(parent, Unknown.value);
                 return;
             }
             List<ConstantValue> args = Arrays.stream(children).map(values::get).collect(Collectors.toList());
-            values.put(parent, eval.apply(args));
-        }
-
-        private void evalAux(Function<List<TargetValue>, ConstantValue> eval, Node parent, Node... children) {
-            Function<List<ConstantValue>, ConstantValue> f = args -> {
-                if (args.stream().allMatch(a -> a instanceof Constant)) {
-                    List<TargetValue> argValues = args.stream().map(a -> ((Constant) a).value).collect(Collectors.toList());
-                    return eval.apply(argValues);
-                }
-                return Variable.value;
-            };
-            partialEval(f, parent, children);
+            if (args.stream().allMatch(a -> a instanceof Constant)) {
+                List<TargetValue> argValues = args.stream().map(a -> ((Constant) a).value).collect(Collectors.toList());
+                values.put(parent, eval.apply(argValues));
+                return;
+            }
+            values.put(parent, Variable.value);
         }
 
         private void eval(Function<List<TargetValue>, TargetValue> eval, Node parent, Node... children) {
@@ -108,26 +105,6 @@ public class DataFlow {
 
         private void biEval(BiFunction<TargetValue, TargetValue, TargetValue> eval, Node parent, Node child1, Node child2) {
             this.eval(args -> eval.apply(args.get(0), args.get(1)), parent, child1, child2);
-        }
-
-        private void biPartialEval(BiFunction<ConstantValue, ConstantValue, ConstantValue> eval, Node parent, Node child1, Node child2) {
-            this.partialEval(args -> eval.apply(args.get(0), args.get(1)), parent, child1, child2);
-        }
-
-        private void multiplicativeEval(BiFunction<TargetValue, TargetValue, TargetValue> eval, Node parent, Node child1, Node child2) {
-            BiFunction<ConstantValue, ConstantValue, ConstantValue> f = (a, b) -> {
-                if (a instanceof Constant ac && ac.value.asInt() == 0) {
-                    return new Constant(new TargetValue(0, ac.value.getMode()));
-                }
-                if (b instanceof Constant bc && bc.value.asInt() == 0) {
-                    return new Constant(new TargetValue(0, bc.value.getMode()));
-                }
-                if (!(a instanceof Constant ac && b instanceof Constant bc)) {
-                    return new Variable();
-                }
-                return new Constant(eval.apply(ac.value, bc.value));
-            };
-            biPartialEval(f, parent, child1, child2);
         }
 
         private void forward(Node parent, Node child) {
@@ -183,7 +160,9 @@ public class DataFlow {
 
         @Override
         public void visit(Div div) {
-            multiplicativeEval(TargetValue::div, div, div.getLeft(), div.getRight());
+            // Subtlety: If we divide by a constant 0, we optimize this side effect away.
+            // TODO: Test what TargetValue.div does on 0
+            biEval((a, b) -> b.asInt() == 0 ? new TargetValue(0, b.getMode()) : a.div(b), div, div.getLeft(), div.getRight());
         }
 
         @Override
@@ -218,12 +197,12 @@ public class DataFlow {
 
         @Override
         public void visit(Mod mod) {
-            multiplicativeEval(TargetValue::mod, mod, mod.getLeft(), mod.getRight());
+            biEval((a, b) -> b.asInt() == 0 ? new TargetValue(0, b.getMode()) : a.mod(b), mod, mod.getLeft(), mod.getRight());
         }
 
         @Override
         public void visit(Mul mul) {
-            multiplicativeEval(TargetValue::mul, mul, mul.getLeft(), mul.getRight());
+            biEval(TargetValue::mul, mul, mul.getLeft(), mul.getRight());
         }
 
         @Override
@@ -286,8 +265,11 @@ public class DataFlow {
     }
 
     public static Map<Node, ConstantValue> analyzeConstantFolding(Graph g) {
-        BackEdges.enable(g);
-        ArrayDeque<Node> worklist = NodeCollector.run(g);
+        if (!BackEdges.enabled(g))
+            BackEdges.enable(g);
+        ArrayDeque<Node> worklist = new ArrayDeque<>();
+        NodeCollector c = new NodeCollector(worklist);
+        g.walkTopological(c);
         Map<Node, ConstantValue> values = worklist.stream()
                 .collect(Collectors.toMap(node -> node, node -> new Unknown()));
         ConstantFolder f = new ConstantFolder(values);
