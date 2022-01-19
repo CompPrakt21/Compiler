@@ -2,6 +2,7 @@ package compiler;
 
 import compiler.utils.FirmUtils;
 import firm.*;
+import firm.bindings.binding_irdom;
 import firm.bindings.binding_irgraph;
 import firm.nodes.*;
 
@@ -41,9 +42,9 @@ public class Optimization {
         o.simplifyArithmeticExpressions();
         o.constantFolding();
         o.eliminateRedundantSideEffects();
+        o.commonSubexpressionElimination();
         o.eliminateRedundantPhis();
         o.eliminateSingletonBlocks();
-        o.commonSubexpressionElimination();
     }
 
     public void constantFolding() {
@@ -274,7 +275,6 @@ public class Optimization {
 
 
     public static class ExpressionNode {
-
         private Node n;
 
         public ExpressionNode(Node n) {
@@ -282,7 +282,7 @@ public class Optimization {
         }
 
         private static boolean equalAsNodes(Node a, Node b) {
-            return a.getBlock().equals(b.getBlock()) && a.getMode().equals(b.getMode());
+            return a.getMode().equals(b.getMode());
         }
 
         private <T extends Node> boolean compare(T a, T b, Function<? super T, ? extends Node>... childGetters) {
@@ -334,7 +334,7 @@ public class Optimization {
         }
 
         private int hashAsNode() {
-            return Objects.hash(n.getBlock(), n.getMode());
+            return n.getMode().hashCode();
         }
 
         private int hash(Node... children) {
@@ -360,20 +360,61 @@ public class Optimization {
     }
 
     public void commonSubexpressionElimination() {
+        binding_irdom.compute_doms(g.ptr);
         BackEdges.enable(g);
         ArrayDeque<Node> nodes = NodeCollector.run(g);
-        HashMap<ExpressionNode, ExpressionNode> exprNodes = new HashMap<>();
+        HashMap<ExpressionNode, List<Node>> exprNodes = new HashMap<>();
         for (Node n : nodes) {
             ExpressionNode e = new ExpressionNode(n);
             if (!exprNodes.containsKey(e)) {
-                exprNodes.put(e, e);
+                List<Node> syntacticallyEqualNodes = new ArrayList<>();
+                syntacticallyEqualNodes.add(e.n);
+                exprNodes.put(e, syntacticallyEqualNodes);
                 continue;
             }
-            Node oldEqualNode = exprNodes.get(e).n;
-            List<BackEdges.Edge> edges = FirmUtils.backEdges(n);
-            for (var edge : edges) {
-                edge.node.setPred(edge.pos, oldEqualNode);
+            List<Node> syntacticallyEqualNodes = exprNodes.get(e);
+            Optional<Node> maybeDominator = syntacticallyEqualNodes.stream()
+                    .filter(equalNode -> binding_irdom.block_dominates(equalNode.getBlock().ptr, n.getBlock().ptr) != 0)
+                    .findFirst();
+            // n is always only dominated by the block of at max a single node syntacticallyEqualNodes.
+            // There cannot be more dominators; a second dominator of the block of n will never get added to the list
+            // because those two dominators would necessarily dominate one another, in which case we ensure that
+            // only one of them remains.
+            if (maybeDominator.isPresent()) {
+                Node dominator = maybeDominator.get();
+                List<BackEdges.Edge> edges = FirmUtils.backEdges(n);
+                for (var edge : edges) {
+                    edge.node.setPred(edge.pos, dominator);
+                }
+                continue;
             }
+            // syntacticallyEqualNodes contains no node in a block that dominates the block of n.
+            // But maybe the block of n dominates a block of a node in syntacticallyEqualNodes!
+            // In this case, n is a better candidate for CSE than that other node.
+            // It also means that we can reuse n for the node in syntacticallyEqualNodes.
+            boolean foundDominated = false;
+            for (int i = 0; i < syntacticallyEqualNodes.size(); i++) {
+                Node dominated = syntacticallyEqualNodes.get(i);
+                if (binding_irdom.block_dominates(n.getBlock().ptr, dominated.getBlock().ptr) == 0) {
+                    continue;
+                }
+                foundDominated = true;
+                List<BackEdges.Edge> edges = FirmUtils.backEdges(dominated);
+                for (var edge : edges) {
+                    edge.node.setPred(edge.pos, n);
+                }
+                syntacticallyEqualNodes.set(i, n);
+                // There cannot be other dominated blocks because the dominated blocks
+                // would also dominate one another in some direction and we ensure that
+                // the node with a dominated block is removed.
+                break;
+            }
+            if (!foundDominated) {
+                // This is an entirely new node in a new block that cannot be related to the blocks
+                // of other nodes in syntacticallyEqualNodes.
+                syntacticallyEqualNodes.add(n);
+            }
+            exprNodes.put(e, syntacticallyEqualNodes);
         }
         BackEdges.disable(g);
     }
