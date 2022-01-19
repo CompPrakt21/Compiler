@@ -14,7 +14,7 @@ public class InliningOptimization {
     private ArrayDeque<Node> worklist = new ArrayDeque<>();
 
     private ArrayList<Graph> activatedGraphs = new ArrayList<>();
-    private final int MAX_COPY_SIZE = 25;
+    private final int MAX_COPY_SIZE = 26;
 
 
 
