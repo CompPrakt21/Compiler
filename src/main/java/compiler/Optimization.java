@@ -43,6 +43,7 @@ public class Optimization {
         o.eliminateRedundantSideEffects();
         o.eliminateRedundantPhis();
         o.eliminateSingletonBlocks();
+        o.commonSubexpressionElimination();
     }
 
     public void constantFolding() {
@@ -266,6 +267,112 @@ public class Optimization {
                     e.node.setPred(e.pos, n);
                     worklist.addLast(e.node);
                 }
+            }
+        }
+        BackEdges.disable(g);
+    }
+
+
+    public static class ExpressionNode {
+
+        private Node n;
+
+        public ExpressionNode(Node n) {
+            this.n = n;
+        }
+
+        private static boolean equalAsNodes(Node a, Node b) {
+            return a.getBlock().equals(b.getBlock()) && a.getMode().equals(b.getMode());
+        }
+
+        private <T extends Node> boolean compare(T a, T b, Function<? super T, ? extends Node>... childGetters) {
+            if (!equalAsNodes(a, b)) {
+                return false;
+            }
+            for (var getter : childGetters) {
+                Node aChild = getter.apply(a);
+                Node bChild = getter.apply(b);
+                if (!new ExpressionNode(aChild).equals(new ExpressionNode(bChild))) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) {
+                return true;
+            }
+            if (!(other instanceof ExpressionNode e)) {
+                return false;
+            }
+            Node o = e.n;
+            return switch (n) {
+                case Add a1 -> o instanceof Add a2
+                        && compare(a1, a2, Add::getLeft, Add::getRight);
+                case Cmp c1 -> o instanceof Cmp c2 && c1.getRelation().equals(c2.getRelation())
+                        && compare(c1, c2, Cmp::getLeft, Cmp::getRight);
+                case Const c1 -> o instanceof Const c2 && equalAsNodes(c1, c2)
+                        && c1.getTarval().compare(c2.getTarval()).equals(Relation.Equal);
+                case Conv c1 -> o instanceof Conv c2
+                        && compare(c1, c2, Conv::getOp);
+                case Eor e1 -> o instanceof Eor e2
+                        && compare(e1, e2, Eor::getLeft, Eor::getRight);
+                case Minus m1 -> o instanceof Minus m2
+                        && compare(m1, m2, Minus::getOp);
+                case Mul m1 -> o instanceof Mul m2
+                        && compare(m1, m2, Mul::getLeft, Mul::getRight);
+                case Not n1 -> o instanceof Not n2
+                        && compare(n1, n2, Not::getOp);
+                case Proj p1 -> o instanceof Proj p2 && p1.getNum() == p2.getNum()
+                        && compare(p1, p2, Proj::getPred);
+                case Size s1 -> o instanceof Size s2 && equalAsNodes(s1, s2)
+                        && s1.getType().equals(s2.getType());
+                default -> n.equals(o);
+            };
+        }
+
+        private int hashAsNode() {
+            return Objects.hash(n.getBlock(), n.getMode());
+        }
+
+        private int hash(Node... children) {
+            return Objects.hash(hashAsNode(), Arrays.hashCode(Arrays.stream(children).map(ExpressionNode::new).toArray()));
+        }
+
+        @Override
+        public int hashCode() {
+            return switch (n) {
+                case Add a   -> hash(a.getLeft(), a.getRight());
+                case Cmp c   -> Objects.hash(c.getRelation(), hash(c.getLeft(), c.getRight()));
+                case Const c -> Objects.hash(hashAsNode(), c.getTarval().asInt());
+                case Conv c  -> hash(c.getOp());
+                case Eor e   -> hash(e.getLeft(), e.getRight());
+                case Minus m -> hash(m.getOp());
+                case Mul m   -> hash(m.getLeft(), m.getRight());
+                case Not n   -> hash(n.getOp());
+                case Proj p  -> Objects.hash(p.getNum(), hash(p.getPred()));
+                case Size s  -> Objects.hash(hashAsNode(), s.getType());
+                default      -> n.hashCode();
+            };
+        }
+    }
+
+    public void commonSubexpressionElimination() {
+        BackEdges.enable(g);
+        ArrayDeque<Node> nodes = NodeCollector.run(g);
+        HashMap<ExpressionNode, ExpressionNode> exprNodes = new HashMap<>();
+        for (Node n : nodes) {
+            ExpressionNode e = new ExpressionNode(n);
+            if (!exprNodes.containsKey(e)) {
+                exprNodes.put(e, e);
+                continue;
+            }
+            Node oldEqualNode = exprNodes.get(e).n;
+            List<BackEdges.Edge> edges = FirmUtils.backEdges(n);
+            for (var edge : edges) {
+                edge.node.setPred(edge.pos, oldEqualNode);
             }
         }
         BackEdges.disable(g);
