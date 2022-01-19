@@ -14,6 +14,11 @@ public class InliningOptimization {
     private ArrayDeque<Node> worklist = new ArrayDeque<>();
 
     private ArrayList<Graph> activatedGraphs = new ArrayList<>();
+    private final int MAX_COPY_SIZE = 25;
+
+
+
+    private int size = 0;
 
 
     private ArrayList<Call> callNodes = new ArrayList<>();
@@ -27,6 +32,11 @@ public class InliningOptimization {
         activatedGraphs.add(graph);
         NodeCollector c = new NodeCollector(worklist);
         graph.walkTopological(c);
+        size = worklist.size();
+    }
+
+    public int getSize() {
+        return size;
     }
 
     private void findAllAddressCalls(ArrayDeque<Node> worklist) {
@@ -84,8 +94,6 @@ public class InliningOptimization {
     }
 
     private void inline(Optional<Proj> resultNode, Node aboveMemoryNodeBeforeAddressCall, Proj belowMemoryNodeAfterAddressCall, ArrayList<Node> sourceParameters, ArrayDeque<Node> remoteParameters, Node remoteResultNode, Proj remoteLastMemoryNode, Proj remoteFirstMemoryNode, Call callNode ) {
-        assert(sourceParameters.size() == remoteParameters.size());
-        assert (resultNode != null && aboveMemoryNodeBeforeAddressCall != null && remoteFirstMemoryNode != null);
 
         Iterator<Node> predsIterator = callNode.getPreds().iterator();
          for (int i = 0; i < callNode.getPredCount(); i++) {
@@ -109,7 +117,7 @@ public class InliningOptimization {
             Node pred;
             while (preds.hasNext()) {
                 pred = preds.next();
-                if (remoteParameters.contains(pred))
+                if (remoteParameters.contains(pred) && parameterChild.getGraph().equals(sourceParameters.get(i).getGraph()))
                     parameterChild.setPred(i, sourceParameters.get(i));
                 i++;
             }
@@ -119,6 +127,7 @@ public class InliningOptimization {
     public void collectNodes() {
 
         findAllAddressCalls(worklist);
+
         for (Call callNode : callNodes) {
             ArrayList<Node> temp = new ArrayList<>();
             Optional<Proj> resultNode = null; //can be empty
@@ -132,6 +141,7 @@ public class InliningOptimization {
             Proj varStorageNode;
             Return targetReturn = null;
             Graph curTargetGraph = null;
+            int curTargetGraphSize = Integer.MAX_VALUE;
 
             callNode.getPreds().forEach(node -> {
                 temp.add(node);
@@ -154,6 +164,15 @@ public class InliningOptimization {
                             BackEdges.enable(curTargetGraph);
                             activatedGraphs.add(curTargetGraph);
                         }
+                        if (!curTargetGraph.equals(graph)) {
+                            InliningOptimization optimization = new InliningOptimization(curTargetGraph);
+                            optimization.collectNodes();
+                            curTargetGraphSize = optimization.getSize();
+                        }
+                        if (curTargetGraphSize > MAX_COPY_SIZE)
+                            break;
+
+
                         targetReturn = (Return) curTargetGraph.getEndBlock().getPred(0);
                         ArrayList<Node> toBeCopied = DFSGraph(targetReturn, remoteParameters);
                         Pair<Node, Proj> unCopied = new Pair<>(targetReturn.getPred(1), (Proj) targetReturn.getPred(0));
@@ -182,9 +201,8 @@ public class InliningOptimization {
                     resultNode = projNodes.stream().filter(proj1 -> proj1.getPred().equals(proj)).findFirst();
             }
 
-
-
-            inline(resultNode, aboveMemoryNodeBeforeAddressCall, belowMemoryNodeAfterAddressCall, sourceParameters, remoteParameters, remoteResultNode, remoteLastMemoryNode, remoteFirstMemoryNode, belowCallNode);
+            if (curTargetGraphSize < MAX_COPY_SIZE)
+                inline(resultNode, aboveMemoryNodeBeforeAddressCall, belowMemoryNodeAfterAddressCall, sourceParameters, remoteParameters, remoteResultNode, remoteLastMemoryNode, remoteFirstMemoryNode, belowCallNode);
 
         }
 
