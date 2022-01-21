@@ -3,6 +3,7 @@ package compiler;
 import firm.*;
 import firm.nodes.*;
 
+import java.lang.annotation.Target;
 import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.List;
@@ -14,7 +15,7 @@ import java.util.stream.StreamSupport;
 
 public class DataFlow {
 
-    public static sealed class ConstantValue permits Unknown, Constant, Variable {
+    public static abstract sealed class ConstantValue permits Unknown, Constant, Variable {
         public ConstantValue sup(ConstantValue other) {
             return switch (this) {
                 case Unknown u -> other;
@@ -23,10 +24,8 @@ public class DataFlow {
                             case Unknown u -> c;
                             case Constant c2 -> c.value.compare(c2.value) == Relation.Equal ? c : Variable.value;
                             case Variable v -> v;
-                            default -> throw new AssertionError("Impossible case");
                         };
                 case Variable v -> v;
-                default -> throw new AssertionError("Impossible case");
             };
         }
     }
@@ -178,7 +177,17 @@ public class DataFlow {
 
         @Override
         public void visit(Conv conv) {
-            block(conv);
+            // This is a bit of a hack, but it allows us to
+            // implement constant folding for sizes in the one case
+            // where it matters (right before a Conv node) without
+            // having to track sizes through the entire constant
+            // folding.
+            if (conv.getOp() instanceof Size s) {
+                TargetValue sizeValue = new TargetValue(s.getType().getSize(), s.getMode());
+                values.put(conv, new Constant(sizeValue.convertTo(conv.getMode())));
+            } else {
+                unaryEval(tv -> tv.convertTo(conv.getMode()), conv, conv.getOp());
+            }
         }
 
         @Override

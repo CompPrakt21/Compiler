@@ -65,7 +65,6 @@ public class Optimization {
                     case DataFlow.Unknown u -> g.newConst(0, pred.getMode());
                     case DataFlow.Constant c -> g.newConst(c.value);
                     case DataFlow.Variable vx -> pred;
-                    default -> throw new AssertionError("Did not expect null here");
                 };
                 if (pred.getMode().equals(folded.getMode())) {
                     changes.add(new Change(n, i, folded));
