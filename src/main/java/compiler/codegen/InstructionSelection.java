@@ -432,8 +432,6 @@ public class InstructionSelection extends FirmToLlir {
 
     @Override
     protected void lower() {
-        BackEdges.enable(this.firmGraph);
-
         super.lower();
     }
 }

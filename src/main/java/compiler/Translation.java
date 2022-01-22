@@ -835,7 +835,7 @@ public class Translation {
         return graph;
     }
 
-    public TranslationResult translate(boolean dumpGraphs) {
+    public TranslationResult translate(boolean dumpGraphs, boolean optimize) {
         for (var classTy : frontend.classes()) {
             CompoundType classType = (CompoundType) ((PointerType) getFirmType(classTy)).getPointsTo();
 
@@ -866,7 +866,10 @@ public class Translation {
                 if (methodDef instanceof DefinedMethod definedMethod) {
 
                     Graph graph = genGraphForMethod(definedMethod);
-                    Optimization.optimizeFull(graph);
+
+                    if (optimize) {
+                        Optimization.optimizeFull(graph);
+                    }
 
                     this.methodGraphs.put(definedMethod, graph);
                     if (dumpGraphs) {

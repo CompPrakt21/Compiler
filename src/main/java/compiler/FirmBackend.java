@@ -23,7 +23,7 @@ public class FirmBackend {
     public void generateASM(boolean dumpGraphs) {
 
         var translation = new Translation(this.frontend);
-        translation.translate(dumpGraphs);
+        translation.translate(dumpGraphs, true);
 
         Util.lowerSels();
 

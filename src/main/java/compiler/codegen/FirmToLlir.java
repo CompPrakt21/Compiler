@@ -305,7 +305,7 @@ public class FirmToLlir implements NodeVisitor {
             Map<DefinedMethod, List<VirtualRegister>> methodParameters
     ){}
 
-    public static LoweringResult lowerFirm(TranslationResult translationResult) {
+    public static LoweringResult lowerFirm(TranslationResult translationResult, boolean dump, boolean optimize) {
         // TODO: replace with own lowering
         Util.lowerSels();
 
@@ -315,9 +315,12 @@ public class FirmToLlir implements NodeVisitor {
         for (var method : translationResult.methodGraphs().keySet()) {
                 var graph = translationResult.methodGraphs().get(method);
 
-                Dump.dumpGraph(graph, "before-lowering-to-llir");
-                //var f = new FirmToLlir(method, graph, translationResult);
-                var f = new InstructionSelection(method, graph, translationResult);
+                if (dump) {
+                    Dump.dumpGraph(graph, "before-lowering-to-llir");
+                }
+
+                BackEdges.enable(graph);
+                FirmToLlir f = optimize ? new InstructionSelection(method, graph, translationResult) : new FirmToLlir(method, graph, translationResult);
                 f.lower();
 
                 methodLlirGraphs.put(method, f.llirGraph);

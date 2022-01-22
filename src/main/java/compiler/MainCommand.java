@@ -226,12 +226,14 @@ public class MainCommand implements Callable<Integer> {
     @Command(name = "--compile", description = "Compile to binary.")
     public Integer compile(
             @Option(names = "--dump", description = "Dump the resulting FIRM graphs.") boolean dumpGraphs,
-            @Option(names = "-O0", description = "Set optimization level 0 (NOOP for now).") boolean o0,
-            @Option(names = "-O1", description = "Set optimization level 1 (NOOP for now).") boolean o1) {
+            @Option(names = "-O0", description = "Set optimization level 0.") boolean o0,
+            @Option(names = "-O1", description = "Set optimization level 1.") boolean o1) {
         return callWithChecked(file, (reporter, frontend) -> {
 
-            var translationResult = new Translation(frontend).translate(false);
-            var graphs = FirmToLlir.lowerFirm(translationResult);
+            var optimize = o1;
+
+            var translationResult = new Translation(frontend).translate(dumpGraphs, optimize);
+            var graphs = FirmToLlir.lowerFirm(translationResult, dumpGraphs, optimize);
             var schedules = new HashMap<LlirGraph, SirGraph>();
 
             Emitter emitter = new Emitter();
@@ -271,9 +273,12 @@ public class MainCommand implements Callable<Integer> {
                     }
                 }
 
-                //new NaiveRegisterAllocator(graphs.methodParameters().get(pair.getKey()), sirGraph).allocate();
-                new OnTheFlyRegisterAllocator(graphs.methodParameters().get(pair.getKey()), sirGraph).allocate();
-                new PeepholeOptimizer(sirGraph).optimize();
+                if (optimize) {
+                    new OnTheFlyRegisterAllocator(graphs.methodParameters().get(pair.getKey()), sirGraph).allocate();
+                    new PeepholeOptimizer(sirGraph).optimize();
+                } else {
+                    new NaiveRegisterAllocator(graphs.methodParameters().get(pair.getKey()), sirGraph).allocate();
+                }
 
                 if (dumpGraphs) {
                     try {
