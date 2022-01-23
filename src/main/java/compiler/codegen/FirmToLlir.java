@@ -227,7 +227,10 @@ public class FirmToLlir implements NodeVisitor {
         }
 
         // resolve phis
-        for (var phi : this.phis.keySet()) {
+        // We sort the list to maintain determinism
+        var phiKeyList = new ArrayList<>(this.phis.keySet());
+        phiKeyList.sort(Comparator.comparingInt(Node::getNr));
+        for (var phi : phiKeyList) {
             this.resolvePhi(phi);
         }
 
@@ -249,7 +252,10 @@ public class FirmToLlir implements NodeVisitor {
         });
 
         // Remember output nodes in their respective basic blocks.
-        for (Node node : this.markedOutNodes.keySet()) {
+        // We sort the list to maintain determinism
+        var markedOutNodesList = new ArrayList<>(this.markedOutNodes.keySet());
+        markedOutNodesList.sort(Comparator.comparingInt(Node::getNr));
+        for (Node node : markedOutNodesList) {
             var llirNode = this.valueNodeMap.get(node);
             assert llirNode instanceof RegisterNode;
             var basicBlock = llirNode.getBasicBlock();

@@ -12,6 +12,7 @@ import firm.nodes.*;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.StreamSupport;
 
@@ -83,24 +84,33 @@ public class InstructionSelection extends FirmToLlir {
 
     /**
      * Tries to match addr node to the x86 memory location pattern [constant + base + index * scale].
+     * Compared to matchMemoryLocation this method checks that addr can actually be folded together with memNode.
      * @return the matched memory location.
      */
-    private MemoryLocation matchMemoryLocation(Node memNode, Node addr) {
-
-        if (!this.canBeFoldedIntoInstruction(memNode, addr)) {
+    private MemoryLocation matchMemoryLocationArgument(Node memNode, Node addr) {
+        if (!canBeFoldedIntoInstruction(memNode, addr)) {
             this.visitNode(addr);
             var llirAddr = (RegisterNode) getPredLlirNode(memNode, addr);
             return MemoryLocation.base(llirAddr);
         }
 
-        record Summand(Node parent, Node node){}
-        List<Summand> summands = new ArrayList<>();
+        return this.matchMemoryLocation(addr);
+    }
+
+    /**
+     * Tries to match addr node to the x86 memory location pattern [constant + base + index * scale].
+     * The callee has to verify that addr can be the root node of a memory pattern.
+     * @return the matched memory location.
+     */
+    private MemoryLocation matchMemoryLocation(Node addr) {
+        record Summand(Optional<Node> parent, Node node) {}
+        var summands = new ArrayList<Summand>();
 
         if (addr instanceof Const c) {
-            summands.add(new Summand(memNode, c));
+            summands.add(new Summand(Optional.empty(), c));
 
         } else if (addr instanceof Mul mul) {
-            summands.add(new Summand(memNode, mul));
+            summands.add(new Summand(Optional.empty(), mul));
 
         } else if (addr instanceof Add add) {
 
@@ -122,28 +132,28 @@ public class InstructionSelection extends FirmToLlir {
                 };
 
                 if (eval.apply(lAdd) < eval.apply(rAdd)) {
-                    summands.add(new Summand(add, lAdd));
-                    summands.add(new Summand(rAdd, rAdd.getLeft()));
-                    summands.add(new Summand(rAdd, rAdd.getRight()));
+                    summands.add(new Summand(Optional.of(add), lAdd));
+                    summands.add(new Summand(Optional.of(rAdd), rAdd.getLeft()));
+                    summands.add(new Summand(Optional.of(rAdd), rAdd.getRight()));
                 } else {
-                    summands.add(new Summand(lAdd, lAdd.getLeft()));
-                    summands.add(new Summand(lAdd, lAdd.getRight()));
-                    summands.add(new Summand(add, rAdd));
+                    summands.add(new Summand(Optional.of(lAdd), lAdd.getLeft()));
+                    summands.add(new Summand(Optional.of(lAdd), lAdd.getRight()));
+                    summands.add(new Summand(Optional.of(add), rAdd));
                 }
             } else if (add.getLeft() instanceof Add lAdd && canBeFoldedIntoInstruction(add, lAdd) && (isConstWithValidIndex(lAdd.getRight()) || isConstWithValidIndex(lAdd.getRight()) || isConstWithValidIndex(add.getRight()))) {
-                summands.add(new Summand(lAdd, lAdd.getLeft()));
-                summands.add(new Summand(lAdd, lAdd.getRight()));
-                summands.add(new Summand(add, add.getRight()));
+                summands.add(new Summand(Optional.of(lAdd), lAdd.getLeft()));
+                summands.add(new Summand(Optional.of(lAdd), lAdd.getRight()));
+                summands.add(new Summand(Optional.of(add), add.getRight()));
             } else if (add.getRight() instanceof Add rAdd && canBeFoldedIntoInstruction(add, rAdd) && (isConstWithValidIndex(rAdd.getRight()) || isConstWithValidIndex(rAdd.getRight()) || isConstWithValidIndex(add.getLeft()))) {
-                summands.add(new Summand(rAdd, rAdd.getLeft()));
-                summands.add(new Summand(rAdd, rAdd.getRight()));
-                summands.add(new Summand(add, add.getLeft()));
+                summands.add(new Summand(Optional.of(rAdd), rAdd.getLeft()));
+                summands.add(new Summand(Optional.of(rAdd), rAdd.getRight()));
+                summands.add(new Summand(Optional.of(add), add.getLeft()));
             } else {
-                summands.add(new Summand(add, add.getLeft()));
-                summands.add(new Summand(add, add.getRight()));
+                summands.add(new Summand(Optional.of(add), add.getLeft()));
+                summands.add(new Summand(Optional.of(add), add.getRight()));
             }
         } else {
-            summands.add(new Summand(memNode, addr));
+            summands.add(new Summand(Optional.empty(), addr));
         }
 
         // We now have all summands.
@@ -182,7 +192,10 @@ public class InstructionSelection extends FirmToLlir {
             } else if (!haveSetBase) {
                 this.visitNode(summand.node);
 
-                var llirSummand = (RegisterNode) getPredLlirNode(summand.parent, summand.node);
+                var llirSummand = summand.parent.isPresent() ?
+                        (RegisterNode) getPredLlirNode(summand.parent.get(), summand.node)
+                        : (RegisterNode) this.valueNodeMap.get(summand.node);
+
                 loc.setBaseRegister(llirSummand);
 
                 haveSetBase = true;
@@ -190,7 +203,9 @@ public class InstructionSelection extends FirmToLlir {
             } else if (!haveSetIndex) {
                 this.visitNode(summand.node);
 
-                var llirSummand = (RegisterNode) getPredLlirNode(summand.parent, summand.node);
+                var llirSummand = summand.parent.isPresent() ?
+                        (RegisterNode) getPredLlirNode(summand.parent.get(), summand.node)
+                        : (RegisterNode) this.valueNodeMap.get(summand.node);
                 loc.setIndex(llirSummand); // scale is 1 by default
 
                 haveSetIndex = true;
@@ -232,7 +247,8 @@ public class InstructionSelection extends FirmToLlir {
             // binOp r1 [*]
             this.visitNode(load.getMem());
             var llirMem = getPredSideEffectNode(load, load.getMem());
-            var loc = this.matchMemoryLocation(load, load.getPtr());
+
+            var loc = this.matchMemoryLocationArgument(load, load.getPtr());
 
             var llirAdd = switch (binOp) {
                 case Add ignored -> bb.newAddFromMem(lhs, loc, llirMem);
@@ -270,7 +286,7 @@ public class InstructionSelection extends FirmToLlir {
         var lhs = (RegisterNode) getPredLlirNode(node, firmLhs);
 
         if (firmRhs instanceof Load load && canBeFoldedIntoInstruction(node, load)) {
-            var loc = this.matchMemoryLocation(load, load.getPtr());
+            var loc = this.matchMemoryLocationArgument(load, load.getPtr());
 
             this.visitNode(load.getMem());
             var llirMem = getPredSideEffectNode(load, load.getMem());
@@ -293,9 +309,46 @@ public class InstructionSelection extends FirmToLlir {
         }
     }
 
+    private boolean shouldBeLEA(Add add) {
+        var summands = new ArrayList<>();
+
+        if (add.getRight() instanceof Add rAdd) {
+            summands.add(rAdd.getLeft());
+            summands.add(rAdd.getRight());
+        } else {
+            summands.add(add.getRight());
+        }
+
+        if (add.getLeft() instanceof Add lAdd) {
+            summands.add(lAdd.getLeft());
+            summands.add(lAdd.getRight());
+        } else {
+            summands.add(add.getRight());
+        }
+
+        var haveConstSummand = false;
+        var haveMulSummand = false;
+        var haveRegisterSummand = false;
+        var haveIndexSummand = false;
+
+        for (var summand : summands) {
+            if (!haveConstSummand && summand instanceof Const) {
+                haveConstSummand = true;
+            } else if (!haveMulSummand && summand instanceof Mul mul && (isConstWithValidIndex(mul.getLeft()) || isConstWithValidIndex(mul.getRight()))) {
+                haveMulSummand = true;
+                haveIndexSummand = false;
+            } else if (!haveRegisterSummand) {
+                haveRegisterSummand = true;
+            } else if (!haveMulSummand && !haveIndexSummand) {
+                haveIndexSummand = true;
+            }
+        }
+
+        return haveMulSummand || (haveConstSummand && haveRegisterSummand && haveIndexSummand);
+    }
+
     @Override
     public void visit(Add add) {
-
         // Should this add be lowered to a sub instruction
         var lhsIsMinus = add.getLeft() instanceof Minus minus && canBeFoldedIntoInstruction(add, minus);
         var rhsIsMinus = add.getRight() instanceof Minus minus && canBeFoldedIntoInstruction(add, minus);
@@ -320,35 +373,12 @@ public class InstructionSelection extends FirmToLlir {
             return;
         }
 
-        // It is encoded as an add (or maybe lea) instruction
-        var addArgOrder = chooseCommutativeBinaryNodeArgumentOrder(add.getLeft(), add.getRight());
-
-        this.visitNode(addArgOrder.left);
-        var lhs = (RegisterNode)getPredLlirNode(add, addArgOrder.left);
-
-        var bb = getBasicBlock(add);
-
-        if (addArgOrder.right instanceof Mul mul && this.canBeFoldedIntoInstruction(add, mul)) {
-            // lea [r1 + r2 * c]
-
-            var width = modeToRegisterWidth(add.getMode());
-
-            if (mul.getLeft() instanceof Const c && isValidIndexScale(c.getTarval().asInt())) {
-                this.visitNode(mul.getRight());
-                var mulRight = (RegisterNode)this.getPredLlirNode(mul, mul.getRight());
-                var scale = c.getTarval().asInt();
-                var llirAdd = bb.newLoadEffectiveAddress(width, MemoryLocation.baseIndexScale(lhs, mulRight, scale));
-                this.registerLlirNode(add, llirAdd);
-            } else if (mul.getRight() instanceof Const c && isValidIndexScale(c.getTarval().asInt())) {
-                this.visitNode(mul.getLeft());
-                var mulLeft = (RegisterNode)this.getPredLlirNode(mul, mul.getLeft());
-                var scale = c.getTarval().asInt();
-                var llirAdd = bb.newLoadEffectiveAddress(width, MemoryLocation.baseIndexScale(lhs, mulLeft, scale));
-                this.registerLlirNode(add, llirAdd);
-            }
-        }
-
-        if (!this.valueNodeMap.containsKey(add)) {
+        if (shouldBeLEA(add)) {
+            var loc = this.matchMemoryLocation(add);
+            var bb = getBasicBlock(add);
+            var llirLea = bb.newLoadEffectiveAddress(modeToRegisterWidth(add.getMode()), loc);
+            this.registerLlirNode(add, llirLea);
+        } else {
             this.visitBinOp(add);
         }
     }
@@ -383,7 +413,7 @@ public class InstructionSelection extends FirmToLlir {
         if (argOrder.right instanceof Proj proj && canBeFoldedIntoInstruction(cmp, proj) && proj.getPred() instanceof Load load) {
             this.visitNode(load.getMem());
             var llirMem = getPredSideEffectNode(load, load.getMem());
-            var loc = this.matchMemoryLocation(load, load.getPtr());
+            var loc = this.matchMemoryLocationArgument(load, load.getPtr());
 
             llirCmp = bb.newCmpFromMem(lhs, loc, reversedArgs, llirMem);
 
@@ -404,7 +434,7 @@ public class InstructionSelection extends FirmToLlir {
 
     @Override
     public void visit(Load load) {
-        var memLoc = this.matchMemoryLocation(load, load.getPtr());
+        var memLoc = this.matchMemoryLocationArgument(load, load.getPtr());
         this.visitNode(load.getMem());
 
         var bb = getBasicBlock(load);
@@ -417,7 +447,7 @@ public class InstructionSelection extends FirmToLlir {
     }
 
     public void visit(Store store) {
-        var memLoc = this.matchMemoryLocation(store, store.getPtr());
+        var memLoc = this.matchMemoryLocationArgument(store, store.getPtr());
         this.visitNode(store.getValue());
         this.visitNode(store.getMem());
 

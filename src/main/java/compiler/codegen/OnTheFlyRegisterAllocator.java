@@ -603,7 +603,6 @@ public class OnTheFlyRegisterAllocator {
                 var usedRegisters = new HashSet<HardwareRegister>();
                 usedRegisters.addAll(this.concretizeMemoryLocation(lea.getLoc(), newList, Set.of()));
 
-                newList.add(lea);
                 this.freeDeadVirtualRegisters(liveRegs);
 
                 if (lea.getTarget() instanceof VirtualRegister virRegTarget) {
@@ -611,6 +610,7 @@ public class OnTheFlyRegisterAllocator {
                     usedRegisters.add(targetHardware);
                     lea.setTarget(targetHardware);
                 }
+                newList.add(lea);
             }
             default -> throw new AssertionError("These instructions should not appear pre register allocation");
         }
