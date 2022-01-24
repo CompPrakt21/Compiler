@@ -1,9 +1,6 @@
 package compiler;
 
-import firm.BackEdges;
-import firm.Graph;
-import firm.Mode;
-import firm.TargetValue;
+import firm.*;
 import firm.nodes.*;
 
 import java.util.ArrayDeque;
@@ -13,33 +10,31 @@ import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 
 public class DataFlow {
 
-    public static sealed class ConstantValue permits Unknown, Constant, Variable {
+    public static abstract sealed class ConstantValue permits Unknown, Constant, Variable {
         public ConstantValue sup(ConstantValue other) {
             return switch (this) {
                 case Unknown u -> other;
-                case Constant c ->
-                        switch (other) {
-                            case Unknown u -> c;
-                            case Constant c2 -> c.value.compare(c2.value).value() == 1 ? c : Variable.value;
-                            case Variable v -> v;
-                            default -> throw new AssertionError("Impossible case");
-                        };
+                case Constant c -> switch (other) {
+                    case Unknown u -> c;
+                    case Constant c2 -> c.value.compare(c2.value) == Relation.Equal ? c : Variable.value;
+                    case Variable v -> v;
+                };
                 case Variable v -> v;
-                default -> throw new AssertionError("Impossible case");
             };
         }
     }
 
     public static final class Variable extends ConstantValue {
         public static final Variable value = new Variable();
+
         @Override
         public boolean equals(Object obj) {
             return obj instanceof Variable;
         }
+
         @Override
         public String toString() {
             return "Variable / Top";
@@ -48,10 +43,12 @@ public class DataFlow {
 
     public static final class Unknown extends ConstantValue {
         public static final Unknown value = new Unknown();
+
         @Override
         public boolean equals(Object obj) {
             return obj instanceof Unknown;
         }
+
         @Override
         public String toString() {
             return "Unknown / Bot";
@@ -60,13 +57,16 @@ public class DataFlow {
 
     public static final class Constant extends ConstantValue {
         public TargetValue value;
+
         public Constant(TargetValue value) {
             this.value = value;
         }
+
         @Override
         public boolean equals(Object obj) {
             return obj instanceof Constant v && value == v.value;
         }
+
         @Override
         public String toString() {
             return "Constant " + value.toString();
@@ -81,18 +81,24 @@ public class DataFlow {
             this.values = values;
         }
 
-        private void evalAux(Function<List<TargetValue>, ConstantValue> eval, Node parent, Node... children) {
+        private void partialEval(Function<List<ConstantValue>, ConstantValue> eval, Node parent, Node... children) {
             if (Arrays.stream(children).anyMatch(n -> values.get(n) instanceof Unknown)) {
                 values.put(parent, Unknown.value);
                 return;
             }
             List<ConstantValue> args = Arrays.stream(children).map(values::get).collect(Collectors.toList());
-            if (args.stream().allMatch(a -> a instanceof Constant)) {
-                List<TargetValue> argValues = args.stream().map(a -> ((Constant) a).value).collect(Collectors.toList());
-                values.put(parent, eval.apply(argValues));
-                return;
-            }
-            values.put(parent, Variable.value);
+            values.put(parent, eval.apply(args));
+        }
+
+        private void evalAux(Function<List<TargetValue>, ConstantValue> eval, Node parent, Node... children) {
+            Function<List<ConstantValue>, ConstantValue> f = args -> {
+                if (args.stream().allMatch(a -> a instanceof Constant)) {
+                    List<TargetValue> argValues = args.stream().map(a -> ((Constant) a).value).collect(Collectors.toList());
+                    return eval.apply(argValues);
+                }
+                return Variable.value;
+            };
+            partialEval(f, parent, children);
         }
 
         private void eval(Function<List<TargetValue>, TargetValue> eval, Node parent, Node... children) {
@@ -105,6 +111,26 @@ public class DataFlow {
 
         private void biEval(BiFunction<TargetValue, TargetValue, TargetValue> eval, Node parent, Node child1, Node child2) {
             this.eval(args -> eval.apply(args.get(0), args.get(1)), parent, child1, child2);
+        }
+
+        private void biPartialEval(BiFunction<ConstantValue, ConstantValue, ConstantValue> eval, Node parent, Node child1, Node child2) {
+            this.partialEval(args -> eval.apply(args.get(0), args.get(1)), parent, child1, child2);
+        }
+
+        private void multiplicativeEval(BiFunction<TargetValue, TargetValue, TargetValue> eval, Node parent, Node child1, Node child2) {
+            BiFunction<ConstantValue, ConstantValue, ConstantValue> f = (a, b) -> {
+                if (a instanceof Constant ac && ac.value.asInt() == 0) {
+                    return new Constant(new TargetValue(0, ac.value.getMode()));
+                }
+                if (b instanceof Constant bc && bc.value.asInt() == 0) {
+                    return new Constant(new TargetValue(0, bc.value.getMode()));
+                }
+                if (!(a instanceof Constant ac && b instanceof Constant bc)) {
+                    return new Variable();
+                }
+                return new Constant(eval.apply(ac.value, bc.value));
+            };
+            biPartialEval(f, parent, child1, child2);
         }
 
         private void forward(Node parent, Node child) {
@@ -155,14 +181,22 @@ public class DataFlow {
 
         @Override
         public void visit(Conv conv) {
-            block(conv);
+            // This is a bit of a hack, but it allows us to
+            // implement constant folding for sizes in the one case
+            // where it matters (right before a Conv node) without
+            // having to track sizes through the entire constant
+            // folding.
+            if (conv.getOp() instanceof Size s) {
+                TargetValue sizeValue = new TargetValue(s.getType().getSize(), s.getMode());
+                values.put(conv, new Constant(sizeValue.convertTo(conv.getMode())));
+            } else {
+                unaryEval(tv -> tv.convertTo(conv.getMode()), conv, conv.getOp());
+            }
         }
 
         @Override
         public void visit(Div div) {
-            // Subtlety: If we divide by a constant 0, we optimize this side effect away.
-            // TODO: Test what TargetValue.div does on 0
-            biEval((a, b) -> b.asInt() == 0 ? new TargetValue(0, b.getMode()) : a.div(b), div, div.getLeft(), div.getRight());
+            multiplicativeEval(TargetValue::div, div, div.getLeft(), div.getRight());
         }
 
         @Override
@@ -197,12 +231,12 @@ public class DataFlow {
 
         @Override
         public void visit(Mod mod) {
-            biEval((a, b) -> b.asInt() == 0 ? new TargetValue(0, b.getMode()) : a.mod(b), mod, mod.getLeft(), mod.getRight());
+            multiplicativeEval(TargetValue::mod, mod, mod.getLeft(), mod.getRight());
         }
 
         @Override
         public void visit(Mul mul) {
-            biEval(TargetValue::mul, mul, mul.getLeft(), mul.getRight());
+            multiplicativeEval(TargetValue::mul, mul, mul.getLeft(), mul.getRight());
         }
 
         @Override
@@ -265,11 +299,8 @@ public class DataFlow {
     }
 
     public static Map<Node, ConstantValue> analyzeConstantFolding(Graph g) {
-        if (!BackEdges.enabled(g))
-            BackEdges.enable(g);
-        ArrayDeque<Node> worklist = new ArrayDeque<>();
-        NodeCollector c = new NodeCollector(worklist);
-        g.walkTopological(c);
+        BackEdges.enable(g);
+        ArrayDeque<Node> worklist = NodeCollector.run(g);
         Map<Node, ConstantValue> values = worklist.stream()
                 .collect(Collectors.toMap(node -> node, node -> new Unknown()));
         ConstantFolder f = new ConstantFolder(values);

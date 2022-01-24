@@ -2,25 +2,20 @@ package compiler;
 
 import compiler.ast.*;
 import compiler.semantic.AstData;
-import compiler.semantic.ConstantFolding;
 import compiler.semantic.SparseAstData;
-import compiler.semantic.WellFormed;
 import compiler.semantic.resolution.DefinedMethod;
 import compiler.semantic.resolution.IntrinsicMethod;
 import compiler.semantic.resolution.MethodDefinition;
-import compiler.semantic.resolution.NameResolution;
 import compiler.types.*;
 import firm.Type;
 import firm.*;
 import firm.bindings.binding_ircons;
 import firm.nodes.Block;
 import firm.nodes.Call;
-import firm.nodes.Const;
 import firm.nodes.Node;
 
 import java.io.IOException;
 import java.util.*;
-import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 @SuppressWarnings("DuplicateBranchesInSwitch")
@@ -207,8 +202,8 @@ public class Translation {
         construction.setCurrentBlock(nextBlock);
 
         Node resPhi = switch (op) {
-            case Division -> construction.newPhi(new Node[]{ negConst, divRes }, Mode.getIs());
-            case Modulo -> construction.newPhi(new Node[]{ construction.newConst(0, Mode.getIs()), divRes }, Mode.getIs());
+            case Division -> construction.newPhi(new Node[]{negConst, divRes}, Mode.getIs());
+            case Modulo -> construction.newPhi(new Node[]{construction.newConst(0, Mode.getIs()), divRes}, Mode.getIs());
             default -> throw new IllegalArgumentException("Invalid operator");
         };
 
@@ -281,7 +276,7 @@ public class Translation {
                 construction.setCurrentBlock(phiBlock);
                 var constOne = construction.newConst(1, Mode.getBu());
                 var constZero = construction.newConst(0, Mode.getBu());
-                yield construction.newPhi(new Node[] { constOne, constZero }, Mode.getBu());
+                yield construction.newPhi(new Node[]{constOne, constZero}, Mode.getBu());
             }
         };
     }
@@ -426,7 +421,7 @@ public class Translation {
         var fieldPtr = translateFieldExprToLValue(targetNode, expr);
 
         var mem = construction.getCurrentMem();
-        var exprTy = (Ty)frontend.expressionTypes().get(expr).orElseThrow();
+        var exprTy = (Ty) frontend.expressionTypes().get(expr).orElseThrow();
         var exprFirmType = getFirmType(exprTy);
 
         var load = construction.newLoad(mem, fieldPtr, exprFirmType.getMode());
@@ -455,7 +450,7 @@ public class Translation {
         var indexNode = translateExpr(expr.getIndexExpression());
         var extendedIndexNode = construction.newConv(indexNode, Mode.getLs());
 
-        var exprTy = (ArrayTy)frontend.expressionTypes().get(expr.getTarget()).orElseThrow();
+        var exprTy = (ArrayTy) frontend.expressionTypes().get(expr.getTarget()).orElseThrow();
         var childTy = exprTy.getChildTy();
         var childFirmType = getFirmType(childTy);
 
@@ -478,8 +473,8 @@ public class Translation {
         Optional<Node> targetNode = switch (methodDef) {
             case DefinedMethod ignored -> Optional.of(
                     expr.getTarget()
-                        .map(this::translateExpr)
-                        .orElseGet(() -> construction.getVariable(this.thisVariableId, Mode.getP()))
+                            .map(this::translateExpr)
+                            .orElseGet(() -> construction.getVariable(this.thisVariableId, Mode.getP()))
             );
             case IntrinsicMethod ignored -> Optional.empty();
         };
@@ -507,7 +502,7 @@ public class Translation {
             assert returnTy instanceof Ty;
             var returnValuesProj = construction.newProj(callNode, Mode.getT(), 1);
 
-            var firmReturnType = getFirmType((Ty)returnTy);
+            var firmReturnType = getFirmType((Ty) returnTy);
 
             var returnValueProj = construction.newProj(returnValuesProj, firmReturnType.getMode(), 0);
 
@@ -565,7 +560,7 @@ public class Translation {
             case ArrayAccessExpression expr -> {
                 var arrayFieldPtr = translateArrayAccessExprLValue(expr);
 
-                var childFirmType = getFirmType((Ty)frontend.expressionTypes().get(expr).orElseThrow());
+                var childFirmType = getFirmType((Ty) frontend.expressionTypes().get(expr).orElseThrow());
 
                 var mem = construction.getCurrentMem();
                 var loadNode = construction.newLoad(mem, arrayFieldPtr, childFirmType.getMode());
@@ -581,7 +576,7 @@ public class Translation {
                 yield node.orElseThrow(() -> new AssertionError("MethodCallExpression of void methods can only be directly after ExpressionStatements."));
             }
             case NewArrayExpression expr -> {
-                var exprTy = (Ty)frontend.expressionTypes().get(expr).orElseThrow();
+                var exprTy = (Ty) frontend.expressionTypes().get(expr).orElseThrow();
                 var firmTy = getFirmType(exprTy);
                 assert firmTy.getMode().equals(Mode.getP());
                 var childType = ((PointerType) firmTy).getPointsTo();
@@ -601,7 +596,7 @@ public class Translation {
                 yield construction.newProj(returnValuesProj, Mode.getP(), 0);
             }
             case NewObjectExpression expr -> {
-                var exprTy = (Ty)frontend.expressionTypes().get(expr).orElseThrow();
+                var exprTy = (Ty) frontend.expressionTypes().get(expr).orElseThrow();
                 var firmTy = getFirmType(exprTy);
                 assert firmTy.getMode().equals(Mode.getP());
                 var classType = ((PointerType) firmTy).getPointsTo();
@@ -646,7 +641,8 @@ public class Translation {
     private void translateStatement(Statement statement) {
         this.emitJump = true;
         switch (statement) {
-            case EmptyStatement ignored -> {}
+            case EmptyStatement ignored -> {
+            }
             case ExpressionStatement stmt -> {
                 if (stmt.getExpression() instanceof MethodCallExpression methodCall) {
                     translateMethodCallExpression(methodCall);
@@ -716,7 +712,7 @@ public class Translation {
                     var node = translateExpr(stmt.getInitializer().get());
                     construction.setVariable(statementId, node);
                 } else {
-                    var ty = (Ty)frontend.bindingTypes().get(stmt).orElseThrow();
+                    var ty = (Ty) frontend.bindingTypes().get(stmt).orElseThrow();
                     var firmType = getFirmType(ty);
                     var defaultValue = construction.newConst(0, firmType.getMode());
                     construction.setVariable(statementId, defaultValue);
@@ -817,7 +813,7 @@ public class Translation {
 
         var body = method.getBody();
 
-       translateStatement(body);
+        translateStatement(body);
 
         if (this.emitJump) {
             assert methodDef.getReturnTy() instanceof VoidTy;
@@ -835,7 +831,7 @@ public class Translation {
         return graph;
     }
 
-    public TranslationResult translate(boolean dumpGraphs) {
+    public TranslationResult translate(boolean dumpGraphs, boolean optimize) {
         for (var classTy : frontend.classes()) {
             CompoundType classType = (CompoundType) ((PointerType) getFirmType(classTy)).getPointsTo();
 
@@ -845,8 +841,8 @@ public class Translation {
                 this.entities.set(field, fieldEnt);
             }
 
-            for (var m: classTy.getMethods().values()) {
-                if (m instanceof DefinedMethod method){
+            for (var m : classTy.getMethods().values()) {
+                if (m instanceof DefinedMethod method) {
                     var type = getMethodType(method);
                     Entity methodEnt = new Entity(globalType, method == frontend.mainMethod() ? "__MiniJava_Main__" : m.getLinkerName(), type);
                     this.entities.set(method.getAstMethod(), methodEnt);
@@ -866,19 +862,18 @@ public class Translation {
                 if (methodDef instanceof DefinedMethod definedMethod) {
 
                     Graph graph = genGraphForMethod(definedMethod);
-                    Optimization.optimizeFull(graph);
-                    Dump.dumpGraph(graph, definedMethod.getName() +  "_original");
+
+                    if (optimize) {
+                        Optimization.optimizeFull(graph);
+                    }
+
                     this.methodGraphs.put(definedMethod, graph);
+                    if (dumpGraphs) {
+                        Dump.dumpGraph(graph, methodDef.getName());
+                    }
                 }
             }
         }
-        methodGraphs.values().forEach(graph -> {
-            InliningOptimization inliningOptimization = new InliningOptimization(graph);
-            inliningOptimization.collectNodes();
-        });
-        if (dumpGraphs)
-            methodGraphs.forEach((definedMethod, graph) -> Dump.dumpGraph(graph, definedMethod.getName()));
-
 
         if (dumpGraphs) {
             try {
