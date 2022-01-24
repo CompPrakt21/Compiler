@@ -230,7 +230,6 @@ public class MainCommand implements Callable<Integer> {
         return callWithChecked(file, (reporter, frontend) -> {
 
             var optimize = optimizationLevel > 0;
-            System.out.println("optimize: " + optimize);
 
             var translationResult = new Translation(frontend).translate(dumpGraphs, optimize);
             var graphs = FirmToLlir.lowerFirm(translationResult, dumpGraphs, optimize);
