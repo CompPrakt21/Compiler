@@ -867,14 +867,18 @@ public class Translation {
 
                     Graph graph = genGraphForMethod(definedMethod);
                     Optimization.optimizeFull(graph);
-
+                    Dump.dumpGraph(graph, definedMethod.getName() +  "_original");
                     this.methodGraphs.put(definedMethod, graph);
-                    if (dumpGraphs) {
-                        Dump.dumpGraph(graph, methodDef.getName());
-                    }
                 }
             }
         }
+        methodGraphs.values().forEach(graph -> {
+            InliningOptimization inliningOptimization = new InliningOptimization(graph);
+            inliningOptimization.collectNodes();
+        });
+        if (dumpGraphs)
+            methodGraphs.forEach((definedMethod, graph) -> Dump.dumpGraph(graph, definedMethod.getName()));
+
 
         if (dumpGraphs) {
             try {
