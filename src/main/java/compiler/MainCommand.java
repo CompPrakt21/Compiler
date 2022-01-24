@@ -226,11 +226,11 @@ public class MainCommand implements Callable<Integer> {
     @Command(name = "--compile", description = "Compile to binary.")
     public Integer compile(
             @Option(names = "--dump", description = "Dump the resulting FIRM graphs.") boolean dumpGraphs,
-            @Option(names = "-O0", description = "Set optimization level 0.") boolean o0,
-            @Option(names = "-O1", description = "Set optimization level 1.") boolean o1) {
+            @Option(names = "-O", description = "Set optimization level", defaultValue = "1") int optimizationLevel) {
         return callWithChecked(file, (reporter, frontend) -> {
 
-            var optimize = o1;
+            var optimize = optimizationLevel > 0;
+            System.out.println("optimize: " + optimize);
 
             var translationResult = new Translation(frontend).translate(dumpGraphs, optimize);
             var graphs = FirmToLlir.lowerFirm(translationResult, dumpGraphs, optimize);
