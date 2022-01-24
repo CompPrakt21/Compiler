@@ -14,11 +14,11 @@ public class InliningOptimization {
     private ArrayDeque<Node> worklist = new ArrayDeque<>();
 
     private ArrayList<Graph> activatedGraphs = new ArrayList<>();
-    private final int MAX_COPY_SIZE = 26;
+    private final int MAX_COPY_SIZE = 25;
 
 
 
-    private int size = 0;
+    private int size = Integer.MAX_VALUE;
 
 
     private ArrayList<Call> callNodes = new ArrayList<>();
@@ -47,7 +47,7 @@ public class InliningOptimization {
         for (Call callNode : callNodes) {
             ArrayList<Node> temp = new ArrayList<>();
             callNode.getPreds().forEach(node -> temp.add(node));
-            if (temp.stream().anyMatch(node -> node instanceof Address address && address.getEntity().getName().matches("(_System_out_(write|println|read|flush))|__builtin_alloc_function__"))) {
+            if (temp.stream().anyMatch(node -> node instanceof Address address && address.getEntity().getName().matches("(_System_(out|in)_(write|println|read|flush))|__builtin_alloc_function__"))) {
                 toRemove.add(callNode);
             }
         }
@@ -81,10 +81,12 @@ public class InliningOptimization {
         for (int i = 0; i < set.length; i++) {
             Iterator<Node> te = set[i].getPreds().iterator();
             Node next;
+            int j = 0;
             while(te.hasNext()) {
                 next = te.next();
                 if (copied.containsKey(next))
-                    set[i].setPred(i, copied.get(next));
+                    set[i].setPred(j, copied.get(next));
+                j++;
             }
         }
         returnNode = copied.get(returns.first);
@@ -93,12 +95,12 @@ public class InliningOptimization {
         return new Pair<>(returnNode, returnProj);
     }
 
-    private void inline(Optional<Proj> resultNode, Node aboveMemoryNodeBeforeAddressCall, Proj belowMemoryNodeAfterAddressCall, ArrayList<Node> sourceParameters, ArrayDeque<Node> remoteParameters, Node remoteResultNode, Proj remoteLastMemoryNode, Proj remoteFirstMemoryNode, Call callNode ) {
+    private void inline(Optional<Proj> resultNode, Node aboveMemoryNodeBeforeAddressCall, Proj belowMemoryNodeAfterAddressCall, ArrayList<Node> sourceParameters, ArrayDeque<Node> remoteParameters, Node remoteResultNode, Proj remoteLastMemoryNode, Proj remoteFirstMemoryNode, Node callNode ) {
 
         Iterator<Node> predsIterator = callNode.getPreds().iterator();
          for (int i = 0; i < callNode.getPredCount(); i++) {
             Node node = predsIterator.next();
-            if (node.equals(resultNode.get())) {
+            if (resultNode.isPresent() && node.equals(resultNode.get())) {
                 callNode.setPred(i, remoteResultNode);
             } else if  (node.equals(belowMemoryNodeAfterAddressCall)) {
                 callNode.setPred(i, remoteLastMemoryNode);
@@ -164,11 +166,11 @@ public class InliningOptimization {
                             BackEdges.enable(curTargetGraph);
                             activatedGraphs.add(curTargetGraph);
                         }
-                        if (!curTargetGraph.equals(graph)) {
+                        /*if (!curTargetGraph.equals(graph)) {
                             InliningOptimization optimization = new InliningOptimization(curTargetGraph);
                             optimization.collectNodes();
                             curTargetGraphSize = optimization.getSize();
-                        }
+                        }*/
                         if (curTargetGraphSize > MAX_COPY_SIZE)
                             break;
 
@@ -190,20 +192,19 @@ public class InliningOptimization {
                     }
                 }
             }
-            Call belowCallNode = null;
-            for (BackEdges.Edge edge : BackEdges.getOuts(callNode)) {
-                Node node = edge.node;
-                if (node instanceof Proj proj && proj.getMode().equals(Mode.getM())) {
-                    belowMemoryNodeAfterAddressCall = proj;
-                    belowCallNode = (Call) BackEdges.getOuts(proj).iterator().next().node;
+            if (curTargetGraphSize < MAX_COPY_SIZE) {
+                Node belowCallNode = null;
+                for (BackEdges.Edge edge : BackEdges.getOuts(callNode)) {
+                    Node node = edge.node;
+                    if (node instanceof Proj proj && proj.getMode().equals(Mode.getM())) {
+                        belowMemoryNodeAfterAddressCall = proj;
+                        belowCallNode = BackEdges.getOuts(proj).iterator().next().node;
+                    } else if (node instanceof Proj proj && proj.getMode().equals(Mode.getT()))
+                        resultNode = projNodes.stream().filter(proj1 -> proj1.getPred().equals(proj)).findFirst();
                 }
-                else if (node instanceof Proj proj && proj.getMode().equals(Mode.getT()))
-                    resultNode = projNodes.stream().filter(proj1 -> proj1.getPred().equals(proj)).findFirst();
-            }
 
-            if (curTargetGraphSize < MAX_COPY_SIZE)
                 inline(resultNode, aboveMemoryNodeBeforeAddressCall, belowMemoryNodeAfterAddressCall, sourceParameters, remoteParameters, remoteResultNode, remoteLastMemoryNode, remoteFirstMemoryNode, belowCallNode);
-
+            }
         }
 
     }
@@ -212,9 +213,11 @@ public class InliningOptimization {
     private ArrayList<Node> DFSGraph(Node start, ArrayDeque<Node> parameters) {
         ArrayList<Node> result = new ArrayList<>();
         Stack<Node> stack = new Stack<>();
-        Node curr = start;
+        Node curr = null;
+        stack.add(start);
 
         do {
+            curr = stack.pop();
             Iterator<Node> i = curr.getPreds().iterator();
             i.forEachRemaining(node -> {
                 boolean flag = true;
@@ -229,10 +232,11 @@ public class InliningOptimization {
                     }
                 }
                 else if (!result.contains(node)) result.add(node);
-                if (flag && !stack.contains(node)) stack.add(node);
+                if (flag && !stack.contains(node))
+                    stack.add(node);
+
             });
-            curr = stack.pop();
-        } while (!stack.isEmpty() && !(curr instanceof Return));
+        } while (!stack.isEmpty() && !(curr instanceof Start));
 
         return result;
     }
