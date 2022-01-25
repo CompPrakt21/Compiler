@@ -255,6 +255,8 @@ public class InstructionSelection extends FirmToLlir {
                 && proj.getPred() instanceof Load load
         ) {
             // binOp r1 [*]
+            this.visited.add(load);
+
             this.visitNode(load.getMem());
             var llirMem = getPredSideEffectNode(load, load.getMem());
 
