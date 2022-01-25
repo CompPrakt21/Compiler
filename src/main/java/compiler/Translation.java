@@ -872,12 +872,18 @@ public class Translation {
                     }
 
                     this.methodGraphs.put(definedMethod, graph);
-                    if (dumpGraphs) {
-                        Dump.dumpGraph(graph, methodDef.getName());
-                    }
+
                 }
             }
         }
+
+        this.methodGraphs.keySet().forEach(definedMethod -> {
+            InliningOptimization inliningOptimization = new InliningOptimization(this.methodGraphs.get(definedMethod));
+            inliningOptimization.collectNodes();
+            if (dumpGraphs) {
+                Dump.dumpGraph(this.methodGraphs.get(definedMethod), definedMethod.getName());
+            }
+        });
 
         if (dumpGraphs) {
             try {
