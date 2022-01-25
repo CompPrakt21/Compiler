@@ -137,7 +137,9 @@ public class NaiveRegisterAllocator {
                 this.saveVirtualRegister(targetVirtReg, (HardwareRegister) div.getTarget(), newList);
 
                 this.freeRegisters.freeMapping(dividendVirtReg);
-                this.freeRegisters.freeMapping(divisorVirtReg);
+                if (!divisorVirtReg.equals(dividendVirtReg)) {
+                    this.freeRegisters.freeMapping(divisorVirtReg);
+                }
                 this.freeRegisters.freeHardwareRegister(implicitUpperDividendReg);
             }
             case BinaryInstruction binary -> {
