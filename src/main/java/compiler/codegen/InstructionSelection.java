@@ -97,10 +97,6 @@ public class InstructionSelection extends FirmToLlir {
         return this.matchMemoryLocation(Optional.of(memNode), addr);
     }
 
-    private static boolean fitsInto32Bit(Long value) {
-        return (long)Integer.MIN_VALUE <= value && value <= (long)Integer.MAX_VALUE;
-    }
-
     /**
      * Tries to match addr node to the x86 memory location pattern [constant + base + index * scale].
      * The callee has to verify that addr can be the root node of a memory pattern.
@@ -170,7 +166,7 @@ public class InstructionSelection extends FirmToLlir {
         boolean haveSetIndex = false;
 
         for (var summand : summands) {
-            if (summand.node instanceof Const c && fitsInto32Bit(c.getTarval().asLong()) && !haveSetConstant) {
+            if (summand.node instanceof Const c && Util.fitsInto32Bit(c.getTarval().asLong()) && !haveSetConstant) {
                 int constValue = c.getTarval().asInt();
 
                 loc.setConstant(constValue);

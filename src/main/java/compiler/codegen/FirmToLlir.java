@@ -7,6 +7,7 @@ import compiler.codegen.llir.nodes.MemoryLocation;
 import compiler.semantic.resolution.DefinedMethod;
 import compiler.types.*;
 import compiler.utils.GenericNodeWalker;
+import firm.Util;
 import firm.*;
 import firm.bindings.binding_ircons;
 import firm.nodes.*;

@@ -56,6 +56,25 @@ public class PeepholeOptimizer {
                 && c.getValue() == 0
         ) {
             return Optional.of(new Substitution(1, List.of()));
+
+        // add r1 c1
+        // add r1 c2
+        // This pattern occurs when there is call, immediately before the current functions end.
+        // The stackspace cleanup of the called function arguments is the first add.
+        // The stackspace cleanup of the current functions local variables is the second add.
+        } else if (instructions.get(index) instanceof AddInstruction add1
+                && instructions.size() > index + 1
+                && instructions.get(index + 1) instanceof AddInstruction add2
+                && add1.getTarget().equals(add2.getTarget())
+                && add1.getLhs().equals(add2.getLhs())
+                && add1.getRhs() instanceof Constant c1
+                && add2.getRhs() instanceof Constant c2
+                && Util.fitsInto32Bit(c1.getValue() + c2.getValue())
+        ) {
+            assert add1.getLhs().equals(add2.getLhs());
+
+            var replacement = new AddInstruction(add1.getTarget(), add1.getLhs(), new Constant(c1.getValue() + c2.getValue()));
+            return Optional.of(new Substitution(2, List.of(replacement)));
         }
 
         return Optional.empty();

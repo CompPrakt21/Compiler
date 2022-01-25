@@ -22,7 +22,7 @@ public class OnTheFlyRegisterAllocator {
 
     /**
      * Stores whether a virtual register has a *new* result.
-     * The a virtual register gets initialized with a new value (for example the result of calculation)
+     * The virtual register gets initialized with a new value (for example the result of calculation)
      * we might need to save the value to the stack if the hardware register is needed elsewhere.
      * However, if its value is just the loaded value from the stack and doesn't change,
      * (Which is likely because we are lowering from SSA)
