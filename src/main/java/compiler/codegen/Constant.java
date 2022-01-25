@@ -3,28 +3,28 @@ package compiler.codegen;
 import java.util.List;
 
 public final class Constant extends Operand {
-    private int value;
+    private long value;
 
-    public Constant(int value) {
+    public Constant(long value) {
         this.value = value;
     }
 
-    public int getValue() {
+    public long getValue() {
         return value;
     }
 
-    public void setValue(int value) {
+    public void setValue(long value) {
         this.value = value;
     }
 
     @Override
     public String toString() {
-        return Integer.toString(value);
+        return Long.toString(value);
     }
 
     @Override
     public String formatIntelSyntax() {
-        return Integer.toString(value);
+        return Long.toString(value);
     }
 
     @Override

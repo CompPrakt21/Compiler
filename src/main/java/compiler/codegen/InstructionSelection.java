@@ -11,11 +11,11 @@ import firm.Mode;
 import firm.nodes.*;
 
 import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.StreamSupport;
 
+@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class InstructionSelection extends FirmToLlir {
 
     public InstructionSelection(DefinedMethod method, Graph firmGraph, TranslationResult translation) {
@@ -94,23 +94,30 @@ public class InstructionSelection extends FirmToLlir {
             return MemoryLocation.base(llirAddr);
         }
 
-        return this.matchMemoryLocation(addr);
+        return this.matchMemoryLocation(Optional.of(memNode), addr);
+    }
+
+    private static boolean fitsInto32Bit(Long value) {
+        return (long)Integer.MIN_VALUE <= value && value <= (long)Integer.MAX_VALUE;
     }
 
     /**
      * Tries to match addr node to the x86 memory location pattern [constant + base + index * scale].
      * The callee has to verify that addr can be the root node of a memory pattern.
+     *
+     * @parent The (only) parent of addr node. If this is empty, then the llir node of addr has to
+     *         be retrievable from this.valueNodeMap (for example, it can not be Const)
      * @return the matched memory location.
      */
-    private MemoryLocation matchMemoryLocation(Node addr) {
+    private MemoryLocation matchMemoryLocation(Optional<Node> parent, Node addr) {
         record Summand(Optional<Node> parent, Node node) {}
         var summands = new ArrayList<Summand>();
 
         if (addr instanceof Const c) {
-            summands.add(new Summand(Optional.empty(), c));
+            summands.add(new Summand(parent, c));
 
         } else if (addr instanceof Mul mul) {
-            summands.add(new Summand(Optional.empty(), mul));
+            summands.add(new Summand(parent, mul));
 
         } else if (addr instanceof Add add) {
 
@@ -153,7 +160,7 @@ public class InstructionSelection extends FirmToLlir {
                 summands.add(new Summand(Optional.of(add), add.getRight()));
             }
         } else {
-            summands.add(new Summand(Optional.empty(), addr));
+            summands.add(new Summand(parent, addr));
         }
 
         // We now have all summands.
@@ -163,8 +170,11 @@ public class InstructionSelection extends FirmToLlir {
         boolean haveSetIndex = false;
 
         for (var summand : summands) {
-            if (summand.node instanceof Const c && !haveSetConstant) {
-                loc.setConstant(c.getTarval().asInt());
+            if (summand.node instanceof Const c && fitsInto32Bit(c.getTarval().asLong()) && !haveSetConstant) {
+                int constValue = c.getTarval().asInt();
+
+                loc.setConstant(constValue);
+
                 haveSetConstant = true;
 
             } else if (summand.node instanceof Mul mul && isConstWithValidIndex(mul.getLeft()) && !haveSetIndex) {
@@ -374,7 +384,7 @@ public class InstructionSelection extends FirmToLlir {
         }
 
         if (shouldBeLEA(add)) {
-            var loc = this.matchMemoryLocation(add);
+            var loc = this.matchMemoryLocation(Optional.empty(), add);
             var bb = getBasicBlock(add);
             var llirLea = bb.newLoadEffectiveAddress(modeToRegisterWidth(add.getMode()), loc);
             this.registerLlirNode(add, llirLea);

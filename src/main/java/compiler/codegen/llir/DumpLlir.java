@@ -172,6 +172,7 @@ public class DumpLlir {
             case BinaryInstruction bin -> String.format("%s %s %s", bin.getMnemonic(), bin.getLhs().getTargetRegister(), bin.getRhs().formatIntelSyntax());
             case LoadEffectiveAddressInstruction lea -> String.format("%s %s", lea.getMnemonic(), lea.getLoc().formatIntelSyntax());
             case MovLoadInstruction mov -> String.format("%s %s", mov.getMnemonic(), mov.getAddress().formatIntelSyntax());
+            case MovStoreInstruction mov -> String.format("%s %s %s", mov.getMnemonic(), mov.getAddress().formatIntelSyntax(), mov.getValueNode().getTargetRegister());
             case CmpFromMemInstruction cmp -> String.format("%s %s %s", cmp.getMnemonic(), cmp.getLhs().getTargetRegister(), cmp.getRhs().formatIntelSyntax());
             default -> node.getMnemonic();
         };

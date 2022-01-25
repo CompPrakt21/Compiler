@@ -8,17 +8,17 @@ import java.util.stream.Stream;
 
 public final class MovImmediateInstruction extends RegisterNode {
 
-    private int immediateValue;
+    private long immediateValue;
     private Register.Width width;
 
-    public MovImmediateInstruction(BasicBlock bb, int immediateValue, Register.Width width) {
+    public MovImmediateInstruction(BasicBlock bb, long immediateValue, Register.Width width) {
         super(bb);
         this.immediateValue = immediateValue;
         this.width = width;
         this.initTargetRegister(width);
     }
 
-    public MovImmediateInstruction(BasicBlock bb, int immediateValue, Register target, Register.Width width) {
+    public MovImmediateInstruction(BasicBlock bb, long immediateValue, Register target, Register.Width width) {
         super(bb);
         this.immediateValue = immediateValue;
         this.width = width;
@@ -29,7 +29,7 @@ public final class MovImmediateInstruction extends RegisterNode {
         return width;
     }
 
-    public int getImmediateValue() {
+    public long getImmediateValue() {
         return immediateValue;
     }
 

@@ -3,24 +3,24 @@ package compiler.codegen.llir.nodes;
 import java.util.List;
 
 public final class Constant implements SimpleOperand {
-    private int value;
+    private long value;
 
-    public Constant(int value) {
+    public Constant(long value) {
         this.value = value;
     }
 
-    public int getValue() {
+    public long getValue() {
         return value;
     }
 
     @Override
     public String toString() {
-        return Integer.toString(value);
+        return Long.toString(value);
     }
 
     @Override
     public String formatIntelSyntax() {
-        return Integer.toString(value);
+        return Long.toString(value);
     }
 
     @Override

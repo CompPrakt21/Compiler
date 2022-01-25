@@ -387,7 +387,7 @@ public class FirmToLlir implements NodeVisitor {
             // created on-the-fly when needed.
 
             var bb = getBasicBlock(node);
-            return bb.newMovImmediate(constant.getTarval().asInt(), modeToRegisterWidth(predNode.getMode()));
+            return bb.newMovImmediate(constant.getTarval().asLong(), modeToRegisterWidth(predNode.getMode()));
 
         } else if (this.valueNodeMap.containsKey(predNode)) {
             // Next we see if we already created a llir node for this firm node.
@@ -490,7 +490,7 @@ public class FirmToLlir implements NodeVisitor {
 
             // If the predecessor is constant, simply rematerialize the value.
             if (pred instanceof Const c) {
-                var mov = predBb.newMovImmediateInto(c.getTarval().asInt(), register, modeToRegisterWidth(c.getMode()));
+                var mov = predBb.newMovImmediateInto(c.getTarval().asLong(), register, modeToRegisterWidth(c.getMode()));
                 predBb.addOutput(mov);
                 this.phiRegMoves.add(mov);
             } else {
