@@ -67,10 +67,9 @@ public final class MemoryLocation implements Operand {
 
     public boolean verify() {
         var scaleIsPowerOfTwo = scale != 0 && ((scale & (scale - 1)) == 0);
-        var eitherBaseOrConstant =  this.baseRegister.isPresent() || constant != 0 || this.index.isPresent();
         var scaleRequiresIndex = scale == 1 || index.isPresent();
 
-        return scaleIsPowerOfTwo && eitherBaseOrConstant && scaleRequiresIndex;
+        return scaleIsPowerOfTwo && scaleRequiresIndex;
     }
 
     public void setBaseRegister(RegisterNode baseRegister) {

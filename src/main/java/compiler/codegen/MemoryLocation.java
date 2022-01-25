@@ -45,10 +45,9 @@ public final class MemoryLocation extends Operand {
 
     private boolean verify() {
         var scaleIsPowerOfTwo = scale != 0 && ((scale & (scale - 1)) == 0);
-        var eitherBaseOrConstant =  this.baseRegister.isPresent() || constant != 0 || this.index.isPresent();
         var scaleRequiresIndex = scale == 1 || index.isPresent();
 
-        return scaleIsPowerOfTwo && eitherBaseOrConstant && scaleRequiresIndex;
+        return scaleIsPowerOfTwo && scaleRequiresIndex;
     }
 
     public Optional<Register> getBaseRegister() {
@@ -114,6 +113,10 @@ public final class MemoryLocation extends Operand {
     }
 
     public String formatATTSyntax() {
+        if (this.index.isEmpty() && this.baseRegister.isEmpty()) {
+            return Integer.toString(this.constant);
+        }
+
         StringBuilder s = new StringBuilder();
 
         if (this.constant != 0) {

@@ -93,7 +93,7 @@ public class ConstantFolding {
                         case Subtraction -> result = lhs - rhs;
                         case Division -> {
                             if (rhs == 0) {
-                                reportWarning(new ConstantError.DivisonByZero(binop, binop.getRhs()));
+                                reportWarning(new ConstantError.DivisonByZero(binop.getRhs(), binop));
                             } else {
                                 result = lhs / rhs;
                             }
@@ -101,7 +101,7 @@ public class ConstantFolding {
                         case Multiplication -> result = lhs * rhs;
                         case Modulo -> {
                             if (rhs == 0) {
-                                reportWarning(new ConstantError.DivisonByZero(binop, binop.getRhs()));
+                                reportWarning(new ConstantError.DivisonByZero(binop.getRhs(), binop));
                             }
                             result = lhs & rhs;
                         }
