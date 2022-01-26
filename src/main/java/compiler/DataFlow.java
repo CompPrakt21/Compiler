@@ -113,10 +113,10 @@ public class DataFlow {
 
         private void multiplicativeEval(BiFunction<TargetValue, TargetValue, TargetValue> eval, Node parent, Node child1, Node child2) {
             BiFunction<ConstantValue, ConstantValue, ConstantValue> f = (a, b) -> {
-                if (a instanceof Constant ac && ac.value.asInt() == 0) {
+                if (a instanceof Constant ac && ac.value.isNull()) {
                     return new Constant(new TargetValue(0, ac.value.getMode()));
                 }
-                if (b instanceof Constant bc && bc.value.asInt() == 0) {
+                if (b instanceof Constant bc && bc.value.isNull()) {
                     return new Constant(new TargetValue(0, bc.value.getMode()));
                 }
                 if (!(a instanceof Constant ac && b instanceof Constant bc)) {
