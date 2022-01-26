@@ -411,7 +411,7 @@ public class InstructionSelection extends FirmToLlir {
     }
 
     @Override
-    public void visit(Cmp cmp) {
+    protected CmpLowerResult lowerCmpSelector(Cond cond, Cmp cmp) {
         var argOrder = chooseCommutativeBinaryNodeArgumentOrder(cmp.getLeft(), cmp.getRight());
         var reversedArgs = !argOrder.left.equals(cmp.getLeft());
 
@@ -420,28 +420,34 @@ public class InstructionSelection extends FirmToLlir {
         this.visitNode(argOrder.left);
         var lhs = (RegisterNode) getPredLlirNode(cmp, argOrder.left);
 
-        LlirNode llirCmp;
+        CmpLikeInstruction llirCmp;
 
         if (argOrder.right instanceof Proj proj && canBeFoldedIntoInstruction(cmp, proj) && proj.getPred() instanceof Load load) {
             this.visitNode(load.getMem());
             var llirMem = getPredSideEffectNode(load, load.getMem());
             var loc = this.matchMemoryLocationArgument(load, load.getPtr());
 
-            llirCmp = bb.newCmpFromMem(lhs, loc, reversedArgs, llirMem);
+            llirCmp = bb.newCmpFromMem(lhs, loc, llirMem);
 
             var memProj = getMemProj(load);
             this.visited.add(memProj);
 
             this.registerSideEffect(memProj, (SideEffect) llirCmp);
         } else if (argOrder.right instanceof Const c) {
-            llirCmp = bb.newCmp(lhs, new Constant(c.getTarval().asInt()), reversedArgs);
+            llirCmp = bb.newCmp(lhs, new Constant(c.getTarval().asInt()));
         } else {
             this.visitNode(argOrder.right);
             var llirArgRight = (RegisterNode) getPredLlirNode(cmp, argOrder.right);
-            llirCmp = bb.newCmp(lhs, llirArgRight, reversedArgs);
+            llirCmp = bb.newCmp(lhs, llirArgRight);
         }
 
-        this.registerLlirNode(cmp, llirCmp);
+        var predicate = getCmpPredicate(cmp);
+
+        if (reversedArgs) {
+            predicate = predicate.withSwappedArguments();
+        }
+
+        return new CmpLowerResult(llirCmp, predicate);
     }
 
     @Override

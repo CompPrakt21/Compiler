@@ -8,14 +8,12 @@ public final class CmpFromMemInstruction extends LlirNode implements SideEffect,
     private SideEffect sideEffect;
     private RegisterNode lhs;
     private MemoryLocation rhs;
-    private boolean hasReversedArguments;
 
-    public CmpFromMemInstruction(BasicBlock bb, RegisterNode lhs, MemoryLocation rhs, boolean reversedArguments, SideEffect sideEffect) {
+    public CmpFromMemInstruction(BasicBlock bb, RegisterNode lhs, MemoryLocation rhs, SideEffect sideEffect) {
         super(bb);
         this.lhs = lhs;
         this.rhs = rhs;
         this.sideEffect = sideEffect;
-        this.hasReversedArguments = reversedArguments;
     }
 
     public SideEffect getSideEffect() {
@@ -28,11 +26,6 @@ public final class CmpFromMemInstruction extends LlirNode implements SideEffect,
 
     public MemoryLocation getRhs() {
         return rhs;
-    }
-
-    @Override
-    public boolean hasReversedArguments() {
-        return hasReversedArguments;
     }
 
     @Override

@@ -198,12 +198,12 @@ public class BasicBlock {
         return new ReturnInstruction(this, returnValue);
     }
 
-    public CmpInstruction newCmp(RegisterNode lhs, SimpleOperand rhs, boolean reversedArguments) {
-        return new CmpInstruction(this, lhs, rhs, reversedArguments);
+    public CmpInstruction newCmp(RegisterNode lhs, SimpleOperand rhs) {
+        return new CmpInstruction(this, lhs, rhs);
     }
 
-    public CmpFromMemInstruction newCmpFromMem(RegisterNode lhs, MemoryLocation rhs, boolean reversedArguments, SideEffect sideEffect) {
-        return new CmpFromMemInstruction(this, lhs, rhs, reversedArguments, sideEffect);
+    public CmpFromMemInstruction newCmpFromMem(RegisterNode lhs, MemoryLocation rhs, SideEffect sideEffect) {
+        return new CmpFromMemInstruction(this, lhs, rhs, sideEffect);
     }
 
     public BranchInstruction newBranch(Predicate predicate, CmpLikeInstruction cmp, BasicBlock trueBlock, BasicBlock falseBlock) {

@@ -8,14 +8,12 @@ public final class CmpInstruction extends LlirNode implements CmpLikeInstruction
 
     private RegisterNode lhs;
     private SimpleOperand rhs;
-    private boolean hasReversedArguments;
 
-    public CmpInstruction(BasicBlock bb, RegisterNode lhs, SimpleOperand rhs, boolean hasReversedArguments) {
+    public CmpInstruction(BasicBlock bb, RegisterNode lhs, SimpleOperand rhs) {
         super(bb);
 
         this.lhs = lhs;
         this.rhs = rhs;
-        this.hasReversedArguments = hasReversedArguments;
     }
 
     public RegisterNode getLhs() {
@@ -39,10 +37,5 @@ public final class CmpInstruction extends LlirNode implements CmpLikeInstruction
     @Override
     public String getMnemonic() {
         return "cmp";
-    }
-
-    @Override
-    public boolean hasReversedArguments() {
-        return hasReversedArguments;
     }
 }

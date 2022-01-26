@@ -8,6 +8,7 @@ import compiler.semantic.resolution.DefinedMethod;
 import compiler.types.*;
 import compiler.utils.GenericNodeWalker;
 import firm.*;
+import firm.bindings.binding_ircons;
 import firm.nodes.*;
 
 import java.util.*;
@@ -692,19 +693,6 @@ public class FirmToLlir implements NodeVisitor {
         bb.finish(bb.newJump(actualTargetBlock));
     }
 
-     public void visit(Cmp cmp) {
-         this.visitNode(cmp.getLeft());
-         this.visitNode(cmp.getRight());
-
-        var bb = getBasicBlock(cmp);
-
-        var lhs = (RegisterNode) getPredLlirNode(cmp, cmp.getLeft());
-        var rhs = (RegisterNode) getPredLlirNode(cmp, cmp.getRight());
-
-        var llirCmp = bb.newCmp(lhs, rhs, false);
-        this.registerLlirNode(cmp, llirCmp);
-    }
-
     public void visit(Not not) {
         this.visitNode(not.getOp());
 
@@ -712,7 +700,7 @@ public class FirmToLlir implements NodeVisitor {
         registerLlirNode(not, llirNode);
     }
 
-    private Predicate getCmpPredicate(Node node) {
+    protected Predicate getCmpPredicate(Node node) {
         if (node instanceof Not not) {
             var pred = getCmpPredicate(not.getOp());
             return pred.invert();
@@ -730,19 +718,39 @@ public class FirmToLlir implements NodeVisitor {
         }
     }
 
-    public void visit(Cond cond) {
-        this.visitNode(cond.getSelector());
 
+    protected record CmpLowerResult(CmpLikeInstruction cmp, Predicate predicate){}
+
+    // cmp might not be the direct predecessor of cond. (There might be a Not node inbetween)
+    protected CmpLowerResult lowerCmpSelector(Cond cond, Cmp cmp) {
+        this.visitNode(cmp.getLeft());
+        this.visitNode(cmp.getRight());
+
+        // The firm Cmp node might be not in the same basic block as the Cond (due to CSE)
+        // but we want to place it right before the conditional jump.
         var bb = getBasicBlock(cond);
 
-        var cmpPred = cond.getSelector();
-        var llirCmp = (CmpLikeInstruction) getPredLlirNode(cond, cmpPred);
+        var lhs = (RegisterNode) getPredLlirNode(cmp, cmp.getLeft());
+        var rhs = (RegisterNode) getPredLlirNode(cmp, cmp.getRight());
 
-        var predicate = getCmpPredicate(cmpPred);
+        return new CmpLowerResult(bb.newCmp(lhs, rhs), getCmpPredicate(cmp));
+    }
 
-        if (llirCmp.hasReversedArguments()) {
-            predicate = predicate.withSwappedArguments();
+    protected CmpLowerResult lowerCondSelector(Cond cond, Node pred)  {
+        if (pred instanceof Not not) {
+            var result = this.lowerCondSelector(cond, not.getOp());
+            return new CmpLowerResult(result.cmp, result.predicate.invert());
+        } else {
+            return this.lowerCmpSelector(cond, (Cmp) pred);
         }
+    }
+
+    public void visit(Cond cond) {
+        var bb = getBasicBlock(cond);
+
+        var cmpResult = this.lowerCondSelector(cond, cond.getSelector());
+        var llirCmp = cmpResult.cmp();
+        var predicate = cmpResult.predicate();
 
         Proj trueProj = null;
         Proj falseProj = null;
@@ -912,6 +920,7 @@ public class FirmToLlir implements NodeVisitor {
     public void visit(Const node) {}
     public void visit(End node) {}
     public void visit(Address node) {}
+    public void visit(Cmp cmp) {}
 
     // These nodes are either not yet implemented or should never occur in the
     // firm graph during lowering to the backend.
