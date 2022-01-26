@@ -281,7 +281,7 @@ public class MainCommand implements Callable<Integer> {
 
                 if (dumpGraphs) {
                     try {
-                        new DumpSir(new PrintWriter(new File(String.format("sir-after-reg-alloc_%s.dot", name))), sirGraph).dump();
+                        new DumpSir(new PrintWriter(new File(String.format("sir-after-reg-alloc_%s.dot", name))), sirGraph).withBlockSchedule(true).dump();
                     } catch (FileNotFoundException e) {
                         e.printStackTrace();
                     }

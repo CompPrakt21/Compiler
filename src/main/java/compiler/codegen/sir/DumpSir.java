@@ -12,10 +12,17 @@ public class DumpSir {
 
     private final HashSet<BasicBlock> visited;
 
+    private boolean withBlockSchedule;
+
     public DumpSir(PrintWriter out, SirGraph sirGraph) {
         this.out = out;
         this.sirGraph = sirGraph;
         this.visited = new HashSet<>();
+    }
+
+    public DumpSir withBlockSchedule(boolean b) {
+        this.withBlockSchedule = b;
+        return this;
     }
 
     private String formatInstruction(Instruction instr) {
@@ -40,7 +47,8 @@ public class DumpSir {
         };
     }
     private void printTarget(BasicBlock start, BasicBlock end, String label) {
-        this.out.format("%s -> %s [label=\"%s\"];\n", start.getLabel(), end.getLabel(), label);
+        var constraint = this.withBlockSchedule ? ", constraint=false" : "";
+        this.out.format("%s -> %s [label=\"%s\"%s];\n", start.getLabel(), end.getLabel(), label, constraint);
     }
 
     private void dumpBasicBlock(BasicBlock bb) {
@@ -80,6 +88,16 @@ public class DumpSir {
         this.out.format("digraph {\n");
 
         this.dumpBasicBlock(this.sirGraph.getStartBlock());
+
+        if (this.withBlockSchedule) {
+            var blockSchedule = this.sirGraph.getBlocks();
+            for (int i = 0; i < blockSchedule.size() - 1; i++) {
+                var startBlock = blockSchedule.get(i);
+                var targetBlock = blockSchedule.get(i + 1);
+
+                this.out.format("\t%s -> %s [style=invis, constraint=true]\n", startBlock.getLabel(), targetBlock.getLabel());
+            }
+        }
 
         this.out.format("}\n");
         this.out.flush();
