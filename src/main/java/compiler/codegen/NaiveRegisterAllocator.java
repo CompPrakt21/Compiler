@@ -62,7 +62,7 @@ public class NaiveRegisterAllocator {
             addRhs.setValue(-stackOffset);
         });
 
-        this.scheduleBlocks();
+        BlockSchedule.scheduleReversePostorder(this.graph);
     }
 
     private HardwareRegister concretizeRegister(VirtualRegister virtReg, List<Instruction> newList) {
@@ -350,32 +350,5 @@ public class NaiveRegisterAllocator {
         }
 
         bb.setInstructions(newList);
-    }
-
-    private void scheduleBlocks() {
-        HashSet<BasicBlock> visitedBlocks = new HashSet<>();
-
-        this.graph.getBlocks().clear();
-
-        this.scheduleBlockDFS(this.graph.getStartBlock(), visitedBlocks, this.graph.getBlocks());
-    }
-
-    private void scheduleBlockDFS(BasicBlock bb, HashSet<BasicBlock> visited, List<BasicBlock> blockSequence) {
-        if (visited.contains(bb)) {
-            return;
-        } else {
-            visited.add(bb);
-            blockSequence.add(bb);
-        }
-
-        var lastInstr = (ControlFlowInstruction) bb.getInstructions().get(bb.getInstructions().size() - 1);
-        switch (lastInstr) {
-            case JumpInstruction jump -> this.scheduleBlockDFS(jump.getTarget(), visited, blockSequence);
-            case BranchInstruction branch -> {
-                this.scheduleBlockDFS(branch.getFalseBlock(), visited, blockSequence);
-                this.scheduleBlockDFS(branch.getTrueBlock(), visited, blockSequence);
-            }
-            case ReturnInstruction ignored -> {}
-        }
     }
 }

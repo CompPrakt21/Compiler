@@ -89,7 +89,7 @@ public class OnTheFlyRegisterAllocator {
             addRhs.setValue(-stackOffset);
         });
 
-        this.scheduleBlocks();
+        BlockSchedule.scheduleReversePostorder(this.graph);
     }
 
     private HardwareRegister selectAndFreeTarget(
@@ -600,8 +600,7 @@ public class OnTheFlyRegisterAllocator {
                 newList.add(movSX);
             }
             case LoadEffectiveAddressInstruction lea -> {
-                var usedRegisters = new HashSet<HardwareRegister>();
-                usedRegisters.addAll(this.concretizeMemoryLocation(lea.getLoc(), newList, Set.of()));
+                var usedRegisters = new HashSet<>(this.concretizeMemoryLocation(lea.getLoc(), newList, Set.of()));
 
                 this.freeDeadVirtualRegisters(liveRegs);
 
@@ -638,33 +637,6 @@ public class OnTheFlyRegisterAllocator {
         }
 
         bb.setInstructions(newList);
-    }
-
-    private void scheduleBlocks() {
-        HashSet<BasicBlock> visitedBlocks = new HashSet<>();
-
-        this.graph.getBlocks().clear();
-
-        this.scheduleBlockDFS(this.graph.getStartBlock(), visitedBlocks, this.graph.getBlocks());
-    }
-
-    private void scheduleBlockDFS(BasicBlock bb, HashSet<BasicBlock> visited, List<BasicBlock> blockSequence) {
-        if (visited.contains(bb)) {
-            return;
-        } else {
-            visited.add(bb);
-            blockSequence.add(bb);
-        }
-
-        var lastInstr = (ControlFlowInstruction) bb.getInstructions().get(bb.getInstructions().size() - 1);
-        switch (lastInstr) {
-            case JumpInstruction jump -> this.scheduleBlockDFS(jump.getTarget(), visited, blockSequence);
-            case BranchInstruction branch -> {
-                this.scheduleBlockDFS(branch.getFalseBlock(), visited, blockSequence);
-                this.scheduleBlockDFS(branch.getTrueBlock(), visited, blockSequence);
-            }
-            case ReturnInstruction ignored -> {}
-        }
     }
 
     private static Map<VirtualRegister, List<HardwareRegister.Group>> collectRegisterHints(SirGraph graph) {
