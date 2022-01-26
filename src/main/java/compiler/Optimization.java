@@ -45,6 +45,7 @@ public class Optimization {
         o.commonSubexpressionElimination();
         o.eliminateRedundantPhis();
         o.eliminateSingletonBlocks();
+        o.eliminateTrivialConds();
     }
 
     public void constantFolding() {
@@ -171,6 +172,51 @@ public class Optimization {
                 FirmUtils.setPreds(p, phiPreds);
             }
         });
+        BackEdges.disable(g);
+        // We changed the control structure, so better be careful ...
+        g.confirmProperties(binding_irgraph.ir_graph_properties_t.IR_GRAPH_PROPERTIES_NONE);
+    }
+
+    public void eliminateTrivialConds() {
+        updateBlockPhis();
+        BackEdges.enable(g);
+        ArrayDeque<Node> nodes = NodeCollector.run(g);
+        for (Node n : nodes) {
+            if (!(n instanceof Cond c)) {
+                continue;
+            }
+            List<Node> projs = FirmUtils.backEdgeTargets(c);
+            if (projs.size() != 2) {
+                continue;
+            }
+            Node maybeProjA = projs.get(0);
+            Node maybeProjB = projs.get(1);
+            if (!(maybeProjA instanceof Proj projA) || !(maybeProjB instanceof Proj projB)) {
+                continue;
+            }
+            BackEdges.Edge blockEdgeA = FirmUtils.backEdges(projA).get(0);
+            BackEdges.Edge blockEdgeB = FirmUtils.backEdges(projB).get(0);
+            if (!blockEdgeA.node.equals(blockEdgeB.node)) {
+                continue;
+            }
+            Block block = (Block) blockEdgeA.node;
+            List<Phi> phis = blockPhis.get(block);
+            boolean eligible = phis.stream().allMatch(phi ->
+                    phi.getPred(blockEdgeA.pos).equals(phi.getPred(blockEdgeB.pos)));
+            if (!eligible) {
+                continue;
+            }
+            Node jmp = g.newJmp(c.getBlock());
+            List<Node> blockPreds = FirmUtils.preds(block);
+            blockPreds.set(blockEdgeA.pos, jmp);
+            blockPreds.remove(blockEdgeB.pos);
+            FirmUtils.setPreds(block, blockPreds);
+            for (Phi p : phis) {
+                List<Node> pPreds = FirmUtils.preds(p);
+                pPreds.remove(blockEdgeB.pos);
+                FirmUtils.setPreds(p, pPreds);
+            }
+        }
         BackEdges.disable(g);
         // We changed the control structure, so better be careful ...
         g.confirmProperties(binding_irgraph.ir_graph_properties_t.IR_GRAPH_PROPERTIES_NONE);
