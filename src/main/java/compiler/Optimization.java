@@ -13,7 +13,7 @@ import java.util.stream.StreamSupport;
 
 public class Optimization {
 
-    private Graph g;
+    private final Graph g;
     private Map<Block, List<Phi>> blockPhis;
 
     public Optimization(Graph g) {
@@ -59,9 +59,9 @@ public class Optimization {
                     continue;
                 }
                 Node folded = switch (v) {
-                    case DataFlow.Unknown u -> g.newConst(0, pred.getMode());
+                    case DataFlow.Unknown ignored -> g.newConst(0, pred.getMode());
                     case DataFlow.Constant c -> g.newConst(c.value);
-                    case DataFlow.Variable vx -> pred;
+                    case DataFlow.Variable ignored -> pred;
                 };
                 if (pred.getMode().equals(folded.getMode())) {
                     changes.add(new Change(n, i, folded));
@@ -94,7 +94,7 @@ public class Optimization {
                     default -> {
                         continue;
                     }
-                };
+                }
                 if (!(d.left instanceof Const && d.right instanceof Const divisor)) {
                     continue;
                 }
@@ -123,7 +123,7 @@ public class Optimization {
                 List<Node> in = FirmUtils.preds(p);
                 assert in.size() > 0;
                 Node first = in.get(0);
-                if (!in.stream().allMatch(input -> first.equals(input))) {
+                if (!in.stream().allMatch(first::equals)) {
                     continue;
                 }
                 n.setPred(i, first);
@@ -207,59 +207,61 @@ public class Optimization {
         BackEdges.enable(g);
         while (!worklist.isEmpty()) {
             Node n = worklist.removeFirst();
-            Mode mode = n.getMode();
             Node b = n.getBlock();
             List<BackEdges.Edge> parents = FirmUtils.backEdges(n);
             Node nn;
             boolean nChanged = false;
             do {
                 nn = null;
-                if (n instanceof Minus m1 && m1.getOp() instanceof Minus m2) {
+                switch (n) {
                     // --x = x
-                    nn = m2.getOp();
-                } else if (n instanceof Not n1 && n1.getOp() instanceof Not n2) {
+                    case Minus m1 && m1.getOp() instanceof Minus m2 -> nn = m2.getOp();
                     // !!x = x
-                    nn = n2.getOp();
-                } else if (n instanceof Add a) {
-                    Node left = a.getLeft();
-                    Node right = a.getRight();
-                    // x + 0 = x
-                    Optional<Node> r1 = commOp(left, right, (l, r) -> {
-                        if (r instanceof Const c && c.getTarval().isNull()) {
-                            if (c.getMode().isReference()) {
-                                // x + NULL = NULL
-                                return c;
+                    case Not n1 && n1.getOp() instanceof Not n2 -> nn = n2.getOp();
+                    case Add a -> {
+                        Node left = a.getLeft();
+                        Node right = a.getRight();
+                        // x + 0 = x
+                        Optional<Node> r1 = commOp(left, right, (l, r) -> {
+                            if (r instanceof Const c && c.getTarval().isNull()) {
+                                if (c.getMode().isReference()) {
+                                    // x + NULL = NULL
+                                    return c;
+                                }
+                                return l;
                             }
-                            return l;
-                        }
-                        return null;
-                    });
-                    // (-x) + (-y) = -(x + y)
-                    Supplier<Node> r2 = () -> {
-                        if (left instanceof Minus l && right instanceof Minus r) {
-                            return g.newMinus(b, g.newAdd(b, l.getOp(), r.getOp()));
-                        }
-                        return null;
-                    };
-                    nn = r1.orElseGet(r2);
-                } else if (n instanceof Mul m) {
-                    Node left = m.getLeft();
-                    Node right = m.getRight();
-                    // x * 1 = x
-                    Supplier<Optional<Node>> r1 = () -> commOp(left, right, (l, r) ->
-                            r instanceof Const c && c.getTarval().isOne() ?
-                                    l : null);
-                    // x * (-y) = -(x * y)
-                    Supplier<Optional<Node>> r2 = () -> commOp(left, right, (l, r) -> {
-                        if (r instanceof Minus min) {
-                            Node mulNode = g.newMul(b, l, min.getOp());
-                            worklist.addLast(mulNode);
-                            return g.newMinus(b, mulNode);
-                        }
-                        return null;
-                    });
-                    nn = r1.get().or(r2).orElse(null);
+                            return null;
+                        });
+                        // (-x) + (-y) = -(x + y)
+                        Supplier<Node> r2 = () -> {
+                            if (left instanceof Minus l && right instanceof Minus r) {
+                                return g.newMinus(b, g.newAdd(b, l.getOp(), r.getOp()));
+                            }
+                            return null;
+                        };
+                        nn = r1.orElseGet(r2);
+                    }
+                    case Mul m -> {
+                        Node left = m.getLeft();
+                        Node right = m.getRight();
+                        // x * 1 = x
+                        Supplier<Optional<Node>> r1 = () -> commOp(left, right, (l, r) ->
+                                r instanceof Const c && c.getTarval().isOne() ?
+                                        l : null);
+                        // x * (-y) = -(x * y)
+                        Supplier<Optional<Node>> r2 = () -> commOp(left, right, (l, r) -> {
+                            if (r instanceof Minus min) {
+                                Node mulNode = g.newMul(b, l, min.getOp());
+                                worklist.addLast(mulNode);
+                                return g.newMinus(b, mulNode);
+                            }
+                            return null;
+                        });
+                        nn = r1.get().or(r2).orElse(null);
+                    }
+                    default -> {}
                 }
+                // ALl the warnings related to nn and nChanged are wrong
                 if (nn != null) {
                     n = nn;
                     nChanged = true;
@@ -276,13 +278,7 @@ public class Optimization {
     }
 
 
-    public static class ExpressionNode {
-        private Node n;
-
-        public ExpressionNode(Node n) {
-            this.n = n;
-        }
-
+    public record ExpressionNode(Node n) {
         private static boolean equalAsNodes(Node a, Node b) {
             return a.getMode().equals(b.getMode());
         }

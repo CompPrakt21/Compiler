@@ -5,13 +5,7 @@ import firm.nodes.*;
 
 import java.util.ArrayDeque;
 
-public class NodeCollector implements MiniJavaNodeVisitor {
-    private ArrayDeque<Node> worklist;
-
-    public NodeCollector(ArrayDeque<Node> worklist) {
-        this.worklist = worklist;
-    }
-
+public record NodeCollector(ArrayDeque<Node> worklist) implements MiniJavaNodeVisitor {
     @Override
     public void visit(Add add) {
         worklist.addLast(add);

@@ -16,10 +16,10 @@ public class DataFlow {
     public static abstract sealed class ConstantValue permits Unknown, Constant, Variable {
         public ConstantValue sup(ConstantValue other) {
             return switch (this) {
-                case Unknown u -> other;
+                case Unknown ignored -> other;
                 case Constant c ->
                         switch (other) {
-                            case Unknown u -> c;
+                            case Unknown ignored -> c;
                             case Constant c2 -> c.value.compare(c2.value) == Relation.Equal ? c : Variable.value;
                             case Variable v -> v;
                         };
@@ -67,13 +67,7 @@ public class DataFlow {
         }
     }
 
-    public static class ConstantFolder implements MiniJavaNodeVisitor {
-
-        private Map<Node, ConstantValue> values;
-
-        public ConstantFolder(Map<Node, ConstantValue> values) {
-            this.values = values;
-        }
+    public record ConstantFolder(Map<Node, ConstantValue> values) implements MiniJavaNodeVisitor {
 
         private void partialEval(Function<List<ConstantValue>, ConstantValue> eval, Node parent, Node... children) {
             if (Arrays.stream(children).anyMatch(n -> values.get(n) instanceof Unknown)) {
