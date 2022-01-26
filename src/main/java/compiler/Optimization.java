@@ -39,8 +39,8 @@ public class Optimization {
 
     public static void optimizeFull(Graph g) {
         Optimization o = new Optimization(g);
-        o.simplifyArithmeticExpressions();
         o.constantFolding();
+        o.simplifyArithmeticExpressions();
         o.eliminateRedundantSideEffects();
         o.commonSubexpressionElimination();
         o.eliminateRedundantPhis();
@@ -68,6 +68,8 @@ public class Optimization {
                 }
             }
         }
+        // This warning is wrong, likely due to an IntelliJ bug.
+        // changes is *not* empty.
         for (Change c : changes) {
             c.node.setPred(c.predIdx, c.folded);
         }
@@ -185,7 +187,7 @@ public class Optimization {
         // --x = x
         // !!x = x
         // x + 0 = x
-        // x + (-y) = x - y
+        // (-x) + (-y) = -(x + y)
         // x * 1 = x
         // x * (-y) = -(x * y)
         // x * +-2^k = optimized [TODO]
@@ -285,6 +287,7 @@ public class Optimization {
             return a.getMode().equals(b.getMode());
         }
 
+        @SafeVarargs
         private <T extends Node> boolean compare(T a, T b, Function<? super T, ? extends Node>... childGetters) {
             if (!equalAsNodes(a, b)) {
                 return false;
