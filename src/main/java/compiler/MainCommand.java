@@ -29,6 +29,8 @@ import java.io.PrintWriter;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Optional;
 import java.util.concurrent.Callable;
@@ -273,7 +275,7 @@ public class MainCommand implements Callable<Integer> {
                 }
 
                 if (optimize) {
-                    new OnTheFlyRegisterAllocator(graphs.methodParameters().get(pair.getKey()), sirGraph).allocate();
+                    new OnTheFlyRegisterAllocator(graphs.methodParameters().get(pair.getKey()), sirGraph, name, dumpGraphs).allocate();
                     new PeepholeOptimizer(sirGraph).optimize();
                 } else {
                     new NaiveRegisterAllocator(graphs.methodParameters().get(pair.getKey()), sirGraph).allocate();

@@ -35,4 +35,9 @@ public final class JumpInstruction extends ControlFlowInstruction {
     public Optional<Register> getWrittenRegister() {
         return Optional.empty();
     }
+
+    @Override
+    public List<BasicBlock> getTargets() {
+        return List.of(this.target);
+    }
 }

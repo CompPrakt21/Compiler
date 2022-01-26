@@ -53,4 +53,9 @@ public final class BranchInstruction extends ControlFlowInstruction {
     public Optional<Register> getWrittenRegister() {
         return Optional.empty();
     }
+
+    @Override
+    public List<BasicBlock> getTargets() {
+        return List.of(this.trueBlock, this.falseBlock);
+    }
 }

@@ -867,6 +867,10 @@ public class Translation {
 
                     Graph graph = genGraphForMethod(definedMethod);
 
+                    if (dumpGraphs) {
+                        Dump.dumpGraph(graph, "before-opt");
+                    }
+
                     if (optimize) {
                         Optimization.optimizeFull(graph);
                     }

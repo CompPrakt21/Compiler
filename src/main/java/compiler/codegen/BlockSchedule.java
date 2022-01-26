@@ -24,6 +24,7 @@ public class BlockSchedule {
         scheduleBlockPostOrder(graph.getStartBlock(), visitedBlocks, graph.getBlocks());
 
         Collections.reverse(graph.getBlocks());
+        graph.recalculateInstructionIndices();
     }
 
     private static void scheduleBlockPostOrder(BasicBlock bb, HashSet<BasicBlock> visited, List<BasicBlock> blockSequence) {

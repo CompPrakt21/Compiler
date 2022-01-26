@@ -1,5 +1,6 @@
 package compiler.codegen.sir;
 
+import compiler.codegen.sir.instructions.ControlFlowInstruction;
 import compiler.codegen.sir.instructions.Instruction;
 
 import java.util.List;
@@ -33,6 +34,10 @@ public class BasicBlock {
 
     public void setInstructions(List<Instruction> instructions) {
         this.instructions = instructions;
+    }
+
+    public ControlFlowInstruction getLastInstruction() {
+        return (ControlFlowInstruction) this.instructions.get(this.instructions.size() - 1);
     }
 
     @Override

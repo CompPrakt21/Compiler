@@ -1,9 +1,6 @@
 package compiler.utils;
 
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 public class BiMap<L, R> {
 
@@ -72,6 +69,10 @@ public class BiMap<L, R> {
 
     public Collection<R> rightSet() {
         return this.rightToLeft.keySet();
+    }
+
+    public Collection<Map.Entry<L, R>> entrySet(){
+        return this.leftToRight.entrySet();
     }
 
     public void clear() {

@@ -1,6 +1,7 @@
 package compiler.codegen.sir.instructions;
 
 import compiler.codegen.Register;
+import compiler.codegen.sir.BasicBlock;
 
 import java.util.List;
 import java.util.Optional;
@@ -34,5 +35,10 @@ public final class ReturnInstruction extends ControlFlowInstruction {
     @Override
     public Optional<Register> getWrittenRegister() {
         return Optional.empty();
+    }
+
+    @Override
+    public List<BasicBlock> getTargets() {
+        return List.of();
     }
 }

@@ -1,12 +1,16 @@
 package compiler.codegen;
 
 import compiler.codegen.sir.BasicBlock;
+import compiler.codegen.sir.DumpSir;
 import compiler.codegen.sir.SirGraph;
 import compiler.codegen.sir.instructions.*;
 import compiler.semantic.resolution.DefinedMethod;
 import compiler.semantic.resolution.IntrinsicMethod;
 import compiler.types.VoidTy;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.PrintWriter;
 import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
@@ -19,6 +23,28 @@ public class OnTheFlyRegisterAllocator {
     private final StackSlots stackSlots;
     private final RegisterManager freeRegisters;
     private final List<VirtualRegister> methodParameters;
+
+    /**
+     * The set of virtual registers that appear in multiple different basic blocks.
+     */
+    private final Set<VirtualRegister> interBlockRegisters;
+
+    /**
+     * Virtual registers that appear in multiple basic blocks have to always be
+     * mapped to the same hardware register, as is required by linear scan register allocation.
+     * This map stores this mapping. Its keys can only be the virtual registers as are
+     * stored in interBlockRegisters.
+     */
+    private final Map<VirtualRegister, HardwareRegister> interBlockRegisterAssignment;
+
+    /**
+     * Which virtual registers are live in hardware registers at the entry of a basic block.
+     * For every incoming edge this has to be the same.
+     * The first time the allocator encounters the basic block it defines this based on the current
+     * register mapping.
+     * Every subsequent incoming edge ensures the same register mapping.
+     */
+    private final Map<BasicBlock, Set<VirtualRegister>> blockIns;
 
     /**
      * Stores whether a virtual register has a *new* result.
@@ -39,14 +65,17 @@ public class OnTheFlyRegisterAllocator {
     private Optional<SubInstruction> allocateStackSpaceInstruction;
     private final List<AddInstruction> freeStackSpaceInstructions;
 
-    private RegisterLifetimes lifetimes;
+    private GlobalRegisterLifetimes.Lifetimes lifetimes;
+
+    private final String name;
+    private final boolean dumpGraphs;
 
     /**
      * Hints in which hardware register(s) the virtual register will be needed.
      */
     private Map<VirtualRegister, List<HardwareRegister.Group>> registerHints;
 
-    public OnTheFlyRegisterAllocator(List<VirtualRegister> methodParameters, SirGraph graph) {
+    public OnTheFlyRegisterAllocator(List<VirtualRegister> methodParameters, SirGraph graph, String name, boolean dumpGraphs) {
         this.methodParameters = methodParameters;
         this.graph = graph;
         this.allocateStackSpaceInstruction = Optional.empty();
@@ -57,6 +86,12 @@ public class OnTheFlyRegisterAllocator {
 
         this.registerHints = null;
         this.lifetimes = null;
+        this.interBlockRegisterAssignment = new HashMap<>();
+        this.interBlockRegisters = new HashSet<>();
+        this.blockIns = new HashMap<>();
+
+        this.name = name;
+        this.dumpGraphs = dumpGraphs;
     }
 
     /**
@@ -71,11 +106,60 @@ public class OnTheFlyRegisterAllocator {
             paramOffset += Register.Width.BIT64.getByteSize();
         }
 
-        this.lifetimes = RegisterLifetimes.calculateLifetime(this.graph);
+        // Determine virtual register lifetimes and schedules blocks.
+        this.lifetimes = GlobalRegisterLifetimes.calculateLifetimes(this.graph);
+
+        if (dumpGraphs) {
+            try {
+                new DumpSir(new PrintWriter(new File(String.format("sir-block-sched_%s.dot", this.name))), this.graph).withBlockSchedule(true).withInstructionIndices(true).dump();
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            }
+        }
+
+        // Collect intra block registers
+        var virtualRegistersInOtherBlocks = new HashSet<VirtualRegister>();
+        for (var bb : this.graph.getBlocks()) {
+            var registersInThisBlock = new HashSet<VirtualRegister>();
+            for (var instr : bb.getInstructions()) {
+                var usedRegs = Stream.concat(instr.getReadRegisters().stream(), instr.getWrittenRegister().stream())
+                        .map(reg -> (VirtualRegister) reg)
+                        .collect(Collectors.toCollection(HashSet::new));
+
+                for (var usedReg : usedRegs) {
+                    if (virtualRegistersInOtherBlocks.contains(usedReg)) {
+                        this.interBlockRegisters.add(usedReg);
+                    }
+                }
+                registersInThisBlock.addAll(usedRegs);
+            }
+
+            virtualRegistersInOtherBlocks.addAll(registersInThisBlock);
+        }
+
+        // Collec register hints.
         this.registerHints = collectRegisterHints(this.graph);
 
-        for (var bb : this.graph.getBlocks()) {
-            this.allocateBasicBlock(bb);
+        // Initialize blockIns for start block
+        this.blockIns.put(this.graph.getStartBlock(), Set.of());
+
+        // Define interblock assignment for arguments
+        for (var virtArgReg : this.methodParameters) {
+            var hint = this.registerHints.get(virtArgReg);
+            HardwareRegister.Group target;
+            if (hint != null) {
+                target = hint.get(0);
+            } else {
+                target = new ArrayList<>(this.freeRegisters.availableRegisters()).get(0);
+            }
+            this.interBlockRegisterAssignment.put(virtArgReg, target.getRegister(virtArgReg.getWidth()));
+        }
+
+        // Actually do the register allocation
+        for (int i = 0; i < this.graph.getBlocks().size(); i++) {
+            var bb = this.graph.getBlocks().get(i);
+            var startInstructionIndex = this.graph.getStartInstructionIndices().get(i);
+            this.allocateBasicBlock(bb, startInstructionIndex);
         }
 
         var stackOffset = this.stackSlots.getNeededStackSpace();
@@ -88,8 +172,6 @@ public class OnTheFlyRegisterAllocator {
             var addRhs = (Constant) addInstr.getRhs();
             addRhs.setValue(-stackOffset);
         });
-
-        BlockSchedule.scheduleReversePostorder(this.graph);
     }
 
     private HardwareRegister selectAndFreeTarget(
@@ -191,6 +273,12 @@ public class OnTheFlyRegisterAllocator {
 
         var targetRegister = this.selectAndFreeTarget(register, target, preferred, disallowed, keepAlive, newList);
 
+        // Are we initialising an inter block register for the first time?
+        if (!this.interBlockRegisterAssignment.containsKey(register) && this.interBlockRegisters.contains(register)) {
+            // We remember this and on any backedge we need to make sure the virtual register is mapped to *this* target register.
+            this.interBlockRegisterAssignment.put(register, targetRegister);
+        }
+
         // Due to phi nodes, some virtual register might be initialized multple times.
         if (this.freeRegisters.getMapping(register).isPresent()) {
             this.freeRegisters.freeMapping(register);
@@ -278,6 +366,10 @@ public class OnTheFlyRegisterAllocator {
         regsToBeFreed.forEach(this.freeRegisters::freeMapping);
     }
 
+    private HardwareRegister initialiseVirtualRegisterInto(VirtualRegister virtReg, HardwareRegister target, List<Instruction> newList) {
+        return this.initialiseVirtualRegister(virtReg, Optional.of(target.getGroup()), List.of(), List.of(), Set.of(), newList);
+    }
+
     private HardwareRegister initialiseVirtualRegister(VirtualRegister virtReg, List<Instruction> newList, Set<HardwareRegister> keepAlive) {
         Set<HardwareRegister.Group> a = keepAlive.stream().map(HardwareRegister::getGroup).collect(Collectors.toSet());
         var pref = Optional.ofNullable(this.registerHints.get(virtReg)).orElseGet(List::of);
@@ -343,6 +435,72 @@ public class OnTheFlyRegisterAllocator {
         deadRegs.forEach(this.freeRegisters::freeMapping);
     }
 
+    /**
+     * Register the blockIns of a basic block.
+     * If the provided blockIns conflict with their target in interBlockRegisterAssignment,
+     * the set is reduced until all conflicts are resolved.
+     * @return the possibly reduced set of blockIns
+     */
+    private Set<VirtualRegister> registerBlockIns(BasicBlock bb, Set<VirtualRegister> blockIns) {
+        var counted = new HashMap<HardwareRegister.Group, Integer>();
+        for (var virtReg : blockIns) {
+            var group = this.interBlockRegisterAssignment.get(virtReg).getGroup();
+            counted.putIfAbsent(group, 0);
+            counted.put(group, counted.get(group) + 1);
+        }
+
+        var newBlockIns = new HashSet<VirtualRegister>();
+        for (var virtReg : blockIns) {
+            var group = this.interBlockRegisterAssignment.get(virtReg).getGroup();
+            if (counted.get(group) == 1) {
+                newBlockIns.add(virtReg);
+            } else {
+                counted.put(group, counted.get(group) - 1);
+            }
+        }
+
+        assert !this.blockIns.containsKey(bb);
+        this.blockIns.put(bb, newBlockIns);
+
+        return newBlockIns;
+    }
+
+    /**
+     * Saves and concretizes registers required by the next basic block(s)
+     * @param targetBlockIns The blockIns needed.
+     */
+    private void prepareRegisterMappingForBlockIns(Set<VirtualRegister> targetBlockIns, List<Instruction> newList) {
+        // Save registers that do not appear in the targets blockIns.
+        var virtRegsNotInBlockIn = new ArrayList<VirtualRegister>();
+        for (var pair : this.freeRegisters.getMapping().entrySet()) {
+            var liveReg = pair.getKey();
+            if (!targetBlockIns.contains(liveReg)) {
+                virtRegsNotInBlockIn.add(liveReg);
+            }
+        }
+
+        for (var liveReg : virtRegsNotInBlockIn) {
+            var targetReg = this.freeRegisters.getMapping(liveReg).orElseThrow();
+            this.saveVirtualRegister(liveReg, targetReg, newList);
+            this.freeRegisters.freeMapping(liveReg);
+        }
+
+        // Concretize registers that appear in the targets blockIns.
+        for (var expectedLiveReg : targetBlockIns) {
+            var expectedTargetReg = this.interBlockRegisterAssignment.get(expectedLiveReg);
+            var currentMapping = this.freeRegisters.getMapping(expectedLiveReg);
+
+            if (currentMapping.isEmpty()) {
+                this.concretizeRegisterInto(expectedTargetReg, expectedLiveReg, newList);
+            } else if (!currentMapping.get().equals(expectedTargetReg)) {
+                this.makeUnusedSpecificRegister(expectedTargetReg, newList);
+                newList.add(new MovInstruction(expectedLiveReg.getWidth(), expectedTargetReg, currentMapping.get()));
+                this.freeRegisters.freeMapping(expectedLiveReg);
+                this.freeRegisters.createSpecificMapping(expectedLiveReg, expectedTargetReg);
+            }
+        }
+    }
+
     private void allocateRegForInstruction(Instruction instr, Set<VirtualRegister> liveRegs, List<Instruction> newList) {
         switch (instr) {
             case DivInstruction div -> {
@@ -378,9 +536,8 @@ public class OnTheFlyRegisterAllocator {
                 this.freeRegisters.createSpecificMapping(targetVirtReg, targetHardwareReg);
 
                 div.setTarget(targetHardwareReg);
-                div.setDividend(dividendHardwareReg);
+                div.setDividend(HardwareRegister.EAX);
                 div.setDivisor(divisorHardwareReg);
-
             }
             case BinaryInstruction binary -> {
                 var usedRegisters = new HashSet<HardwareRegister>();
@@ -441,7 +598,18 @@ public class OnTheFlyRegisterAllocator {
                 newList.add(ret);
             }
             case JumpInstruction jump -> {
-                this.freeAllRegisters(newList);
+                this.freeDeadVirtualRegisters(liveRegs);
+
+                // Prepare the live registers to fit the target block ins.
+                var targetBlockIns = this.blockIns.get(jump.getTarget());
+                if (targetBlockIns == null) {
+                    // Set the blockIns of the target block if they are undefined.
+                    targetBlockIns = new HashSet<>(this.freeRegisters.getMapping().leftSet());
+                    targetBlockIns = this.registerBlockIns(jump.getTarget(), targetBlockIns);
+                }
+
+                this.prepareRegisterMappingForBlockIns(targetBlockIns, newList);
+
                 newList.add(jump);
             }
             case CmpInstruction cmp -> {
@@ -461,7 +629,42 @@ public class OnTheFlyRegisterAllocator {
                 newList.add(cmp);
             }
             case BranchInstruction branch -> {
-                this.freeAllRegisters(newList);
+                this.freeDeadVirtualRegisters(liveRegs);
+
+                Set<VirtualRegister> accumulatedBlockIns = new HashSet<>();
+
+                var trueBlockIns = this.blockIns.get(branch.getTrueBlock());
+                var falseBlockIns = this.blockIns.get(branch.getFalseBlock());
+
+                if (trueBlockIns != null && falseBlockIns != null) {
+                    // Check for target hardware register collisions
+                    var intersectionBlockIns = new HashSet<>(trueBlockIns);
+                    intersectionBlockIns.retainAll(falseBlockIns);
+                    var xorBlockIns = new HashSet<>(trueBlockIns);
+                    xorBlockIns.addAll(falseBlockIns);
+                    xorBlockIns.removeAll(intersectionBlockIns);
+
+                    var xorTargetRegs = xorBlockIns.stream().map(this.interBlockRegisterAssignment::get).collect(Collectors.toSet());
+                    if (xorBlockIns.size() != xorTargetRegs.size()) {
+                        // collision detected
+                        assert false : "The program contains a weird edge case I hoped would not occur, please report this bug";
+                    } else {
+                        // no collision
+                        accumulatedBlockIns.addAll(trueBlockIns);
+                        accumulatedBlockIns.addAll(falseBlockIns);
+                    }
+                } else if (trueBlockIns == null && falseBlockIns != null) {
+                    accumulatedBlockIns = this.registerBlockIns(branch.getTrueBlock(), falseBlockIns);
+                } else if (trueBlockIns != null) {
+                    accumulatedBlockIns = this.registerBlockIns(branch.getFalseBlock(), trueBlockIns);
+                } else {
+                    var blockIns = new HashSet<>(this.freeRegisters.getMapping().leftSet());
+                    accumulatedBlockIns = this.registerBlockIns(branch.getTrueBlock(), blockIns);
+                    this.registerBlockIns(branch.getFalseBlock(), blockIns);
+                }
+
+                this.prepareRegisterMappingForBlockIns(accumulatedBlockIns, newList);
+
                 newList.add(branch);
             }
             case AllocCallInstruction allocCall -> {
@@ -483,10 +686,9 @@ public class OnTheFlyRegisterAllocator {
 
                 this.freeRegisters.clearAllMappings();
 
-                allocCall.setTarget(HardwareRegister.RAX);
+                this.initialiseVirtualRegisterInto(virtRegTarget, HardwareRegister.RAX, newList);
 
-                this.dirty.put(virtRegTarget, true);
-                this.freeRegisters.createSpecificMapping(virtRegTarget, HardwareRegister.RAX).orElseThrow();
+                allocCall.setTarget(HardwareRegister.RAX);
             }
             case MethodCallInstruction methodCall -> {
                 switch (methodCall.getMethod()) {
@@ -509,9 +711,8 @@ public class OnTheFlyRegisterAllocator {
                         if (!(intrinsic.getReturnTy() instanceof VoidTy)) {
                             var targetVirtReg = (VirtualRegister)methodCall.getTarget();
                             // The only intrinsic function that has a return value is System.in.read which returns a 32bit int.
-                            methodCall.setTarget(HardwareRegister.EAX);
-                            this.dirty.put(targetVirtReg, true);
-                            this.freeRegisters.createSpecificMapping(targetVirtReg, HardwareRegister.EAX);
+                            var targetHardwareReg = this.initialiseVirtualRegisterInto(targetVirtReg, HardwareRegister.EAX, newList);
+                            methodCall.setTarget(targetHardwareReg);
                         }
                     }
                     case DefinedMethod method -> {
@@ -533,10 +734,9 @@ public class OnTheFlyRegisterAllocator {
                         if (!(method.getReturnTy() instanceof VoidTy)) {
                             var targetVirtReg = (VirtualRegister) methodCall.getTarget();
 
-                            var targetHardwareReg = HardwareRegister.RAX.forWidth(targetVirtReg.getWidth());
+                            // The only intrinsic function that has a return value is System.in.read which returns a 32bit int.
+                            var targetHardwareReg = this.initialiseVirtualRegisterInto(targetVirtReg, HardwareRegister.Group.A.getRegister(targetVirtReg.getWidth()), newList);
                             methodCall.setTarget(targetHardwareReg);
-                            this.dirty.put(targetVirtReg, true);
-                            this.freeRegisters.createSpecificMapping(targetVirtReg, targetHardwareReg);
                         }
 
                         // free stack space
@@ -615,13 +815,29 @@ public class OnTheFlyRegisterAllocator {
         }
     }
 
-    private void allocateBasicBlock(BasicBlock bb) {
+    private void allocateBasicBlock(BasicBlock bb, int startInstructionIndex) {
         List<Instruction> newList = new ArrayList<>();
 
-        // Globber all registers
-        this.freeRegisters.clearAllMappings();
+        var expectedLiveRegs = this.blockIns.get(bb);
+        //// The block ins need to be defined before we can start allocate the basic block.
+        //assert expectedLiveRegs != null;
+        //// the expected live registers have to be a subset of the currently live registers.
+        //assert this.freeRegisters.getMapping().leftSet().containsAll(expectedLiveRegs);
+        //// The expected live registers are mapped to their expected respective hardware registers.
+        //assert this.freeRegisters.getMapping().leftSet().stream().allMatch(reg -> this.freeRegisters.getMapping(reg).orElseThrow().equals(this.interBlockRegisterAssignment.get(reg)));
+        //// BlockIns can only ever be registers that appear in multiple blocks. Otherwise these registers should have died by the end of their block.
+        //assert this.interBlockRegisters.containsAll(expectedLiveRegs);
 
-        // add function prolog
+        // Remove live registers that are not expected.
+        // These can occur when we are coming from a branch which needs to satisfy two sets of expected live registers. (each target block respectively)
+        this.freeRegisters.clearAllMappings();
+        expectedLiveRegs.forEach(reg -> {
+            this.freeRegisters.createSpecificMapping(reg, this.interBlockRegisterAssignment.get(reg));
+            // The register might be dirty, so we conservatively just set it to true and accept possibly unecessary stores.
+            this.dirty.put(reg, true);
+        });
+
+        // add function prolog to the starting block
         if (bb == this.graph.getStartBlock()) {
             newList.add(new PushInstruction(HardwareRegister.RBP));
             newList.add(new MovInstruction(Register.Width.BIT64, HardwareRegister.RBP, HardwareRegister.RSP));
@@ -632,7 +848,7 @@ public class OnTheFlyRegisterAllocator {
 
         for (int i = 0; i < bb.getInstructions().size(); i++) {
             var instruction = bb.getInstructions().get(i);
-            var liveRegisters = this.lifetimes.getLiveRegisters(bb, i);
+            var liveRegisters = this.lifetimes.getLiveRegisters(startInstructionIndex + i);
             this.allocateRegForInstruction(instruction, liveRegisters, newList);
         }
 

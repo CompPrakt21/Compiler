@@ -13,6 +13,7 @@ public class DumpSir {
     private final HashSet<BasicBlock> visited;
 
     private boolean withBlockSchedule;
+    private boolean withInstructionIndices;
 
     public DumpSir(PrintWriter out, SirGraph sirGraph) {
         this.out = out;
@@ -22,6 +23,11 @@ public class DumpSir {
 
     public DumpSir withBlockSchedule(boolean b) {
         this.withBlockSchedule = b;
+        return this;
+    }
+
+    public DumpSir withInstructionIndices(boolean b) {
+        this.withInstructionIndices = b;
         return this;
     }
 
@@ -51,7 +57,7 @@ public class DumpSir {
         this.out.format("%s -> %s [label=\"%s\"%s];\n", start.getLabel(), end.getLabel(), label, constraint);
     }
 
-    private void dumpBasicBlock(BasicBlock bb) {
+    private void dumpBasicBlock(BasicBlock bb, int startInstructionIndex) {
         if (this.visited.contains(bb)) {
             return;
         } else {
@@ -61,22 +67,20 @@ public class DumpSir {
         StringBuilder label = new StringBuilder();
         label.append(String.format("%s\\l", bb.getLabel()));
 
+        int instructionIndex = startInstructionIndex;
         for (var instruction : bb.getInstructions()) {
-            label.append(String.format("%s\\l", this.formatInstruction(instruction)));
+            var index = this.withInstructionIndices ? String.format("%04d ", instructionIndex) : "";
+            label.append(String.format("%s%s\\l", index, this.formatInstruction(instruction)));
+            instructionIndex += 1;
         }
 
         this.out.format("%s [label=\"%s\", shape=rectangle];\n", bb.getLabel(), label);
 
-        var controlFlowInstruction = (ControlFlowInstruction)bb.getInstructions().get(bb.getInstructions().size() - 1);
-
-        switch (controlFlowInstruction) {
+        switch (bb.getLastInstruction()) {
             case JumpInstruction jump -> {
-                this.dumpBasicBlock(jump.getTarget());
                 this.printTarget(bb, jump.getTarget(), "");
             }
             case BranchInstruction branch -> {
-                this.dumpBasicBlock(branch.getTrueBlock());
-                this.dumpBasicBlock(branch.getFalseBlock());
                 this.printTarget(bb, branch.getTrueBlock(), "true");
                 this.printTarget(bb, branch.getFalseBlock(), "false");
             }
@@ -87,7 +91,11 @@ public class DumpSir {
     public void dump() {
         this.out.format("digraph {\n");
 
-        this.dumpBasicBlock(this.sirGraph.getStartBlock());
+        for (int i = 0; i < this.sirGraph.getBlocks().size(); i++) {
+            var bb = this.sirGraph.getBlocks().get(i);
+            var startInstructionIndex = this.sirGraph.getStartInstructionIndices().get(i);
+            this.dumpBasicBlock(bb, startInstructionIndex);
+        }
 
         if (this.withBlockSchedule) {
             var blockSchedule = this.sirGraph.getBlocks();
