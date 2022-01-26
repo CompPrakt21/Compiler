@@ -8,8 +8,6 @@ import firm.nodes.*;
 
 import java.util.*;
 import java.util.function.*;
-import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 
 public class Optimization {
 
@@ -40,12 +38,13 @@ public class Optimization {
     public static void optimizeFull(Graph g) {
         Optimization o = new Optimization(g);
         o.constantFolding();
-        o.simplifyArithmeticExpressions();
         o.eliminateRedundantSideEffects();
+        o.simplifyArithmeticExpressions();
         o.commonSubexpressionElimination();
-        o.eliminateRedundantPhis();
         o.eliminateSingletonBlocks();
         o.eliminateTrivialConds();
+        o.inlineTrivialBlocks();
+        o.eliminateRedundantPhis();
     }
 
     public void constantFolding() {
@@ -136,10 +135,7 @@ public class Optimization {
         updateBlockPhis();
         BackEdges.enable(g);
         g.walkBlocksPostorder(block -> {
-            List<Node> content = StreamSupport.stream(BackEdges.getOuts(block).spliterator(), false)
-                    .map(e -> e.node)
-                    .filter(n -> n.getBlock().equals(block))
-                    .collect(Collectors.toList());
+            List<Node> content = FirmUtils.blockContent(block);
             if (content.size() != 1) {
                 return;
             }
@@ -217,6 +213,29 @@ public class Optimization {
                 FirmUtils.setPreds(p, pPreds);
             }
         }
+        BackEdges.disable(g);
+        // We changed the control structure, so better be careful ...
+        g.confirmProperties(binding_irgraph.ir_graph_properties_t.IR_GRAPH_PROPERTIES_NONE);
+    }
+
+    public void inlineTrivialBlocks() {
+        BackEdges.enable(g);
+        g.walkBlocksPostorder(block -> {
+            List<Node> preds = FirmUtils.preds(block);
+            if (preds.size() != 1) {
+                return;
+            }
+            // This block should not have a Phi at this point, since it must be trivial.
+            if (!(preds.get(0) instanceof Jmp j)) {
+                return;
+            }
+            Block inlineTargetBlock = (Block) j.getBlock();
+            List<Node> content = FirmUtils.blockContent(block);
+            for (Node n : content) {
+                n.setBlock(inlineTargetBlock);
+            }
+            FirmUtils.setPreds(block, new ArrayList<>());
+        });
         BackEdges.disable(g);
         // We changed the control structure, so better be careful ...
         g.confirmProperties(binding_irgraph.ir_graph_properties_t.IR_GRAPH_PROPERTIES_NONE);
