@@ -3,15 +3,14 @@ package compiler;
 import compiler.utils.FirmUtils;
 import firm.*;
 import firm.bindings.binding_irdom;
-import firm.bindings.binding_irgmod;
 import firm.bindings.binding_irgraph;
 import firm.bindings.binding_irnode;
 import firm.nodes.*;
 
 import java.util.*;
 import java.util.function.*;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.StreamSupport;
 
 public class Optimization {
 
@@ -44,7 +43,9 @@ public class Optimization {
         o.constantFolding();
         o.eliminateRedundantSideEffects();
         o.simplifyArithmeticExpressions();
+        o.loopInvariantCodeMotion();
         o.commonSubexpressionElimination();
+        o.eliminateRedundantPhis();
         o.eliminateSingletonBlocks();
         o.eliminateTrivialConds();
         o.inlineTrivialBlocks();
@@ -569,6 +570,158 @@ public class Optimization {
             }
             exprNodes.put(e, syntacticallyEqualNodes);
         }
+        BackEdges.disable(g);
+    }
+
+    private void loopInvariantCodeMotionWalker(Node node, Set<Node> visited, Set<Block> loopBlocks, Block loopHead, Map<Node, Integer> movableNodes) {
+        // already visited node or the node is outside the loop.
+        if (visited.contains(node) || !loopBlocks.contains((Block) node.getBlock())) {
+            return;
+        }
+        visited.add(node);
+
+        // Try moving predecessors first
+        for (var pred : node.getPreds()) {
+            loopInvariantCodeMotionWalker(pred, visited, loopBlocks, loopHead, movableNodes);
+        }
+
+        // These nodes better not be moved.
+        if (node instanceof Block
+                || node instanceof End
+                || node instanceof Start
+                || node instanceof Jmp
+                || node instanceof Cond
+                || node instanceof Return
+                || node instanceof Phi
+        ) return;
+
+        // The node can be moved before the loop if all predecessor are in a block which strictly dominates the loop head or
+        // the predecessor can be moved outside the loop.
+        var canBeMoved = StreamSupport.stream(node.getPreds().spliterator(), false).allMatch(
+                pred -> binding_irdom.block_dominates(pred.getBlock().ptr, loopHead.ptr) != 0 && !loopHead.equals(pred.getBlock())
+                    || movableNodes.containsKey(pred)
+        );
+
+        if (canBeMoved) {
+            // We assign each movable node a weight to determine whether it should actually be moved before the loop.
+            // We don't want to move cheap operations since every move increases register pressure.
+            var predWeights = StreamSupport.stream(node.getPreds().spliterator(), false).map(pred -> {
+                var c = movableNodes.get(pred);
+                if (c == null) {
+                    c = 0;
+                }
+                return c;
+            }).max(Comparator.naturalOrder()).orElse(0);
+
+            // We weight certain more or less depending how useful they are to be moved.
+            var weight = predWeights + switch (node) {
+                case Mul ignored -> 2;   // Comparatively expensive operation
+                case Minus ignored -> 0; // almost always folded into a sub instruction
+                case Conv ignored -> 0;
+                case Cmp ignored -> 0;   // It doesn't matter if cmp nodes are moved, when generating the branch
+                                         // which is still inside the loop, it will get pulled down again.
+                default -> 1;
+            };
+
+            movableNodes.put(node, weight);
+        }
+    }
+
+    private void moveNodeOutsideLoop(Node n, Block target, Map<Node, Integer> movable) {
+        for (var pred : n.getPreds()) {
+            if (movable.containsKey(pred)) {
+                movable.remove(pred);
+                this.moveNodeOutsideLoop(pred, target, movable);
+            }
+        }
+        n.setBlock(target);
+    }
+
+    public void loopInvariantCodeMotion() {
+        BackEdges.enable(g);
+        binding_irdom.compute_doms(g.ptr);
+        binding_irdom.compute_postdoms(g.ptr);
+
+        record Loop(Block head, Block tail){}
+        List<Loop> loops = new ArrayList<>();
+
+        // Find all loops in the graph
+        g.walkBlocks(head -> {
+            for (var pred : head.getPreds()) {
+                var tail = (Block) pred.getBlock();
+                if (binding_irdom.block_dominates(head.ptr, tail.ptr) != 0) {
+                    loops.add(new Loop(head, tail));
+                }
+            }
+        });
+
+        for (var loop : loops) {
+            // Collect all blocks that make up this loop.
+            var blocksInLoop = new ArrayList<Block>();
+            g.walkBlocks(block -> {
+                if (binding_irdom.block_dominates(loop.head.ptr, block.ptr) != 0
+                        && binding_irdom.block_dominates(block.ptr, loop.tail.ptr) != 0) {
+                    blocksInLoop.add(block);
+                }
+            });
+            var loopBlocks = new HashSet<>(blocksInLoop);
+
+            // Visit every node in the loop and check if it can be moved.
+            // We do a DFS in the walker to guarantee that predecessors of a node are moved beforehand.
+            var movableNodes = new HashMap<Node, Integer>();
+            var visited = new HashSet<Node>();
+            for (var block : blocksInLoop) {
+                for (var node : BackEdges.getOuts(block)) {
+                    loopInvariantCodeMotionWalker(node.node, visited, loopBlocks, loop.head, movableNodes);
+                }
+            }
+
+            if (!movableNodes.isEmpty()) {
+                // Find or create block to move nodes into.
+                // This block needs to dominate and be postdominated by the loop head in order to avoid unnecessary calculation
+                // of the moved nodes.
+
+                var headPredsIndices = new ArrayList<Integer>();
+                for (int i = 0; i < loop.head.getPredCount(); i++) {
+                    var pred = loop.head.getPred(i);
+                    if (pred instanceof Jmp || pred instanceof Proj) {
+                        if (!pred.getBlock().equals(loop.tail)) {
+                            headPredsIndices.add(i);
+                        }
+                    }
+                }
+
+                assert headPredsIndices.size() == 1;
+
+                var loopHeadPredecessor = loop.head.getPred(headPredsIndices.get(0));
+
+                Block targetBlock;
+                // We see if the dominating predecessor of the loop is a branch.
+                // If so we want to insert a new block between the this block and the loop head to avoid partial redundancies.
+                var controlFlowSuccessor = StreamSupport.stream(BackEdges.getOuts(loopHeadPredecessor.getBlock()).spliterator(), false)
+                        .filter(succ -> succ.node instanceof Block)
+                        .count();
+                if (controlFlowSuccessor > 1) {
+                    targetBlock = (Block) this.g.newBlock(new Node[]{ loopHeadPredecessor });
+                    var jmp = this.g.newJmp(targetBlock);
+                    loop.head.setPred(headPredsIndices.get(0), jmp);
+                } else {
+                    targetBlock = (Block) loopHeadPredecessor.getBlock();
+                }
+
+                while (!movableNodes.isEmpty()) {
+                    var pair = movableNodes.entrySet().stream().filter(p -> p.getValue() >= 2).findAny();
+
+                    if (pair.isEmpty()) {
+                        break;
+                    }
+
+                    movableNodes.remove(pair.get().getKey());
+                    this.moveNodeOutsideLoop(pair.get().getKey(), targetBlock, movableNodes);
+                }
+            }
+        }
+
         BackEdges.disable(g);
     }
 }
