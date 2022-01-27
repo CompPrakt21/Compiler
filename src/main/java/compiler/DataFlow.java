@@ -1,11 +1,15 @@
 package compiler;
 
+import compiler.semantic.resolution.DefinedMethod;
+import compiler.semantic.resolution.MethodDefinition;
+import compiler.types.Ty;
 import compiler.utils.FirmUtils;
 import compiler.utils.GenericNodeWalker;
 import firm.*;
 import firm.nodes.*;
 
 import java.util.*;
+import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -394,5 +398,193 @@ public class DataFlow {
         }
         BackEdges.disable(g);
         return new ConstantPropagation(values, isExecutable, controlFlowTarget);
+    }
+
+    private static boolean isMemNode(Node n) {
+        return n instanceof Proj p && p.getMode().isValuesInMode(Mode.getM())
+                || n instanceof Phi phi && phi.getMode().isValuesInMode(Mode.getM())
+                || n instanceof Store || n instanceof Load || n instanceof Call
+                || n instanceof Div || n instanceof Mod;
+    }
+
+    private static <T> Set<T> intersect(List<Set<T>> sets) {
+        assert sets.size() > 0;
+        Set<T> primary = new HashSet<>(sets.get(0));
+        for (Set<T> set : sets) {
+            primary.retainAll(set);
+        }
+        return primary;
+    }
+
+    public record LoadLoad(Load firstLoad, Load secondLoad) {}
+    public record StoreLoad(Store store, Load load) {}
+
+    @FunctionalInterface
+    private interface WorklistUpdater {
+        void run(Node... children);
+    }
+
+    public static List<LoadLoad> analyzeLoadLoad(Graph g, Map<Node, Ty> nodeAstTypes, Map<Call, MethodDefinition> methodReferences) {
+        AliasAnalysis aa = new AliasAnalysis(g, nodeAstTypes);
+        ArrayDeque<Node> worklist = new ArrayDeque<>();
+        NodeCollector.run(g).stream().filter(DataFlow::isMemNode).forEach(worklist::add);
+        Set<Load> allLoads = worklist.stream()
+                .filter(n -> n instanceof Load)
+                .map(n -> (Load) n)
+                .collect(Collectors.toSet());
+        Map<Node, Set<Load>> availableLoads = worklist.stream()
+                .collect(Collectors.toMap(n -> n, n -> new HashSet<>(allLoads)));
+        availableLoads.put(g.getStart(), new HashSet<>());
+        BiConsumer<Node, Node> forward = (from, to) -> {
+            availableLoads.put(to, new HashSet<>(availableLoads.get(from)));
+        };
+        BackEdges.enable(g);
+        while (!worklist.isEmpty()) {
+            Node n = worklist.removeFirst();
+            Set<Load> previousAvailableLoads = availableLoads.get(n);
+            switch (n) {
+                case Proj p -> {
+                    forward.accept(p.getPred(), p);
+                }
+                case Div d -> {
+                    forward.accept(d.getMem(), d);
+                }
+                case Mod m -> {
+                    forward.accept(m.getMem(), m);
+                }
+                case Phi phi -> {
+                    Set<Load> availableLoadsAfterPhi = intersect(FirmUtils.preds(phi).stream()
+                            .map(availableLoads::get)
+                            .collect(Collectors.toList()));
+                    availableLoads.put(phi, availableLoadsAfterPhi);
+                }
+                case Store s -> {
+                    Set<Load> availableLoadsAfterStore = availableLoads.get(s.getMem()).stream()
+                            .filter(load -> aa.guaranteedNotAliased(load.getPtr(), s.getPtr()))
+                            .collect(Collectors.toSet());
+                    availableLoads.put(s, availableLoadsAfterStore);
+                }
+                case Load l -> {
+                    Set<Load> previous = new HashSet<>(availableLoads.get(l.getMem()));
+                    // A previous available load that wasn't killed yet is better than l if they have the same pointer.
+                    if (!previous.stream().anyMatch(prevLoad -> prevLoad.getPtr().equals(l.getPtr()))) {
+                        previous.add(l);
+                    }
+                    availableLoads.put(l, previous);
+                }
+                case Call c -> {
+                    if (methodReferences.get(c) instanceof DefinedMethod) {
+                        // We don't know anything about our loads or stores after a method call.
+                        availableLoads.put(c, new HashSet<>());
+                    } else {
+                        // This is an alloc or an internal call - these don't touch any memory locations.
+                        forward.accept(c.getMem(), c);
+                    }
+                }
+                case Start ignored -> { /* ignored */ }
+                default -> throw new AssertionError("Ran into non-memory-node case on nodes that are only memory nodes");
+            }
+            if (!previousAvailableLoads.equals(availableLoads.get(n))) {
+                List<Node> changed = FirmUtils.backEdgeTargets(n).stream()
+                        .filter(availableLoads::containsKey)
+                        .collect(Collectors.toList());
+                worklist.addAll(changed);
+            }
+        }
+        List<LoadLoad> loadLoadPairs = new ArrayList<>();
+        for (var n : availableLoads.keySet()) {
+            Set<Load> loads = availableLoads.get(n);
+            if (!(n instanceof Load l)) {
+                continue;
+            }
+            Optional<Load> maybeLoadLoad = loads.stream()
+                    .filter(aLoad -> !l.equals(aLoad) && l.getPtr().equals(aLoad.getPtr()))
+                    .findFirst();
+            if (maybeLoadLoad.isPresent()) {
+                loadLoadPairs.add(new LoadLoad(maybeLoadLoad.get(), l));
+            }
+        }
+        BackEdges.disable(g);
+        return loadLoadPairs;
+    }
+
+    public static List<StoreLoad> analyzeStoreLoad(Graph g, Map<Node, Ty> nodeAstTypes, Map<Call, MethodDefinition> methodReferences) {
+        AliasAnalysis aa = new AliasAnalysis(g, nodeAstTypes);
+        ArrayDeque<Node> worklist = new ArrayDeque<>();
+        NodeCollector.run(g).stream().filter(DataFlow::isMemNode).forEach(worklist::add);
+        Set<Store> allStores = worklist.stream()
+                .filter(n -> n instanceof Store)
+                .map(n -> (Store) n)
+                .collect(Collectors.toSet());
+        Map<Node, Set<Store>> availableStores = worklist.stream()
+                .collect(Collectors.toMap(n -> n, n -> new HashSet<>(allStores)));
+        availableStores.put(g.getStart(), new HashSet<>());
+        BiConsumer<Node, Node> forward = (from, to) -> {
+            availableStores.put(to, new HashSet<>(availableStores.get(from)));
+        };
+        BackEdges.enable(g);
+        while (!worklist.isEmpty()) {
+            Node n = worklist.removeFirst();
+            Set<Store> previousAvailableStores = availableStores.get(n);
+            switch (n) {
+                case Proj p -> {
+                    forward.accept(p.getPred(), p);
+                }
+                case Div d -> {
+                    forward.accept(d.getMem(), d);
+                }
+                case Mod m -> {
+                    forward.accept(m.getMem(), m);
+                }
+                case Phi phi -> {
+                    Set<Store> availableStoresAfterPhi = intersect(FirmUtils.preds(phi).stream()
+                            .map(availableStores::get)
+                            .collect(Collectors.toList()));
+                    availableStores.put(phi, availableStoresAfterPhi);
+                }
+                case Store s -> {
+                    Set<Store> availableStoresAfterStore = availableStores.get(s.getMem()).stream()
+                            .filter(store -> aa.guaranteedNotAliased(store.getPtr(), s.getPtr()))
+                            .collect(Collectors.toSet());
+                    availableStoresAfterStore.add(s);
+                    availableStores.put(s, availableStoresAfterStore);
+                }
+                case Load l -> {
+                    forward.accept(l.getMem(), l);
+                }
+                case Call c -> {
+                    if (methodReferences.get(c) instanceof DefinedMethod) {
+                        // We don't know anything about our stores after a method call.
+                        availableStores.put(c, new HashSet<>());
+                    } else {
+                        // This is an alloc or an internal call - these don't touch any memory locations.
+                        forward.accept(c.getMem(), c);
+                    }
+                }
+                case Start ignored -> { /* ignored */ }
+                default -> throw new AssertionError("Ran into non-memory-node case on nodes that are only memory nodes");
+            }
+            if (!previousAvailableStores.equals(availableStores.get(n))) {
+                List<Node> changed = FirmUtils.backEdgeTargets(n).stream()
+                        .filter(availableStores::containsKey)
+                        .collect(Collectors.toList());
+                worklist.addAll(changed);
+            }
+        }
+        List<StoreLoad> storeLoadPairs = new ArrayList<>();
+        for (var n : availableStores.keySet()) {
+            Set<Store> stores = availableStores.get(n);
+            if (!(n instanceof Load l)) {
+                continue;
+            }
+            Optional<Store> maybeStoreLoad = stores.stream()
+                    .filter(aStore -> l.getPtr().equals(aStore.getPtr()))
+                    .findFirst();
+            if (maybeStoreLoad.isPresent()) {
+                storeLoadPairs.add(new StoreLoad(maybeStoreLoad.get(), l));
+            }
+        }
+        BackEdges.disable(g);
+        return storeLoadPairs;
     }
 }

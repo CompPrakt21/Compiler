@@ -895,7 +895,7 @@ public class Translation {
                     }
 
                     if (optimize) {
-                        Optimization.optimizeFull(graph, methodReferences, dumpGraphs);
+                        Optimization.optimizeFull(graph, nodeAstTypes, methodReferences, dumpGraphs);
                     }
 
                     this.methodGraphs.put(definedMethod, graph);

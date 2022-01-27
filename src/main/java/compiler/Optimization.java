@@ -1,6 +1,7 @@
 package compiler;
 
 import compiler.semantic.resolution.MethodDefinition;
+import compiler.types.Ty;
 import compiler.utils.FirmUtils;
 import firm.*;
 import firm.bindings.binding_irdom;
@@ -11,18 +12,23 @@ import firm.nodes.*;
 
 import java.util.*;
 import java.util.function.*;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.StreamSupport;
 
 public class Optimization {
 
     private final Graph g;
+    // We're not keeping this one entirely up to date over the course of the optimization.
+    // This is fine because so far we only need data about `Proj` nodes, which we don't create ourselves.
+    private final Map<Node, Ty> nodeAstTypes;
     private final Map<Call, MethodDefinition> methodReferences;
 
     private Map<Block, List<Phi>> blockPhis;
 
-    public Optimization(Graph g, Map<Call, MethodDefinition> methodReferences) {
+    public Optimization(Graph g, Map<Node, Ty> nodeAstTypes, Map<Call, MethodDefinition> methodReferences) {
         this.g = g;
+        this.nodeAstTypes = nodeAstTypes;
         this.methodReferences = methodReferences;
     }
 
@@ -49,8 +55,8 @@ public class Optimization {
         }
     }
 
-    public static void optimizeFull(Graph g, Map<Call, MethodDefinition> methodReferences, boolean dumpGraphs) {
-        Optimization o = new Optimization(g, methodReferences);
+    public static void optimizeFull(Graph g, Map<Node, Ty> nodeAstTypes, Map<Call, MethodDefinition> methodReferences, boolean dumpGraphs) {
+        Optimization o = new Optimization(g, nodeAstTypes, methodReferences);
         o.constantFolding();
         dumpIfFlag(dumpGraphs,g, "after-const");
         o.eliminateRedundantSideEffects();
@@ -70,6 +76,10 @@ public class Optimization {
         o.inlineTrivialBlocks();
         dumpIfFlag(dumpGraphs,g, "after-inline-trivial-blocks");
         o.eliminateRedundantPhis();
+        //o.testAliasingAnalysis();
+        //o.testLoadStore();
+        o.loadLoad();
+        o.storeLoad();
         dumpIfFlag(dumpGraphs,g, "after-redundant-phis");
         o.eliminateUnusedAllocs();
         dumpIfFlag(dumpGraphs,g, "after-unused-allocs");
@@ -592,6 +602,116 @@ public class Optimization {
                 syntacticallyEqualNodes.add(n);
             }
             exprNodes.put(e, syntacticallyEqualNodes);
+        }
+        BackEdges.disable(g);
+    }
+
+    public void testAliasingAnalysis() {
+        List<Node> loadStoreNodes = NodeCollector.run(g).stream()
+                .filter(n -> n instanceof Load || n instanceof Store)
+                .collect(Collectors.toList());
+        AliasAnalysis aa = new AliasAnalysis(g, nodeAstTypes);
+        for (Node a : loadStoreNodes) {
+            Node aPtr = a instanceof Load l ? l.getPtr() : ((Store) a).getPtr();
+            for (Node b : loadStoreNodes) {
+                if (a.equals(b)) {
+                    continue;
+                }
+                Node bPtr = b instanceof Load l ? l.getPtr() : ((Store) b).getPtr();
+                boolean notAliased = aa.guaranteedNotAliased(aPtr, bPtr);
+                if (notAliased) {
+                    System.out.println("Not aliased: " + aPtr + " and " + bPtr);
+                } else {
+                    System.out.println("Possibly aliased: " + aPtr + " and " + bPtr);
+                }
+            }
+        }
+    }
+
+    public void testLoadStore() {
+        List<DataFlow.LoadLoad> r1 = DataFlow.analyzeLoadLoad(g, nodeAstTypes, methodReferences);
+        for (DataFlow.LoadLoad ll : r1) {
+            System.out.println(ll.firstLoad() + "; " + ll.secondLoad());
+        }
+        List<DataFlow.StoreLoad> r2 = DataFlow.analyzeStoreLoad(g, nodeAstTypes, methodReferences);
+        for (DataFlow.StoreLoad sl : r2) {
+            System.out.println(sl.store() + "; " + sl.load());
+        }
+    }
+
+    public void loadLoad() {
+        List<DataFlow.LoadLoad> r = DataFlow.analyzeLoadLoad(g, nodeAstTypes, methodReferences);
+        System.out.println(r.size());
+        BackEdges.enable(g);
+        for (DataFlow.LoadLoad ll : r) {
+            Load dominator = ll.firstLoad();
+            Load dominated = ll.secondLoad();
+            for (BackEdges.Edge e : FirmUtils.backEdges(dominated)) {
+                if (e.node.getMode().isValuesInMode(Mode.getM())) {
+                    // The dominated Load and its associated Proj get removed on the memory path
+                    if (!(e.node instanceof Proj p)) {
+                        // This shouldn't happen, but let's be careful.
+                        continue;
+                    }
+                    for (BackEdges.Edge e2 : FirmUtils.backEdges(p)) {
+                        e2.node.setPred(e2.pos, dominated.getMem());
+                    }
+                } else {
+                    // The value of the dominated Load is taken from the Proj node of the dominator.
+                    Optional<Proj> maybeProj = FirmUtils.backEdgeTargets(dominator).stream()
+                            .filter(n -> n instanceof Proj p && !p.getMode().isValuesInMode(Mode.getM()))
+                            .map(n -> (Proj) n)
+                            .findFirst();
+                    if (!maybeProj.isPresent()) {
+                        // This shouldn't happen, but let's be careful.
+                        continue;
+                    }
+                    if (!(e.node instanceof Proj p)) {
+                        // This shouldn't happen, but let's be careful.
+                        continue;
+                    }
+                    for (BackEdges.Edge e2 : FirmUtils.backEdges(p)) {
+                        e2.node.setPred(e2.pos, maybeProj.get());
+                    }
+                }
+                BackEdges.disable(g);
+                BackEdges.enable(g);
+            }
+        }
+        BackEdges.disable(g);
+    }
+
+    public void storeLoad() {
+        List<DataFlow.StoreLoad> r = DataFlow.analyzeStoreLoad(g, nodeAstTypes, methodReferences);
+        BackEdges.enable(g);
+        for (DataFlow.StoreLoad sl : r) {
+            Store dominator = sl.store();
+            Load dominated = sl.load();
+            List<BackEdges.Edge> edges = FirmUtils.backEdges(dominated);
+            for (Node n : FirmUtils.backEdgeTargets(dominated)) {
+                if (n.getMode().isValuesInMode(Mode.getM())) {
+                    // The dominated Load and its associated Proj get removed on the memory path
+                    if (!(n instanceof Proj p)) {
+                        // This shouldn't happen, but let's be careful.
+                        continue;
+                    }
+                    for (BackEdges.Edge e2 : FirmUtils.backEdges(p)) {
+                        e2.node.setPred(e2.pos, dominated.getMem());
+                    }
+                } else {
+                    // The value of the dominated Load is taken from the dominator and the associated
+                    // Proj is removed.
+                    if (!(n instanceof Proj p)) {
+                        // This shouldn't happen, but let's be careful.
+                        continue;
+                    }
+                    for (BackEdges.Edge e : FirmUtils.backEdges(p)) {
+                        e.node.setPred(e.pos, dominator.getValue());
+                    }
+                }
+            }
+            BackEdges.disable(g);
+            BackEdges.enable(g);
         }
         BackEdges.disable(g);
     }
