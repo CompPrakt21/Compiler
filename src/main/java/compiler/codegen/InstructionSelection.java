@@ -82,6 +82,10 @@ public class InstructionSelection extends FirmToLlir {
         return n instanceof Const c && isValidIndexScale(c.getTarval().asInt());
     }
 
+    private static boolean isConstWith32Bit(Node n) {
+        return n instanceof Const c && Util.fitsInto32Bit(c.getTarval().asLong());
+    }
+
     /**
      * Tries to match addr node to the x86 memory location pattern [constant + base + index * scale].
      * Compared to matchMemoryLocation this method checks that addr can actually be folded together with memNode.
@@ -143,11 +147,13 @@ public class InstructionSelection extends FirmToLlir {
                     summands.add(new Summand(Optional.of(lAdd), lAdd.getRight()));
                     summands.add(new Summand(Optional.of(add), rAdd));
                 }
-            } else if (add.getLeft() instanceof Add lAdd && canBeFoldedIntoInstruction(add, lAdd) && (isConstWithValidIndex(lAdd.getRight()) || isConstWithValidIndex(lAdd.getRight()) || isConstWithValidIndex(add.getRight()))) {
+            } else if (add.getLeft() instanceof Add lAdd && canBeFoldedIntoInstruction(add, lAdd)
+                    && (isConstWith32Bit(lAdd.getRight()) || isConstWith32Bit(lAdd.getRight()) || isConstWith32Bit(add.getRight()))) {
                 summands.add(new Summand(Optional.of(lAdd), lAdd.getLeft()));
                 summands.add(new Summand(Optional.of(lAdd), lAdd.getRight()));
                 summands.add(new Summand(Optional.of(add), add.getRight()));
-            } else if (add.getRight() instanceof Add rAdd && canBeFoldedIntoInstruction(add, rAdd) && (isConstWithValidIndex(rAdd.getRight()) || isConstWithValidIndex(rAdd.getRight()) || isConstWithValidIndex(add.getLeft()))) {
+            } else if (add.getRight() instanceof Add rAdd && canBeFoldedIntoInstruction(add, rAdd)
+                    && (isConstWith32Bit(rAdd.getRight()) || isConstWith32Bit(rAdd.getRight()) || isConstWith32Bit(add.getLeft()))) {
                 summands.add(new Summand(Optional.of(rAdd), rAdd.getLeft()));
                 summands.add(new Summand(Optional.of(rAdd), rAdd.getRight()));
                 summands.add(new Summand(Optional.of(add), add.getLeft()));
@@ -344,7 +350,7 @@ public class InstructionSelection extends FirmToLlir {
                 haveConstSummand = true;
             } else if (!haveMulSummand && summand instanceof Mul mul && (isConstWithValidIndex(mul.getLeft()) || isConstWithValidIndex(mul.getRight()))) {
                 haveMulSummand = true;
-                haveIndexSummand = false;
+                haveIndexSummand = true;
             } else if (!haveRegisterSummand) {
                 haveRegisterSummand = true;
             } else if (!haveMulSummand && !haveIndexSummand) {
