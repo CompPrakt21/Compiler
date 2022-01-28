@@ -326,14 +326,14 @@ public class InstructionSelection extends FirmToLlir {
     private boolean shouldBeLEA(Add add) {
         var summands = new ArrayList<>();
 
-        if (add.getRight() instanceof Add rAdd) {
+        if (add.getRight() instanceof Add rAdd && canBeFoldedIntoInstruction(add, rAdd)) {
             summands.add(rAdd.getLeft());
             summands.add(rAdd.getRight());
         } else {
             summands.add(add.getRight());
         }
 
-        if (add.getLeft() instanceof Add lAdd) {
+        if (add.getLeft() instanceof Add lAdd && canBeFoldedIntoInstruction(add, lAdd)) {
             summands.add(lAdd.getLeft());
             summands.add(lAdd.getRight());
         } else {
@@ -348,7 +348,7 @@ public class InstructionSelection extends FirmToLlir {
         for (var summand : summands) {
             if (!haveConstSummand && summand instanceof Const) {
                 haveConstSummand = true;
-            } else if (!haveMulSummand && summand instanceof Mul mul && (isConstWithValidIndex(mul.getLeft()) || isConstWithValidIndex(mul.getRight()))) {
+            } else if (!haveMulSummand && summand instanceof Mul mul && canBeFoldedIntoInstruction(add, mul) && (isConstWithValidIndex(mul.getLeft()) || isConstWithValidIndex(mul.getRight()))) {
                 haveMulSummand = true;
                 haveIndexSummand = true;
             } else if (!haveRegisterSummand) {
