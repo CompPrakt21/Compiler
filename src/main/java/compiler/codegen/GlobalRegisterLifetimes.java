@@ -148,14 +148,20 @@ public class GlobalRegisterLifetimes {
                 for (var liveReg : newLiveRegs) {
                     if (!this.lastUse.containsKey(liveReg)) {
                         this.liveIntervals.put(liveReg, new Interval(-10, currentInstructionIndex - 1));
-                        this.lastUse.put(liveReg, new InstructionPoint(currentInstructionIndex, (Stack<Interval>) activeLoops.clone()));
+
+                        var clonedStack = new Stack<Interval>();
+                        clonedStack.addAll(activeLoops);
+                        this.lastUse.put(liveReg, new InstructionPoint(currentInstructionIndex, clonedStack));
                     }
                 }
 
                 var writtenReg = instruction.getWrittenRegister();
                 if (writtenReg.isPresent()) {
                     var reg = (VirtualRegister) writtenReg.get();
-                    this.earliestDefinition.put(reg, new InstructionPoint(currentInstructionIndex, (Stack<Interval>) activeLoops.clone()));
+
+                    var clonedStack = new Stack<Interval>();
+                    clonedStack.addAll(activeLoops);
+                    this.earliestDefinition.put(reg, new InstructionPoint(currentInstructionIndex, clonedStack));
 
                     var regInterval = this.liveIntervals.get(reg);
                     // if reg is never used or the second mov of a phi a read might never been encountered.
