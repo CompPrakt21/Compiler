@@ -16,6 +16,10 @@ public final class JumpInstruction extends ControlFlowNode {
         return this.targets.get(0);
     }
 
+    public void setTarget(BasicBlock target) {
+        this.targets.set(0, target);
+    }
+
     @Override
     public Stream<LlirNode> getPreds() {
         return super.getPreds();

@@ -445,35 +445,6 @@ public class FirmToLlir implements NodeVisitor {
         return block;
     }
 
-    /**
-     * Utility method to insert control flow edges into llir graph.
-     * If the control flow edge is critical, this method will insert
-     * the second jump from the inserted basic block to the original target block
-     * and return the inserted basic block.
-     * Otherwise it will return the provided targetBlock.
-     */
-    private BasicBlock insertControlFlowEdge(Node start, Block targetBlock) {
-
-        var targetBasicBlock = getBasicBlock(targetBlock);
-
-        var predIdx = -1;
-        for (int i = 0; i < targetBlock.getPredCount(); i++) {
-            if (targetBlock.getPred(i).equals(start)) {
-                predIdx = i;
-                break;
-            }
-        }
-        assert predIdx >= 0;
-
-        if (isCriticalEdge(targetBlock, start)) {
-            var insertedBb = getInsertedBlockOnCriticalEdge(targetBlock, predIdx);
-            insertedBb.finish(insertedBb.newJump(targetBasicBlock));
-            return insertedBb;
-        } else {
-            return targetBasicBlock;
-        }
-    }
-
     private void resolvePhi(Phi phi) {
         var register = this.phis.get(phi);
 
@@ -690,8 +661,8 @@ public class FirmToLlir implements NodeVisitor {
 
         var targetBlock = (Block)BackEdges.getOuts(jump).iterator().next().node;
 
-        var actualTargetBlock = this.insertControlFlowEdge(jump, targetBlock);
-        bb.finish(bb.newJump(actualTargetBlock));
+        var llirTargetBlock = getBasicBlock(targetBlock);
+        bb.finish(bb.newJump(llirTargetBlock));
     }
 
     public void visit(Not not) {
@@ -771,10 +742,10 @@ public class FirmToLlir implements NodeVisitor {
         assert trueProj != null && falseProj != null;
 
         Block trueTargetBlock = (Block)BackEdges.getOuts(trueProj).iterator().next().node;
-        var trueTargetBasicBlock = this.insertControlFlowEdge(trueProj, trueTargetBlock);
+        var trueTargetBasicBlock = getBasicBlock(trueTargetBlock);
 
         Block falseTargetBlock = (Block)BackEdges.getOuts(falseProj).iterator().next().node;
-        var falseTargetBasicBlock = this.insertControlFlowEdge(falseProj, falseTargetBlock);
+        var falseTargetBasicBlock = getBasicBlock(falseTargetBlock);
 
         var llirBranch = bb.newBranch(predicate, llirCmp, trueTargetBasicBlock, falseTargetBasicBlock);
         this.registerLlirNode(cond, llirBranch);
@@ -882,7 +853,32 @@ public class FirmToLlir implements NodeVisitor {
         var edge = new Edge(block, predIdx);
 
         if (!this.insertedBlocks.containsKey(edge)) {
-            this.insertedBlocks.put(edge, llirGraph.newBasicBlock());
+            var preds = new ArrayList<Node>();
+            block.getPreds().iterator().forEachRemaining(preds::add);
+            var pred = preds.get(predIdx);
+
+            var insertedBlock = llirGraph.newBasicBlock();
+            var targetBlock = getBasicBlock(block);
+            insertedBlock.finish(insertedBlock.newJump(targetBlock));
+
+            if (pred instanceof Jmp jmp) {
+                var llirPred = (JumpInstruction) this.valueNodeMap.get(jmp);
+                llirPred.setTarget(insertedBlock);
+
+            } else if (pred instanceof Proj proj) {
+                assert proj.getMode().equals(Mode.getX());
+
+                var isFalse = proj.getNum() == 0;
+                var llirPred = (BranchInstruction) this.valueNodeMap.get(proj.getPred());
+
+                if (isFalse) {
+                    llirPred.setFalseBlock(insertedBlock);
+                } else {
+                    llirPred.setTrueBlock(insertedBlock);
+                }
+            }
+
+            this.insertedBlocks.put(edge, insertedBlock);
         }
 
         return this.insertedBlocks.get(edge);
