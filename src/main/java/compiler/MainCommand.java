@@ -293,19 +293,7 @@ public class MainCommand implements Callable<Integer> {
                     name = "__MiniJava_Main__";
                 }
 
-                emitter.beginFunction(name, pair.getKey().getParameterTy().size(), pair.getKey().getReturnTy() instanceof VoidTy);
-
-                for (var block : sirGraph.getBlocks()) {
-                    emitter.beginBlock(block);
-
-                    for (var insn : block.getInstructions()) {
-                        emitter.emitInstruction(insn);
-                    }
-
-                    emitter.endBlock();
-                }
-
-                emitter.endFunction();
+                emitter.emitFunction(name, sirGraph);
             }
 
             var asmOutputFile = new File(frontend.inputFile().getName() + ".s");

@@ -23,6 +23,10 @@ public final class BranchInstruction extends ControlFlowInstruction {
         return predicate;
     }
 
+    public void setPredicate(Predicate predicate) {
+        this.predicate = predicate;
+    }
+
     public BasicBlock getTrueBlock() {
         return trueBlock;
     }

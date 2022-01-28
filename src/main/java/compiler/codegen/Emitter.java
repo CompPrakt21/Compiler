@@ -1,6 +1,7 @@
 package compiler.codegen;
 
 import compiler.codegen.sir.BasicBlock;
+import compiler.codegen.sir.SirGraph;
 import compiler.codegen.sir.instructions.*;
 
 import java.io.File;
@@ -13,9 +14,26 @@ public class Emitter {
     private StringBuilder builder;
     private String currenFuncName;
 
+    private SirGraph graph;
+
     public Emitter() {
         this.builder = new StringBuilder();
         this.append(".text\n\n");
+    }
+
+    public void emitFunction(String linkerName, SirGraph graph) {
+        this.graph = graph;
+
+        this.beginFunction(linkerName);
+
+        for (int blockIdx = 0; blockIdx < graph.getBlocks().size(); blockIdx++) {
+            var block = graph.getBlocks().get(blockIdx);
+            this.beginBlock(block);
+
+            for (var insn : block.getInstructions()) {
+                this.emitInstruction(insn, blockIdx);
+            }
+        }
     }
 
     private void append(String string) {
@@ -27,8 +45,7 @@ public class Emitter {
         return currenFuncName + block.getLabel();
     }
 
-    /* TODO: Add function information */
-    public void beginFunction(String name, int numArgs, boolean isVoid) {
+    public void beginFunction(String name) {
         this.append(String.format(".globl\t%s", name));
         this.append(String.format(".type\t%s, @function", name));
         this.append(name +  ":");
@@ -40,15 +57,6 @@ public class Emitter {
         this.append(makeLabel(block) + ":");
     }
 
-    public void endBlock() {
-
-    }
-
-
-    public void endFunction() {
-
-    }
-
     private String movWidthSuffix(Register.Width width) {
         return switch (width) {
             case BIT8 -> "b";
@@ -57,7 +65,7 @@ public class Emitter {
         };
     }
 
-    public void emitInstruction(Instruction instruction) {
+    public void emitInstruction(Instruction instruction, int blockIdx) {
         String asm;
         switch (instruction) {
             case AddInstruction insn -> {
@@ -68,10 +76,22 @@ public class Emitter {
                 asm = String.format("\tcall %s", "__builtin_alloc_function__");
             }
             case BranchInstruction insn -> {
+                var nextBlock = this.graph.getBlocks().get(blockIdx + 1);
+
+                if (nextBlock != null && nextBlock.equals(insn.getTrueBlock())) {
+                    insn.setPredicate(insn.getPredicate().invert());
+                    var tmp = insn.getFalseBlock();
+                    insn.setFalseBlock(insn.getTrueBlock());
+                    insn.setTrueBlock(tmp);
+                }
+
                 asm = String.format("\tj%s %s",
                         insn.getPredicate().getSuffix(),
                         makeLabel(insn.getTrueBlock()));
-                asm += String.format("\n\tjmp %s", makeLabel(insn.getFalseBlock()));
+
+                if (nextBlock == null || !nextBlock.equals(insn.getFalseBlock())) {
+                    asm += String.format("\n\tjmp %s", makeLabel(insn.getFalseBlock()));
+                }
             }
             case CmpInstruction insn -> {
                 // AT&T reverses operands...
