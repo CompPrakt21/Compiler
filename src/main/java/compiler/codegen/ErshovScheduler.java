@@ -3,6 +3,7 @@ package compiler.codegen;
 import compiler.codegen.llir.BasicBlock;
 import compiler.codegen.llir.LlirAttribute;
 import compiler.codegen.llir.LlirGraph;
+import compiler.codegen.llir.nodes.CmpLikeInstruction;
 import compiler.codegen.llir.nodes.InputNode;
 import compiler.codegen.llir.nodes.LlirNode;
 import compiler.codegen.llir.nodes.MemoryInputNode;
@@ -33,6 +34,10 @@ public class ErshovScheduler {
     private void scheduleBasicBlock(BasicBlock bb) {
 
         for (var node : bb.getOutputNodes()) {
+            // Cmp should never be scheduled individually, since they should always occur directly before a branch.
+            if (node instanceof CmpLikeInstruction) {
+                continue;
+            }
             this.scheduleNode(node);
         }
         this.scheduleNode(bb.getEndNode());

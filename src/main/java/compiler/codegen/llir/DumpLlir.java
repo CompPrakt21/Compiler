@@ -210,7 +210,7 @@ public class DumpLlir {
             case BinaryInstruction a -> Stream.concat(Stream.of(new PredWithLabel(a.getLhs(), "lhs")), a.getRhs().getRegisters().stream().map(r -> new PredWithLabel(r, "rhs")));
             case BinaryFromMemInstruction a -> Stream.concat(Stream.of(new PredWithLabel(a.getLhs(), "lhs"), new PredWithLabel(a.getSideEffect().asLlirNode(), "mem")), a.getRhs().getRegisters().stream().map(r -> new PredWithLabel(r, "rhs")));
             case CmpInstruction a -> Stream.concat(Stream.of(new PredWithLabel(a.getLhs(), "lhs")), a.getRhs().getRegisters().stream().map(reg -> new PredWithLabel(reg, "rhs")));
-            case CmpFromMemInstruction a -> Stream.concat(Stream.of(new PredWithLabel(a.getLhs(), "lhs")), a.getRhs().getRegisters().stream().map(reg -> new PredWithLabel(reg, "rhs")));
+            case CmpFromMemInstruction a -> Stream.concat(Stream.of(new PredWithLabel(a.getLhs(), "lhs"), new PredWithLabel(a.getSideEffect().asLlirNode(), "mem")), a.getRhs().getRegisters().stream().map(reg -> new PredWithLabel(reg, "rhs")));
             case MovStoreInstruction mov -> Stream.concat(Stream.of(new PredWithLabel(mov.getSideEffect().asLlirNode(), "mem"), new PredWithLabel(mov.getValueNode(), "val")), mov.getAddress().getRegisters().stream().map(reg -> new PredWithLabel(reg, "")));
             case MovLoadInstruction mov -> Stream.concat(Stream.of(new PredWithLabel(mov.getSideEffect().asLlirNode(), "mem")), mov.getAddress().getRegisters().stream().map(reg -> new PredWithLabel(reg, "")));
             case CallInstruction call -> {
