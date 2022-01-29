@@ -14,8 +14,8 @@ public class InliningOptimization {
     private ArrayDeque<Node> worklist = new ArrayDeque<>();
 
     private ArrayList<Graph> activatedGraphs = new ArrayList<>();
-    private final int MAX_COPY_SIZE = 25;
-
+    private final int MAX_COPY_SIZE = 250;
+    private Stack<Graph> optimizedGraphs;
 
 
     private int size = Integer.MAX_VALUE;
@@ -25,8 +25,10 @@ public class InliningOptimization {
     private ArrayList<Proj> projNodes = new ArrayList<>();
 
 
-    public InliningOptimization(Graph g) {
+    public InliningOptimization(Graph g, Stack<Graph> optimizedGraphs) {
         graph = g;
+        this.optimizedGraphs = optimizedGraphs;
+        this.optimizedGraphs.add(graph);
         if (!BackEdges.enabled(graph))
             BackEdges.enable(graph);
         activatedGraphs.add(graph);
@@ -67,7 +69,6 @@ public class InliningOptimization {
         Node returnNode;
         Proj returnProj;
 
-
         Graph graph = targetBlock.getGraph();
         HashMap<Node, Node> copied = new HashMap<>();
         for (Node node : listOfToBeCopied) {
@@ -96,33 +97,49 @@ public class InliningOptimization {
     }
 
     private void inline(Optional<Proj> resultNode, Node aboveMemoryNodeBeforeAddressCall, Proj belowMemoryNodeAfterAddressCall, ArrayList<Node> sourceParameters, ArrayDeque<Node> remoteParameters, Node remoteResultNode, Proj remoteLastMemoryNode, Proj remoteFirstMemoryNode, Node callNode ) {
-
+        System.out.println("INLINED");
+        System.out.println(resultNode + " resultNode " + aboveMemoryNodeBeforeAddressCall + " aboveMemoryNodeBeforeAddressCall " + belowMemoryNodeAfterAddressCall + " belowMemoryNodeAfterAddressCall " + sourceParameters + " sourceParameters " +
+                remoteParameters + " remoteParameters " + remoteResultNode + " remoteResultNode " + remoteLastMemoryNode + " remoteLastMemoryNode " + remoteFirstMemoryNode + " remoteFirstMemoryNode " + callNode + " callNode ");
         Iterator<Node> predsIterator = callNode.getPreds().iterator();
          for (int i = 0; i < callNode.getPredCount(); i++) {
             Node node = predsIterator.next();
-            if (resultNode.isPresent() && node.equals(resultNode.get())) {
-                callNode.setPred(i, remoteResultNode);
-            } else if  (node.equals(belowMemoryNodeAfterAddressCall)) {
+            if  (node.equals(belowMemoryNodeAfterAddressCall)) {
                 callNode.setPred(i, remoteLastMemoryNode);
             }
         }
+        if (resultNode.isPresent()) {
+            Proj proj = resultNode.get();
+            BackEdges.getOuts(proj).forEach(edge -> {
+                Node node = edge.node;
+                Iterator<Node> resultUser = node.getPreds().iterator();
+                int i = 0;
+                while (resultUser.hasNext()){
+                    Node node1 = resultUser.next();
+                    if (node1.equals(proj))
+                        node.setPred(i, remoteResultNode);
+                    i++;
+                }
+            });
+        }
+
+
         remoteFirstMemoryNode.setPred(aboveMemoryNodeBeforeAddressCall);
         ArrayList<Node> parameterChildren = new ArrayList<>();
         remoteParameters.stream()
                 .forEach(node -> BackEdges.getOuts(node).forEach(edge -> {
-                    if (!parameterChildren.contains(edge.node))
+                    if (!parameterChildren.contains(edge.node) && edge.node.getGraph().equals(graph))
                         parameterChildren.add(edge.node);
                 }));
+        int i = 0;
         for (Node parameterChild : parameterChildren) {
             Iterator<Node> preds = parameterChild.getPreds().iterator();
-            int i = 0;
             Node pred;
             while (preds.hasNext()) {
                 pred = preds.next();
                 if (remoteParameters.contains(pred) && parameterChild.getGraph().equals(sourceParameters.get(i).getGraph()))
                     parameterChild.setPred(i, sourceParameters.get(i));
-                i++;
             }
+            i++;
         }
     }
 
@@ -144,6 +161,8 @@ public class InliningOptimization {
             Return targetReturn = null;
             Graph curTargetGraph = null;
             int curTargetGraphSize = Integer.MAX_VALUE;
+            boolean breakFlag = false;
+            boolean addressFound = false;
 
             callNode.getPreds().forEach(node -> {
                 temp.add(node);
@@ -154,8 +173,6 @@ public class InliningOptimization {
                     case Proj proj -> {
                         if (proj.getMode().equals(Mode.getM()))
                             aboveMemoryNodeBeforeAddressCall = proj.getPred();
-                        else if (proj.getMode().equals(Mode.getP()))
-                            varStorageNode = proj;
                         else
                             sourceParameters.add(proj);
 
@@ -166,14 +183,20 @@ public class InliningOptimization {
                             BackEdges.enable(curTargetGraph);
                             activatedGraphs.add(curTargetGraph);
                         }
-                        /*if (!curTargetGraph.equals(graph)) {
-                            InliningOptimization optimization = new InliningOptimization(curTargetGraph);
-                            optimization.collectNodes();
+                        if (!curTargetGraph.equals(graph)) {
+                            InliningOptimization optimization = new InliningOptimization(curTargetGraph, optimizedGraphs);
                             curTargetGraphSize = optimization.getSize();
-                        }*/
+                            if (!optimizedGraphs.contains(curTargetGraph))
+                                optimization.collectNodes();
+                        }
+                        System.out.println(curTargetGraphSize);
                         if (curTargetGraphSize > MAX_COPY_SIZE)
                             break;
 
+                        if (curTargetGraph.equals(graph)) {
+                            breakFlag = true;
+                            break;
+                        }
 
                         targetReturn = (Return) curTargetGraph.getEndBlock().getPred(0);
                         ArrayList<Node> toBeCopied = DFSGraph(targetReturn, remoteParameters);
@@ -182,6 +205,7 @@ public class InliningOptimization {
                         remoteResultNode = copiedItems.first;
                         remoteLastMemoryNode = copiedItems.second;
                         Node tempNode = remoteLastMemoryNode;
+                        addressFound = true;
                         while (tempNode.getPred(0).getGraph().equals(remoteLastMemoryNode.getGraph()) && !(tempNode.getPred(0) instanceof Start)) {
                             tempNode = tempNode.getPred(0);
                         }
@@ -192,7 +216,7 @@ public class InliningOptimization {
                     }
                 }
             }
-            if (curTargetGraphSize < MAX_COPY_SIZE) {
+            if (curTargetGraphSize <= MAX_COPY_SIZE && !breakFlag && addressFound) {
                 Node belowCallNode = null;
                 for (BackEdges.Edge edge : BackEdges.getOuts(callNode)) {
                     Node node = edge.node;
@@ -202,7 +226,6 @@ public class InliningOptimization {
                     } else if (node instanceof Proj proj && proj.getMode().equals(Mode.getT()))
                         resultNode = projNodes.stream().filter(proj1 -> proj1.getPred().equals(proj)).findFirst();
                 }
-
                 inline(resultNode, aboveMemoryNodeBeforeAddressCall, belowMemoryNodeAfterAddressCall, sourceParameters, remoteParameters, remoteResultNode, remoteLastMemoryNode, remoteFirstMemoryNode, belowCallNode);
             }
         }
@@ -218,26 +241,27 @@ public class InliningOptimization {
 
         do {
             curr = stack.pop();
-            Iterator<Node> i = curr.getPreds().iterator();
-            i.forEachRemaining(node -> {
+            System.out.println(curr + " curr");
+            System.out.println(curr.getPredCount() + " currPRES");
+            for (Node node : curr.getPreds()) {
                 boolean flag = true;
-                if (node instanceof Proj proj && node.getMode().equals(Mode.getIs())) {
-                    flag = false;
-                    parameters.add(node);
-                }
-                else if (node instanceof Start) {
+                System.out.println(node + " node");
+                if (node instanceof Start) {
                     flag = false;
                     if (!stack.isEmpty() && !stack.contains(node)) {
                         stack.add(0, node);
                     }
-                }
-                else if (!result.contains(node)) result.add(node);
+                    if (!curr.getMode().equals(Mode.getM())) {
+                        parameters.add(curr);
+                        result.remove(curr);
+                    }
+                } else if (!result.contains(node) && !parameters.contains(node)) result.add(node);
                 if (flag && !stack.contains(node))
                     stack.add(node);
 
-            });
+            }
         } while (!stack.isEmpty() && !(curr instanceof Start));
-
+        System.out.println(result + " Result");
         return result;
     }
 

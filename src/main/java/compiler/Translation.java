@@ -13,6 +13,7 @@ import compiler.types.*;
 import firm.Type;
 import firm.*;
 import firm.bindings.binding_ircons;
+import firm.bindings.binding_irgraph;
 import firm.nodes.Block;
 import firm.nodes.Call;
 import firm.nodes.Const;
@@ -897,20 +898,22 @@ public class Translation {
                     if (optimize) {
                         Optimization.optimizeFull(graph);
                     }
+                    Dump.dumpGraph(graph, definedMethod.getName() + "_original");
 
                     this.methodGraphs.put(definedMethod, graph);
 
                 }
             }
         }
-
+        Stack<Graph> optimizedGraphs = new Stack<>();
         this.methodGraphs.keySet().forEach(definedMethod -> {
-            InliningOptimization inliningOptimization = new InliningOptimization(this.methodGraphs.get(definedMethod));
+            InliningOptimization inliningOptimization = new InliningOptimization(this.methodGraphs.get(definedMethod), optimizedGraphs);
             inliningOptimization.collectNodes();
-            if (dumpGraphs) {
+            //if (dumpGraphs) {
                 Dump.dumpGraph(this.methodGraphs.get(definedMethod), definedMethod.getName());
-            }
+            //}
         });
+        //this.methodGraphs.values().forEach(graph -> graph.confirmProperties(binding_irgraph.ir_graph_properties_t.IR_GRAPH_PROPERTIES_NONE));
 
         if (dumpGraphs) {
             try {
