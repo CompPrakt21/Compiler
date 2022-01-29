@@ -660,7 +660,9 @@ public class OnTheFlyRegisterAllocator {
                 } else {
                     var blockIns = new HashSet<>(this.freeRegisters.getMapping().leftSet());
                     accumulatedBlockIns = this.registerBlockIns(branch.getTrueBlock(), blockIns);
-                    this.registerBlockIns(branch.getFalseBlock(), blockIns);
+                    if (!branch.getFalseBlock().equals(branch.getTrueBlock())) {
+                        this.registerBlockIns(branch.getFalseBlock(), blockIns);
+                    }
                 }
 
                 this.prepareRegisterMappingForBlockIns(accumulatedBlockIns, newList);
