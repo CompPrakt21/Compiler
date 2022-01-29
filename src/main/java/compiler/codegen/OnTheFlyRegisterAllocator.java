@@ -415,7 +415,8 @@ public class OnTheFlyRegisterAllocator {
         }
 
         if (loc.getIndex().isPresent() && loc.getIndex().get() instanceof VirtualRegister virtReg) {
-            var hardwareIndexReg = this.concretizeRegister(virtReg, newList, except);
+            var updatedExcept = Stream.concat(except.stream(), mappings.stream()).collect(Collectors.toSet());
+            var hardwareIndexReg = this.concretizeRegister(virtReg, newList, updatedExcept);
             loc.setIndex(hardwareIndexReg);
             mappings.add(hardwareIndexReg);
         }
