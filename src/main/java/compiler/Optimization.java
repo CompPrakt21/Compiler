@@ -383,6 +383,8 @@ public class Optimization {
                         && compare(c1, c2, Conv::getOp);
                 case Eor e1 -> o instanceof Eor e2
                         && compare(e1, e2, Eor::getLeft, Eor::getRight);
+                case Member m1 -> o instanceof Member m2 && m1.getEntity().equals(m2.getEntity())
+                        && compare(m1, m2, Member::getPtr);
                 case Minus m1 -> o instanceof Minus m2
                         && compare(m1, m2, Minus::getOp);
                 case Mul m1 -> o instanceof Mul m2
@@ -408,17 +410,18 @@ public class Optimization {
         @Override
         public int hashCode() {
             return switch (n) {
-                case Add a   -> hash(a.getLeft(), a.getRight());
-                case Cmp c   -> Objects.hash(c.getRelation(), hash(c.getLeft(), c.getRight()));
-                case Const c -> Objects.hash(hashAsNode(), c.getTarval().asInt());
-                case Conv c  -> hash(c.getOp());
-                case Eor e   -> hash(e.getLeft(), e.getRight());
-                case Minus m -> hash(m.getOp());
-                case Mul m   -> hash(m.getLeft(), m.getRight());
-                case Not n   -> hash(n.getOp());
-                case Proj p  -> Objects.hash(p.getNum(), hash(p.getPred()));
-                case Size s  -> Objects.hash(hashAsNode(), s.getType());
-                default      -> n.hashCode();
+                case Add a    -> hash(a.getLeft(), a.getRight());
+                case Cmp c    -> Objects.hash(c.getRelation(), hash(c.getLeft(), c.getRight()));
+                case Const c  -> Objects.hash(c.getTarval().asInt(), hash());
+                case Conv c   -> hash(c.getOp());
+                case Eor e    -> hash(e.getLeft(), e.getRight());
+                case Minus m  -> hash(m.getOp());
+                case Member m -> Objects.hash(m.getEntity(), hash(m.getPtr()));
+                case Mul m    -> hash(m.getLeft(), m.getRight());
+                case Not n    -> hash(n.getOp());
+                case Proj p   -> Objects.hash(p.getNum(), hash(p.getPred()));
+                case Size s   -> Objects.hash(s.getType(), hash());
+                default       -> n.hashCode();
             };
         }
     }
