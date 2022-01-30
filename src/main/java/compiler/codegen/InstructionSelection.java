@@ -276,10 +276,10 @@ public class InstructionSelection extends FirmToLlir {
 
             this.registerLlirNode(binOp, llirAdd);
             this.registerSideEffect(memProj, llirAdd);
-        } else if (binArgOrder.right instanceof Const cons) {
+        } else if (binArgOrder.right instanceof Const cons && Util.fitsInto32Bit(cons.getTarval().asLong())) {
             // binOp r1 const
 
-            var llirBinOp = newBinopInstruction(binOp, lhs, new Constant(cons.getTarval().asInt()));
+            var llirBinOp = newBinopInstruction(binOp, lhs, new Constant(cons.getTarval().asLong()));
             this.registerLlirNode(binOp, llirBinOp);
         }
 
@@ -312,7 +312,7 @@ public class InstructionSelection extends FirmToLlir {
 
             this.registerLlirNode(node, llirSub);
             this.registerSideEffect(memProj, llirSub);
-        } else if (firmRhs instanceof Const c) {
+        } else if (firmRhs instanceof Const c && Util.fitsInto32Bit(c.getTarval().asLong())) {
             var llirSub = bb.newSub(lhs, new Constant(c.getTarval().asInt()));
             this.registerLlirNode(node, llirSub);
         } else {
