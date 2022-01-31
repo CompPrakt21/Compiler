@@ -737,8 +737,21 @@ public class Translation {
                 Node jmpToHead = construction.newJmp();
                 construction.setCurrentBlock(headerBlock);
                 headerBlock.addPred(jmpToHead);
+
+                // ##############################
+                // # Handling of infinite loops #
+                // ##############################
+                //
+                // This caused problems with the Firm backend.
+                // If Cond nodes get replaced in while loops at any point,
+                // these two lines have to be introduced into the loop head,
+                // within the optimization.
+
+                // Ensure the creation of a PhiM node in case of endless loops.
+                //construction.getCurrentMem();
+
                 // Handle infinite loops: Force mem node creation, keep alive
-                construction.getGraph().keepAlive(headerBlock);
+                //construction.getGraph().keepAlive(headerBlock);
 
                 translateExprWithShortcircuit(stmt.getCondition(), bodyBlock, followingBlock);
 
