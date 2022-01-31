@@ -13,7 +13,7 @@ public class GlobalRegisterLifetimes {
     /**
      * Does this block have incoming backedges (edges from blocks that are scheduled later than this block)
      */
-    private final Map<BasicBlock, Boolean> incomingBackEdge;
+    private final Map<BasicBlock, Integer> incomingBackEdge;
 
     /**
      * Which position has this basic block in the block schedule.
@@ -100,9 +100,9 @@ public class GlobalRegisterLifetimes {
         this.liveIntervals = new HashMap<>();
     }
 
-    private boolean hasOutgoingBackedge(BasicBlock bb) {
+    private long countOutgoingBackedges(BasicBlock bb) {
         var index = this.scheduleIndex.get(bb);
-        return bb.getLastInstruction().getTargets().stream().anyMatch(targetBb -> this.scheduleIndex.get(targetBb) <= index);
+        return bb.getLastInstruction().getTargets().stream().filter(targetBb -> this.scheduleIndex.get(targetBb) <= index).count();
     }
 
     private void calculateLifetimes() {
@@ -114,12 +114,12 @@ public class GlobalRegisterLifetimes {
         }
 
         for (var bb : schedule) {
-            this.incomingBackEdge.putIfAbsent(bb, false);
+            this.incomingBackEdge.putIfAbsent(bb, 0);
 
             var lastInstr = (ControlFlowInstruction) bb.getInstructions().get(bb.getInstructions().size() - 1);
             for (var target : lastInstr.getTargets()) {
                 if (this.scheduleIndex.get(target) <= this.scheduleIndex.get(bb)) {
-                    this.incomingBackEdge.put(target, true);
+                    this.incomingBackEdge.put(target, this.incomingBackEdge.get(target) + 1);
                 }
             }
         }
@@ -132,7 +132,7 @@ public class GlobalRegisterLifetimes {
         for (int blockIdx = schedule.size() - 1; blockIdx >= 0; blockIdx--) {
             var bb = schedule.get(blockIdx);
 
-            if (hasOutgoingBackedge(bb)) {
+            for (int i = 0; i < countOutgoingBackedges(bb); i++) {
                 activeLoops.push(new Interval(-10, currentInstructionIndex));
             }
 
@@ -174,7 +174,7 @@ public class GlobalRegisterLifetimes {
                 currentInstructionIndex -= 1;
             }
 
-            if (incomingBackEdge.get(bb)) {
+            for (int i = 0; i < incomingBackEdge.get(bb); i++) {
                 var loop = activeLoops.pop();
                 loop.start = Math.max(loop.start, currentInstructionIndex + 1); // +1 because we already decremented the currentInstructionIndex.
             }

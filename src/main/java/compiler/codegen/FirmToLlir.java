@@ -499,9 +499,9 @@ public class FirmToLlir implements NodeVisitor {
             }
 
             if (n instanceof Return ret)  {
-                var memNode = this.valueNodeMap.get(ret.getMem());
+                var memNode = this.sideEffectNodeMap.get(ret.getMem());
                 var bb = getBasicBlock(ret.getMem());
-                bb.addOutput(memNode);
+                bb.addOutput(memNode.asLlirNode());
             }
         }
     }
