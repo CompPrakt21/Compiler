@@ -65,7 +65,7 @@ public class OnTheFlyRegisterAllocator {
     private Optional<SubInstruction> allocateStackSpaceInstruction;
     private final List<AddInstruction> freeStackSpaceInstructions;
 
-    private GlobalRegisterLifetimes.Lifetimes lifetimes;
+    private DataflowLifetimes.Lifetimes lifetimes;
 
     private final String name;
     private final boolean dumpGraphs;
@@ -106,8 +106,9 @@ public class OnTheFlyRegisterAllocator {
             paramOffset += Register.Width.BIT64.getByteSize();
         }
 
-        // Determine virtual register lifetimes and schedules blocks.
-        this.lifetimes = GlobalRegisterLifetimes.calculateLifetimes(this.graph);
+        BlockSchedule.scheduleReversePostorder(this.graph);
+
+        this.lifetimes = DataflowLifetimes.calculateLifetimes(this.graph);
 
         if (dumpGraphs) {
             try {
@@ -851,7 +852,7 @@ public class OnTheFlyRegisterAllocator {
 
         for (int i = 0; i < bb.getInstructions().size(); i++) {
             var instruction = bb.getInstructions().get(i);
-            var liveRegisters = this.lifetimes.getLiveRegisters(startInstructionIndex + i);
+            var liveRegisters = this.lifetimes.getLiveRegisters(bb, i);
             this.allocateRegForInstruction(instruction, liveRegisters, newList);
         }
 
