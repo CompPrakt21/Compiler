@@ -444,6 +444,7 @@ public class OnTheFlyRegisterAllocator {
      * @return the possibly reduced set of blockIns
      */
     private Set<VirtualRegister> registerBlockIns(BasicBlock bb, Set<VirtualRegister> blockIns) {
+
         var counted = new HashMap<HardwareRegister.Group, Integer>();
         for (var virtReg : blockIns) {
             var group = this.interBlockRegisterAssignment.get(virtReg).getGroup();
@@ -451,7 +452,7 @@ public class OnTheFlyRegisterAllocator {
             counted.put(group, counted.get(group) + 1);
         }
 
-        var newBlockIns = new HashSet<VirtualRegister>();
+        Set<VirtualRegister> newBlockIns = new HashSet<>();
         for (var virtReg : blockIns) {
             var group = this.interBlockRegisterAssignment.get(virtReg).getGroup();
             if (counted.get(group) == 1) {
@@ -461,8 +462,10 @@ public class OnTheFlyRegisterAllocator {
             }
         }
 
+        var actualBlockIns = newBlockIns.stream().filter(virtReg -> this.lifetimes.isLiveAtBeginningOf(virtReg, bb)).collect(Collectors.toSet());
+
         assert !this.blockIns.containsKey(bb);
-        this.blockIns.put(bb, newBlockIns);
+        this.blockIns.put(bb, actualBlockIns);
 
         return newBlockIns;
     }
