@@ -1,8 +1,10 @@
 package compiler;
 
+import compiler.semantic.resolution.MethodDefinition;
 import compiler.utils.FirmUtils;
 import firm.*;
 import firm.bindings.binding_irdom;
+import firm.bindings.binding_irgmod;
 import firm.bindings.binding_irgraph;
 import firm.bindings.binding_irnode;
 import firm.nodes.*;
@@ -15,10 +17,13 @@ import java.util.stream.StreamSupport;
 public class Optimization {
 
     private final Graph g;
+    private final Map<Call, MethodDefinition> methodReferences;
+
     private Map<Block, List<Phi>> blockPhis;
 
-    public Optimization(Graph g) {
+    public Optimization(Graph g, Map<Call, MethodDefinition> methodReferences) {
         this.g = g;
+        this.methodReferences = methodReferences;
     }
 
     private void updateBlockPhis() {
@@ -38,8 +43,8 @@ public class Optimization {
         }
     }
 
-    public static void optimizeFull(Graph g) {
-        Optimization o = new Optimization(g);
+    public static void optimizeFull(Graph g, Map<Call, MethodDefinition> methodReferences) {
+        Optimization o = new Optimization(g, methodReferences);
         o.constantFolding();
         o.eliminateRedundantSideEffects();
         o.simplifyArithmeticExpressions();
@@ -50,6 +55,7 @@ public class Optimization {
         o.eliminateTrivialConds();
         o.inlineTrivialBlocks();
         o.eliminateRedundantPhis();
+        o.eliminateUnusedAllocs();
     }
 
     public void constantFolding() {
@@ -642,7 +648,8 @@ public class Optimization {
         binding_irdom.compute_doms(g.ptr);
         binding_irdom.compute_postdoms(g.ptr);
 
-        record Loop(Block head, Block tail){}
+        record Loop(Block head, Block tail) {
+        }
         List<Loop> loops = new ArrayList<>();
 
         // Find all loops in the graph
@@ -702,7 +709,7 @@ public class Optimization {
                         .filter(succ -> succ.node instanceof Block)
                         .count();
                 if (controlFlowSuccessor > 1) {
-                    targetBlock = (Block) this.g.newBlock(new Node[]{ loopHeadPredecessor });
+                    targetBlock = (Block) this.g.newBlock(new Node[]{loopHeadPredecessor});
                     var jmp = this.g.newJmp(targetBlock);
                     loop.head.setPred(headPredsIndices.get(0), jmp);
                 } else {
@@ -723,5 +730,49 @@ public class Optimization {
         }
 
         BackEdges.disable(g);
+    }
+
+    public void traverseMemoryPath(Node node, Set<Node> visited) {
+        if (visited.contains(node)) {
+            return;
+        }
+        visited.add(node);
+
+        if (node instanceof Proj proj
+                && proj.getPred() instanceof Call call
+                && !this.methodReferences.containsKey(call)
+                && BackEdges.getNOuts(call) == 1
+        ) {
+            var mem = call.getMem();
+            var bad = g.newBad(Mode.getM());
+            binding_irgmod.exchange(node.ptr, bad.ptr);
+            binding_irgmod.exchange(bad.ptr, mem.ptr);
+            this.traverseMemoryPath(mem, visited);
+        } else {
+            switch (node) {
+                case Proj proj -> this.traverseMemoryPath(proj.getPred(), visited);
+                case Store store -> this.traverseMemoryPath(store.getMem(), visited);
+                case Load load -> this.traverseMemoryPath(load.getMem(), visited);
+                case Div div -> this.traverseMemoryPath(div.getMem(), visited);
+                case Mod mod -> this.traverseMemoryPath(mod.getMem(), visited);
+                case Call call -> this.traverseMemoryPath(call.getMem(), visited);
+                case Phi phi -> phi.getPreds().forEach(pred -> this.traverseMemoryPath(pred, visited));
+                case Start ignored -> {}
+                default -> throw new AssertionError("Unexpected node on memory path.");
+            }
+        }
+    }
+
+    public void eliminateUnusedAllocs() {
+        BackEdges.enable(this.g);
+
+        var visited = new HashSet<Node>();
+
+        this.g.getEndBlock().getPreds().forEach(pred -> {
+            var ret = (Return) pred;
+            this.traverseMemoryPath(ret.getMem(), visited);
+        });
+
+        BackEdges.disable(this.g);
     }
 }
