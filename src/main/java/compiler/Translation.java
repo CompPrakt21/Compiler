@@ -895,9 +895,6 @@ public class Translation {
                         Dump.dumpGraph(graph, "before-opt");
                     }
 
-                    if (optimize) {
-                        Optimization.optimizeFull(graph);
-                    }
 
                     this.methodGraphs.put(definedMethod, graph);
 
@@ -912,6 +909,11 @@ public class Translation {
             if (dumpGraphs) {
                 Dump.dumpGraph(this.methodGraphs.get(definedMethod), definedMethod.getName());
             }
+            BackEdges.disable(methodGraphs.get(definedMethod));
+            if (optimize) {
+                Optimization.optimizeFull(methodGraphs.get(definedMethod));
+            }
+
         });
         this.methodGraphs.values().forEach(graph -> {
             graph.confirmProperties(binding_irgraph.ir_graph_properties_t.IR_GRAPH_PROPERTIES_NONE);
@@ -932,6 +934,6 @@ public class Translation {
             }
         }
 
-        return new TranslationResult(this.methodReferences, this.methodGraphs, this.nodeAstTypes);
+        return new TranslationResult(this.methodReferences, this.methodGraphs);
     }
 }
