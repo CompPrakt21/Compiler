@@ -868,9 +868,7 @@ public class Translation {
 
                     Graph graph = genGraphForMethod(definedMethod);
 
-                    if (optimize) {
-                        Optimization.optimizeFull(graph);
-                    }
+                    Dump.dumpGraph(graph, definedMethod.getName() + "_original");
 
                     this.methodGraphs.put(definedMethod, graph);
 
@@ -882,10 +880,17 @@ public class Translation {
         this.methodGraphs.keySet().forEach(definedMethod -> {
             InliningOptimization inliningOptimization = new InliningOptimization(this.methodGraphs.get(definedMethod), optimizedGraphs);
             inliningOptimization.collectNodes();
-            if (dumpGraphs) {
+            System.out.println("DONE INOLINEING " + definedMethod.getName());
+            if (true) {
                 Dump.dumpGraph(this.methodGraphs.get(definedMethod), definedMethod.getName());
             }
+            BackEdges.disable(methodGraphs.get(definedMethod));
+            if (optimize) {
+                Optimization.optimizeFull(methodGraphs.get(definedMethod));
+            }
+
         });
+        System.out.println("DONE");
         this.methodGraphs.values().forEach(graph -> {
             graph.confirmProperties(binding_irgraph.ir_graph_properties_t.IR_GRAPH_PROPERTIES_NONE);
         });
