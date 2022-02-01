@@ -19,7 +19,6 @@ public class InliningOptimization {
     private Graph graph;
     private ArrayDeque<Node> worklist = new ArrayDeque<>();
 
-    private ArrayList<Graph> activatedGraphs = new ArrayList<>();
     private final int MAX_COPY_SIZE = 250;
     private Stack<Graph> optimizedGraphs;
 
@@ -37,7 +36,6 @@ public class InliningOptimization {
         this.optimizedGraphs.add(graph);
         if (!BackEdges.enabled(graph))
             BackEdges.enable(graph);
-        activatedGraphs.add(graph);
         NodeCollector c = new NodeCollector(worklist);
         graph.walkTopological(c);
         size = worklist.size();
@@ -74,6 +72,7 @@ public class InliningOptimization {
     private Pair<Node[], Node[]> copyIntoGraph(ArrayList<Node> listOfToBeCopied, Pair<Node[], Node[]> returns, Node callNode, boolean containsControlFlow, ArrayList<Node> jmpList) {
 
         if (containsControlFlow) {
+            Iterator<Node> preds = callNode.getBlock().getPreds().iterator();
             binding_irgraph.ir_reserve_resources(graph.ptr, binding_irgraph.ir_resources_t.IR_RESOURCE_IRN_LINK.val);
             binding_irgraph.ir_reserve_resources(graph.ptr, binding_irgraph.ir_resources_t.IR_RESOURCE_PHI_LIST.val);
             binding_irgmod.collect_phiprojs_and_start_block_nodes(graph.ptr);
@@ -85,6 +84,7 @@ public class InliningOptimization {
         HashMap<Node, Node> copied = new HashMap<>();
         HashMap<Block, Block> copiedBlocks = new HashMap<>();
         ArrayList<Node> emptyBlocks = new ArrayList<>();
+        listOfToBeCopied.forEach(node -> System.out.println(node));
         listOfToBeCopied.stream().filter(node -> node instanceof Block).forEach(node -> {
             //if (listOfToBeCopied.stream().filter(node1 -> !(node1 instanceof Block)).anyMatch(node1 -> node1.getBlock().equals(node))){
                 System.out.println("Before " + node);
@@ -125,6 +125,7 @@ public class InliningOptimization {
         if (!copiedBlocks.isEmpty())
             copiedBlocks.keySet().iterator().next().getGraph().getEndBlock().getPreds().forEach(node -> jmpBlocks.add(node.getBlock()));
         for (Block block : copiedBlocks.keySet()) {
+            System.out.println(block + " block " + copiedBlocks.get(block));
             for (int j = 0; j < block.getPredCount(); j++) {
                 copiedBlocks.get(block).setPred(j, copied.get(block.getPred(j)));
             }
@@ -144,11 +145,15 @@ public class InliningOptimization {
         for (int i = 0; i < returns.second.length; i++) {
             memoryList[i] = copied.getOrDefault(returns.second[i], returns.second[i]);
         }
+        if(containsControlFlow) {
+            binding_irgraph.ir_free_resources(graph.ptr, binding_irgraph.ir_resources_t.IR_RESOURCE_IRN_LINK.val);
+            binding_irgraph.ir_free_resources(graph.ptr, binding_irgraph.ir_resources_t.IR_RESOURCE_PHI_LIST.val);
+        }
 
         return new Pair<>(returnList, memoryList);
     }
 
-    private void inline(Node resultNode, Node aboveMemoryNodeBeforeAddressCall, Proj belowMemoryNodeAfterAddressCall, ArrayList<Node> sourceParameters, ArrayList<Node> remoteParameters, Node[] remoteResultNode, Node[] remoteLastMemoryNode, Proj remoteFirstMemoryNode, ArrayList<Node> callNode, ArrayList<Node> jmpList, Node endBlock) {
+    private void inline(Node resultNode, Node aboveMemoryNodeBeforeAddressCall, Proj belowMemoryNodeAfterAddressCall, ArrayList<Node> sourceParameters, ArrayList<Proj> remoteParameters, Node[] remoteResultNode, Node[] remoteLastMemoryNode, Proj remoteFirstMemoryNode, ArrayList<Node> callNode, ArrayList<Node> jmpList, Node endBlock, boolean containsControlFlow) {
         System.out.println("resultNode " + resultNode + " aboveMemoryNodeBeforeAddressCall " + aboveMemoryNodeBeforeAddressCall + " belowMemoryNodeAfterAddressCall " + belowMemoryNodeAfterAddressCall + " sourceParameters " + sourceParameters + " remoteParameters " +
                 remoteParameters + " remoteResultNode " + remoteResultNode + " remoteLastMemoryNode " + remoteLastMemoryNode + " remoteFirstMemoryNode " + remoteFirstMemoryNode + " callNode " + callNode);
 
@@ -191,11 +196,14 @@ public class InliningOptimization {
         }
         remoteFirstMemoryNode.setPred(aboveMemoryNodeBeforeAddressCall);
 
-        FirmUtils.setPreds(endBlock, jmpList);
+        if (containsControlFlow)
+            FirmUtils.setPreds(endBlock, jmpList);
+        /*for (int i = 0; i < jmpList.size(); i++) {
+            endBlock.setPred(i, jmpList.get(i));
+        }*/
 
 
-        int j = 0;
-        for (Node parameterChild : remoteParameters) {
+        for (Proj parameterChild : remoteParameters) {
             for (BackEdges.Edge out : BackEdges.getOuts(parameterChild)) {
                 if (!out.node.getGraph().equals(graph))
                     continue;
@@ -206,11 +214,10 @@ public class InliningOptimization {
                 while (preds.hasNext()) {
                     pred = preds.next();
                     if (pred.equals(parameterChild))
-                        varCaller.setPred(i, sourceParameters.get(j));
+                        varCaller.setPred(i, sourceParameters.get(parameterChild.getNum()));
                     i++;
                 }
             }
-            j++;
 
         }
     }
@@ -225,7 +232,7 @@ public class InliningOptimization {
             Node aboveMemoryNodeBeforeAddressCall = null;
             Proj belowMemoryNodeAfterAddressCall = null;
             ArrayList<Node> sourceParameters = new ArrayList<>();
-            ArrayList<Node> remoteParameters = new ArrayList<>();
+            ArrayList<Proj> remoteParameters = new ArrayList<>();
             Node[] remoteResultNode = null;
             Node[] remoteLastMemoryNode = null;
             Proj remoteFirstMemoryNode = null;
@@ -235,6 +242,7 @@ public class InliningOptimization {
             boolean breakFlag = false;
             ArrayList<Node> jmpList = new ArrayList<>();
             Node endBlock;
+            boolean containsControlFlow = false;
 
             callNode.getPreds().forEach(node -> {
                 temp.add(node);
@@ -247,7 +255,6 @@ public class InliningOptimization {
             curTargetGraph = address.getEntity().getGraph();
             if (!BackEdges.enabled(curTargetGraph)) {
                 BackEdges.enable(curTargetGraph);
-                activatedGraphs.add(curTargetGraph);
             }
             if (!curTargetGraph.equals(graph)) {
                 InliningOptimization optimization = new InliningOptimization(curTargetGraph, optimizedGraphs);
@@ -255,6 +262,8 @@ public class InliningOptimization {
                 if (!optimizedGraphs.contains(curTargetGraph))
                     optimization.collectNodes();
             }
+            if (!BackEdges.enabled(curTargetGraph))
+                BackEdges.enable(curTargetGraph);
             if (curTargetGraphSize > MAX_COPY_SIZE) {
                 breakFlag = true;
             }
@@ -288,8 +297,8 @@ public class InliningOptimization {
 
 
 
-
-                Pair<Node[], Node[]> copiedItems = copyIntoGraph(toBeCopied, unCopied, callNode, containsControlFlow(toBeCopied), jmpList);
+                containsControlFlow = containsControlFlow(toBeCopied);
+                Pair<Node[], Node[]> copiedItems = copyIntoGraph(toBeCopied, unCopied, callNode, containsControlFlow, jmpList);
                 remoteResultNode = copiedItems.first;
                 remoteLastMemoryNode = copiedItems.second;
                 Node tempNode = remoteLastMemoryNode[0];
@@ -299,6 +308,8 @@ public class InliningOptimization {
                 remoteFirstMemoryNode = (Proj) tempNode;
 
                 for (int i = 2; i < callNode.getPredCount(); i++) {
+                    if (callNode.getPred(i) instanceof Proj && callNode.getMode().equals(Mode.getP()) && callNode.getPred(i).getPred(0).getPred(0) instanceof Start)
+                            continue;   //Check if "this" call
                     sourceParameters.add(callNode.getPred(i));
                 }
             }
@@ -319,34 +330,32 @@ public class InliningOptimization {
 
 
 
-                inline(resultNode, aboveMemoryNodeBeforeAddressCall, belowMemoryNodeAfterAddressCall, sourceParameters, remoteParameters, remoteResultNode, remoteLastMemoryNode, remoteFirstMemoryNode, belowCallNode, jmpList, endBlock);
+                inline(resultNode, aboveMemoryNodeBeforeAddressCall, belowMemoryNodeAfterAddressCall, sourceParameters, remoteParameters, remoteResultNode, remoteLastMemoryNode, remoteFirstMemoryNode, belowCallNode, jmpList, endBlock, containsControlFlow);
+                BackEdges.disable(curTargetGraph);
             }
+
         }
+        BackEdges.disable(graph);
 
     }
 
 
-    private ArrayList<Node> DFSGraph(Node end, ArrayList<Node> parameters) {
+    private ArrayList<Node> DFSGraph(Node end, ArrayList<Proj> parameters) {
 
-        Start startNode = end.getGraph().getStart();
-        ArrayList<Node> startBack = new ArrayList<>();
-        BackEdges.getOuts(startNode).forEach(edge -> startBack.add(edge.node));
+        Node argNode = end.getGraph().getArgs();
+        BackEdges.getOuts(argNode).forEach(edge -> {
+            if (!(edge.node instanceof Anchor))
+                parameters.add((Proj) edge.node);
+        });
+
+
         ArrayDeque<Node> targetWorkList = new ArrayDeque<>();
         NodeCollector c = new NodeCollector(targetWorkList);
         end.getGraph().walkTopological(c);
-        startBack.stream().filter(node -> node instanceof Proj && node.getMode().equals(Mode.getT()) && targetWorkList.contains(node))
-                .forEach(node -> {
-                    BackEdges.getOuts(node).forEach(edge -> {
-                        parameters.add(edge.node);
-                    });
-                    targetWorkList.remove(node);
-                });
-
-
 
         parameters.sort(Comparator.comparingInt(value -> value.getNr()));
         targetWorkList.removeAll(parameters);
-        targetWorkList.remove(startNode);
+        targetWorkList.remove(end.getGraph().getStart());
         targetWorkList.remove(end.getGraph().getEnd());
         targetWorkList.remove(end);
         targetWorkList.remove(end.getGraph().getEndBlock());

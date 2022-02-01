@@ -785,9 +785,9 @@ public class Translation {
         construction = new Construction(graph);
 
         Node startNode = construction.getGraph().getStart();
-        Node memProj = construction.newProj(startNode, Mode.getM(), 0);
+        Node memProj = graph.getInitialMem();
         construction.setCurrentMem(memProj);
-        Node argsProj = construction.newProj(startNode, Mode.getT(), 2);
+        Node argsProj = graph.getArgs();
 
         if (!isMainMethod) {
             Node thisArg = construction.newProj(argsProj, Mode.getP(), 0);
@@ -885,15 +885,13 @@ public class Translation {
                 Dump.dumpGraph(this.methodGraphs.get(definedMethod), definedMethod.getName());
             }
             BackEdges.disable(methodGraphs.get(definedMethod));
+            methodGraphs.get(definedMethod).confirmProperties(binding_irgraph.ir_graph_properties_t.IR_GRAPH_PROPERTIES_NONE);
             if (optimize) {
                 Optimization.optimizeFull(methodGraphs.get(definedMethod));
             }
 
         });
         System.out.println("DONE");
-        this.methodGraphs.values().forEach(graph -> {
-            graph.confirmProperties(binding_irgraph.ir_graph_properties_t.IR_GRAPH_PROPERTIES_NONE);
-        });
 
         if (dumpGraphs) {
             try {
