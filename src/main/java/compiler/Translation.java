@@ -807,9 +807,9 @@ public class Translation {
         construction = new Construction(graph);
 
         Node startNode = construction.getGraph().getStart();
-        Node memProj = construction.newProj(startNode, Mode.getM(), 0);
+        Node memProj = graph.getInitialMem();
         construction.setCurrentMem(memProj);
-        Node argsProj = construction.newProj(startNode, Mode.getT(), 2);
+        Node argsProj = graph.getArgs();
 
         if (!isMainMethod) {
             Node thisArg = construction.newProj(argsProj, Mode.getP(), 0);
