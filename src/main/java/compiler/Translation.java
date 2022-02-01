@@ -32,6 +32,8 @@ public class Translation {
     private final Map<Call, MethodDefinition> methodReferences;
     // Each methods firm graph.
     private final Map<DefinedMethod, Graph> methodGraphs;
+    // The corresponding MiniJava type of firmNodes;
+    private final Map<Node, Ty> nodeAstTypes;
 
     private final Map<Ty, Type> firmTypes;
     private final List<StructType> allCreatedStructFirmTypes;
@@ -57,6 +59,7 @@ public class Translation {
 
         this.methodReferences = new HashMap<>();
         this.methodGraphs = new HashMap<>();
+        this.nodeAstTypes = new HashMap<>();
 
         //Backend.option("dump=all");
 
@@ -516,7 +519,7 @@ public class Translation {
     }
 
     private Node translateExpr(Expression root) {
-        return switch (root) {
+        var firmNode = switch (root) {
             case BinaryOpExpression expr -> translateBinOpExpr(expr);
             case FieldAccessExpression expr -> {
                 var targetNode = translateExpr(expr.getTarget());
@@ -641,6 +644,12 @@ public class Translation {
             case BoolLiteral expr -> translateLiteral(expr);
             case IntLiteral expr -> translateLiteral(expr);
         };
+
+        var astTyResult = frontend.expressionTypes().get(root).orElseThrow();
+        if (astTyResult instanceof Ty ty) {
+            this.nodeAstTypes.put(firmNode, ty);
+        }
+        return firmNode;
     }
 
     private void translateStatement(Statement statement) {
@@ -822,6 +831,7 @@ public class Translation {
             };
 
             arg = construction.newProj(argsProj, mode, index);
+            this.nodeAstTypes.put(arg, ty);
             var paramVariableId = this.newVariableId();
             variableId.set(param, paramVariableId);
             construction.setVariable(paramVariableId, arg);
@@ -911,6 +921,6 @@ public class Translation {
             }
         }
 
-        return new TranslationResult(this.methodReferences, this.methodGraphs);
+        return new TranslationResult(this.methodReferences, this.methodGraphs, this.nodeAstTypes);
     }
 }
