@@ -537,8 +537,7 @@ public class OnTheFlyRegisterAllocator {
                     case Mod -> HardwareRegister.EDX;
                 };
 
-                this.dirty.put(targetVirtReg, true);
-                this.freeRegisters.createSpecificMapping(targetVirtReg, targetHardwareReg);
+                this.initialiseVirtualRegisterInto(targetVirtReg, targetHardwareReg, newList);
 
                 div.setTarget(targetHardwareReg);
                 div.setDividend(HardwareRegister.EAX);

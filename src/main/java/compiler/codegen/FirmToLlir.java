@@ -6,10 +6,10 @@ import compiler.codegen.llir.nodes.*;
 import compiler.codegen.llir.nodes.MemoryLocation;
 import compiler.semantic.resolution.DefinedMethod;
 import compiler.types.*;
+import compiler.utils.FirmUtils;
 import compiler.utils.GenericNodeWalker;
 import firm.Util;
 import firm.*;
-import firm.bindings.binding_ircons;
 import firm.nodes.*;
 
 import java.util.*;
@@ -495,7 +495,26 @@ public class FirmToLlir implements NodeVisitor {
         // Visit other blocks, if this is a control flow node. (Every block has at least one control flow node)
         if (n instanceof End || n instanceof Return || n instanceof Jmp || n instanceof Cond) {
             for (var pred : n.getBlock().getPreds()) {
-                this.visitNode(pred);
+                // Otherwise we can get trapped in an infinite loop cycle Jmp A -> Jmp B -> Jmp A -> ..., etc.
+                if (!this.visited.contains(pred)) {
+                    this.visitNode(pred);
+                }
+            }
+
+            // In the case of infinite loops the only way to leave the end block is using the keep alive edges on
+            // the end node.
+            // These however can and will point to Block which can't use with visitNode, so I've created this...
+            if (n instanceof End end) {
+                FirmUtils.preds(end).stream()
+                        .flatMap(pred -> {
+                            if (pred instanceof Block block) {
+                                return FirmUtils.preds(block).stream();
+                            } else {
+                                return Stream.of(pred);
+                            }
+                        })
+                        .filter(pred -> !this.visited.contains(pred))
+                        .forEach(this::visitNode);
             }
 
             if (n instanceof Return ret)  {
@@ -519,13 +538,19 @@ public class FirmToLlir implements NodeVisitor {
             // the lowering process.
             assert true;
         } else if (proj.getMode().equals(Mode.getM())) {
+            LlirNode llirNode;
             if (predNode instanceof Start) {
                 var llirBlock = this.blockMap.get((Block) proj.getBlock());
-                this.registerLlirNode(proj, new MemoryInputNode(llirBlock));
+                llirNode = new MemoryInputNode(llirBlock);
             } else {
                 var llirPred = this.sideEffectNodeMap.get(predNode);
+                llirNode = llirPred.asLlirNode();
+            }
+            this.registerLlirNode(proj, llirNode);
 
-                registerLlirNode(proj, llirPred.asLlirNode());
+            if (FirmUtils.preds(this.firmGraph.getEnd()).contains(proj.getBlock())) {
+                var llirBlock = getBasicBlock(proj);
+                llirBlock.addOutput(llirNode);
             }
 
         } else if (!this.valueNodeMap.containsKey(proj)) {

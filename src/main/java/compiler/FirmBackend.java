@@ -1,9 +1,6 @@
 package compiler;
 
-import firm.Backend;
-import firm.Dump;
-import firm.Program;
-import firm.Util;
+import firm.*;
 
 import java.io.File;
 import java.io.IOException;

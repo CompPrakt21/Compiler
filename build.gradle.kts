@@ -15,7 +15,7 @@ repositories {
 dependencies {
     implementation("info.picocli:picocli:4.6.2")
     implementation("net.java.dev.jna:jna:4.5.2")
-    implementation("com.github.Firmwehr:jFirm:b970d57751")
+    implementation("com.github.Firmwehr:jFirm:62c1a55f72")
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.8.2")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.8.2")
     testImplementation("org.mockito:mockito-core:4.2.0")

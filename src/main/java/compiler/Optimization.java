@@ -3,11 +3,15 @@ package compiler;
 import compiler.utils.FirmUtils;
 import firm.*;
 import firm.bindings.binding_irdom;
+import firm.bindings.binding_irgmod;
 import firm.bindings.binding_irgraph;
+import firm.bindings.binding_irnode;
 import firm.nodes.*;
 
 import java.util.*;
 import java.util.function.*;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public class Optimization {
 
@@ -48,7 +52,11 @@ public class Optimization {
     }
 
     public void constantFolding() {
-        Map<Node, DataFlow.ConstantValue> values = DataFlow.analyzeConstantFolding(g);
+        this.updateBlockPhis();
+        var constantPropResult = DataFlow.analyzeConstantFolding(g, blockPhis);
+
+        // Replace nodes determined to be constant with const nodes.
+        var values = constantPropResult.values();
         record Change(Node node, int predIdx, Node folded) { }
         List<Change> changes = new ArrayList<>();
         for (Node n : values.keySet()) {
@@ -73,6 +81,67 @@ public class Optimization {
         for (Change c : changes) {
             c.node.setPred(c.predIdx, c.folded);
         }
+
+        // collect loop heads/tails so we can attach a keep alive edge if we replace the branch with a move
+        // and thereby create an infinite loop.
+        var loopHeadTails = new HashSet<>();
+        binding_irdom.compute_doms(g.ptr);
+        g.walkBlocks(head -> {
+            for (var pred : head.getPreds()) {
+                var tail = (Block) pred.getBlock();
+                if (binding_irdom.block_dominates(head.ptr, tail.ptr) != 0) {
+                    loopHeadTails.add(head);
+                    loopHeadTails.add(tail);
+                }
+            }
+        });
+
+        // Remove dead control flow.
+        BackEdges.enable(g);
+        var executableControlFlow = constantPropResult.executableEdges();
+        var controlFlowTarget = constantPropResult.controlFlowTarget();
+        for (var liveEdge : executableControlFlow) {
+            var pred = liveEdge.target().getPred(liveEdge.predIdx());
+
+            if (pred instanceof Proj proj) {
+                // The live edge comes from a branch.
+                // If the other edge of this branch is not live we can convert it a simple jmp.
+                var otherProj = FirmUtils.getOtherCondProj(proj);
+                assert proj.getBlock().equals(otherProj.getBlock());
+
+                var otherEdge = controlFlowTarget.get(otherProj);
+
+                if (!executableControlFlow.contains(otherEdge)) {
+                    var jmp = g.newJmp(proj.getBlock());
+                    liveEdge.target().setPred(liveEdge.predIdx(), jmp);
+
+                    if (loopHeadTails.contains(proj.getBlock())) {
+                        g.keepAlive(proj.getBlock());
+                    }
+                }
+            }
+        }
+        BackEdges.disable(g);
+
+        for (var pair : this.blockPhis.entrySet()) {
+            var block = pair.getKey();
+            var phis = pair.getValue();
+
+            var livePredIndices = IntStream.range(0, block.getPredCount()).filter(i -> executableControlFlow.contains(new DataFlow.ControlFlowEdge(block, i))).toArray();
+            var newBlockPreds = Arrays.stream(livePredIndices)
+                    .mapToObj(block::getPred)
+                    .toList();
+            FirmUtils.setPreds(block, newBlockPreds);
+
+            for (var phi : phis) {
+                var newPhiPreds = Arrays.stream(livePredIndices)
+                        .mapToObj(phi::getPred)
+                        .toList();
+                FirmUtils.setPreds(phi, newPhiPreds);
+            }
+        }
+
+        g.confirmProperties(binding_irgraph.ir_graph_properties_t.IR_GRAPH_PROPERTIES_NONE);
     }
 
     public void eliminateRedundantSideEffects() {
@@ -115,20 +184,37 @@ public class Optimization {
     public void eliminateRedundantPhis() {
         ArrayDeque<Node> nodes = NodeCollector.run(g);
         for (Node n : nodes) {
+            var invalidKeepAliveNodes = new ArrayList<Node>();
             for (int i = 0; i < n.getPredCount(); i++) {
                 Node pred = n.getPred(i);
                 if (!(pred instanceof Phi p)) {
                     continue;
                 }
                 List<Node> in = FirmUtils.preds(p);
-                assert in.size() > 0;
+                if (in.size() == 0) {
+                    invalidKeepAliveNodes.add(pred);
+                    continue;
+                }
                 Node first = in.get(0);
                 if (!in.stream().allMatch(first::equals)) {
                     continue;
                 }
-                n.setPred(i, first);
+                if (n instanceof End) {
+                    invalidKeepAliveNodes.add(pred);
+                }else {
+                    n.setPred(i, first);
+                }
+            }
+
+            if (n instanceof End) {
+                for (var pred : invalidKeepAliveNodes) {
+                    binding_irnode.remove_End_keepalive(g.getEnd().ptr, pred.ptr);
+                }
             }
         }
+
+        BackEdges.disable(g);
+        g.confirmProperties(binding_irgraph.ir_graph_properties_t.IR_GRAPH_PROPERTIES_NONE);
     }
 
     public void eliminateSingletonBlocks() {

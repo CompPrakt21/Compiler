@@ -1,15 +1,15 @@
 package compiler;
 
+import compiler.utils.FirmUtils;
+import compiler.utils.GenericNodeWalker;
 import firm.*;
 import firm.nodes.*;
 
-import java.util.ArrayDeque;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public class DataFlow {
 
@@ -67,7 +67,11 @@ public class DataFlow {
         }
     }
 
-    public record ConstantFolder(Map<Node, ConstantValue> values) implements MiniJavaNodeVisitor {
+    public record ConstantFolder(
+            Map<Node, ConstantValue> values,
+            Map<Block, Node> controlFlowNode,
+            Map<Node, ControlFlowEdge> controlFlowTarget,
+            Set<ControlFlowEdge> isExecutable) implements MiniJavaNodeVisitor {
 
         private void partialEval(Function<List<ConstantValue>, ConstantValue> eval, Node parent, Node... children) {
             if (Arrays.stream(children).anyMatch(n -> values.get(n) instanceof Unknown)) {
@@ -121,6 +125,10 @@ public class DataFlow {
             biPartialEval(f, parent, child1, child2);
         }
 
+        private void cmpEval(Cmp parent, Node child1, Node child2) {
+            biEval((a, b) -> parent.getRelation().contains(a.compare(b)) ? TargetValue.getBTrue() : TargetValue.getBFalse(), parent, child1, child2);
+        }
+
         private void forward(Node parent, Node child) {
             this.unaryEval(arg -> arg, parent, child);
         }
@@ -152,9 +160,7 @@ public class DataFlow {
 
         @Override
         public void visit(Cmp cmp) {
-            // TODO: Consider constant folding for boolean operations,
-            // which involves reducing the graph
-            block(cmp);
+            cmpEval(cmp, cmp.getLeft(), cmp.getRight());
         }
 
         @Override
@@ -229,15 +235,18 @@ public class DataFlow {
 
         @Override
         public void visit(Not not) {
-            // TODO: Constant folding for FIRM-internal booleans
-            block(not);
+            unaryEval(TargetValue::not, not, not.getOp());
         }
 
         @Override
         public void visit(Phi phi) {
             ConstantValue result = Unknown.value;
-            for (Node pred : phi.getPreds()) {
-                result = result.sup(values.get(pred));
+            var block = (Block) phi.getBlock();
+            for (int i = 0; i < phi.getPredCount(); i++) {
+                if (isExecutable.contains(new ControlFlowEdge(block, i))) {
+                    var pred = phi.getPred(i);
+                    result = result.sup(values.get(pred));
+                }
             }
             values.put(phi, result);
         }
@@ -278,30 +287,112 @@ public class DataFlow {
         public void visit(firm.nodes.Unknown unknown) {
             // By default, nodes are marked with Unknown, so we don't need to insert it here.
         }
-
     }
 
-    public static Map<Node, ConstantValue> analyzeConstantFolding(Graph g) {
+    public record ControlFlowEdge(Block target, int predIdx){}
+    public record ConstantPropagation(Map<Node, ConstantValue> values, Set<ControlFlowEdge> executableEdges, Map<Node, ControlFlowEdge> controlFlowTarget) {}
+    public static ConstantPropagation analyzeConstantFolding(Graph g, Map<Block, List<Phi>> blockPhis) {
         BackEdges.enable(g);
-        ArrayDeque<Node> worklist = NodeCollector.run(g);
-        Map<Node, ConstantValue> values = worklist.stream()
-                .collect(Collectors.toMap(node -> node, node -> new Unknown()));
-        ConstantFolder f = new ConstantFolder(values);
-        while (!worklist.isEmpty()) {
-            Node n = worklist.removeFirst();
-            ConstantValue oldValue = values.get(n);
-            if (oldValue == null) {
-                // This node wasn't picked up by our traversal at the start and is hence dead.
-                continue;
+
+        Map<Block, Node> controlFlowNode = new HashMap<>();
+        Map<Node, ControlFlowEdge> controlFlowTarget = new HashMap<>();
+        g.walkBlocks(block -> {
+            for (int i = 0; i < block.getPredCount(); i++) {
+                var cfNode = block.getPred(i);
+                var predBlock = (Block) cfNode.getBlock();
+                assert cfNode.getMode().equals(Mode.getX());
+
+                if (cfNode instanceof Proj cfProj) {
+                    controlFlowNode.put(predBlock, cfProj.getPred());
+                } else {
+                    controlFlowNode.put(predBlock, cfNode);
+                }
+
+                controlFlowTarget.put(cfNode, new ControlFlowEdge(block, i));
             }
-            n.accept(f);
-            if (!oldValue.equals(values.get(n))) {
-                for (BackEdges.Edge e : BackEdges.getOuts(n)) {
-                    worklist.addLast(e.node);
+        });
+
+        ArrayDeque<Node> valueWorklist = new ArrayDeque<>(FirmUtils.blockContent(g.getStartBlock()));
+        ArrayDeque<ControlFlowEdge> edgeWorklist = new ArrayDeque<>();
+        var startBlockJmp = controlFlowNode.get(g.getStartBlock());
+        if (startBlockJmp instanceof Jmp || startBlockJmp instanceof Return) {
+            edgeWorklist.addLast(controlFlowTarget.get(startBlockJmp));
+        }
+        Set<ControlFlowEdge> isExecutable = new HashSet<>();
+
+        Map<Node, ConstantValue> values = new HashMap<>();
+        FirmUtils.blockContent(g.getStartBlock()).forEach(node -> values.put(node, Unknown.value));
+        ConstantFolder f = new ConstantFolder(values, controlFlowNode, controlFlowTarget, isExecutable);
+        while (!valueWorklist.isEmpty() || !edgeWorklist.isEmpty()) {
+
+            while (!valueWorklist.isEmpty()) {
+                Node n = valueWorklist.removeFirst();
+                ConstantValue oldValue = values.get(n);
+                if (oldValue == null) {
+                    // This node wasn't picked up by our traversal at the start and is hence dead.
+                    continue;
+                }
+
+                var nodeBlock = (Block) n.getBlock();
+                var nodesInReacheableBlock = IntStream.range(0, nodeBlock.getPredCount()).anyMatch(idx -> isExecutable.contains(new ControlFlowEdge(nodeBlock, idx)))
+                        || nodeBlock.equals(g.getStartBlock());
+
+                if (nodesInReacheableBlock) {
+                    n.accept(f);
+
+                    if (n instanceof Cond cond) {
+                        var condition = values.get(cond.getSelector());
+
+                        var executableControlFlow = new ArrayList<Node>();
+                        switch (condition) {
+                            case Constant c && c.value.equals(TargetValue.getBTrue()) -> executableControlFlow.add(FirmUtils.getCondTrueProj(cond));
+                            case Constant c -> {
+                                assert c.value.equals(TargetValue.getBFalse());
+                                executableControlFlow.add(FirmUtils.getCondFalseProj(cond));
+                            }
+                            case Variable ignored -> {
+                                executableControlFlow.add(FirmUtils.getCondTrueProj(cond));
+                                executableControlFlow.add(FirmUtils.getCondFalseProj(cond));
+                            }
+                            case Unknown ignored -> {}
+                        }
+
+                        executableControlFlow.stream().map(controlFlowTarget::get).forEach(edgeWorklist::addLast);
+                    }
+                }
+
+                if (!oldValue.equals(values.get(n))) {
+                    for (BackEdges.Edge e : BackEdges.getOuts(n)) {
+                        if (!(e.node instanceof Block)) {
+                            valueWorklist.addLast(e.node);
+                        }
+                    }
+                }
+            }
+
+            while (!edgeWorklist.isEmpty()) {
+                ControlFlowEdge edge = edgeWorklist.removeFirst();
+
+                if (!isExecutable.contains(edge)) {
+                    var hasBlockBecomeReacheable = IntStream.range(0, edge.target.getPredCount()).noneMatch(idx -> isExecutable.contains(new ControlFlowEdge(edge.target, idx)));
+                    isExecutable.add(edge);
+
+                    if (hasBlockBecomeReacheable) {
+                        var blockContent = FirmUtils.blockContent(edge.target);
+                        valueWorklist.addAll(blockContent);
+                        blockContent.forEach(node -> values.put(node, Unknown.value));
+                    } else {
+                        valueWorklist.addAll(blockPhis.get(edge.target));
+                    }
+
+                    var controlFlow = controlFlowNode.get(edge.target);
+                    if (controlFlow instanceof Jmp || controlFlow instanceof Return) {
+                        edgeWorklist.add(controlFlowTarget.get(controlFlow));
+                    }
                 }
             }
         }
         BackEdges.disable(g);
-        return values;
+        return new ConstantPropagation(values, isExecutable, controlFlowTarget);
     }
 }
