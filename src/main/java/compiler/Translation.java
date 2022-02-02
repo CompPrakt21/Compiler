@@ -878,14 +878,15 @@ public class Translation {
 
         Stack<Graph> optimizedGraphs = new Stack<>();
         this.methodGraphs.keySet().forEach(definedMethod -> {
-            InliningOptimization inliningOptimization = new InliningOptimization(this.methodGraphs.get(definedMethod), optimizedGraphs);
+            System.out.println("INLININNGG " + methodGraphs.get(definedMethod));
+            InliningOptimization inliningOptimization = new InliningOptimization(this.methodGraphs.get(definedMethod), optimizedGraphs, false);
             inliningOptimization.collectNodes();
             System.out.println("DONE INOLINEING " + definedMethod.getName());
             if (true) {
                 Dump.dumpGraph(this.methodGraphs.get(definedMethod), definedMethod.getName());
             }
-            BackEdges.disable(methodGraphs.get(definedMethod));
             methodGraphs.get(definedMethod).confirmProperties(binding_irgraph.ir_graph_properties_t.IR_GRAPH_PROPERTIES_NONE);
+            BackEdges.disable(methodGraphs.get(definedMethod));
             if (optimize) {
                 Optimization.optimizeFull(methodGraphs.get(definedMethod));
             }
