@@ -63,6 +63,22 @@ public class InliningOptimization {
             }
         }
         callNodes.removeAll(toRemove);
+        callNodes.sort((o1, o2) -> {
+            ArrayDeque<Node> temp1 = new ArrayDeque<>();
+            NodeCollector c = new NodeCollector(temp1);
+            ((Address)o1.getPred(1)).getEntity().getGraph().walkTopological(c);
+            int size1 = temp1.size();
+            ArrayDeque<Node> temp2 = new ArrayDeque<>();
+            NodeCollector c2 = new NodeCollector(temp2);
+            ((Address)o2.getPred(1)).getEntity().getGraph().walkTopological(c2);
+            int size2 = temp2.size();
+            return size1 - size2;
+
+
+
+        });
+
+
         suitabilityFilter();
 
     }
