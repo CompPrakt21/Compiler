@@ -904,7 +904,7 @@ public class Translation {
 
         Stack<Graph> optimizedGraphs = new Stack<>();
         this.methodGraphs.keySet().forEach(definedMethod -> {
-            InliningOptimization inliningOptimization = new InliningOptimization(this.methodGraphs.get(definedMethod), optimizedGraphs);
+            InliningOptimization inliningOptimization = new InliningOptimization(this.methodGraphs.get(definedMethod), optimizedGraphs, false);
             inliningOptimization.collectNodes();
             if (dumpGraphs) {
                 Dump.dumpGraph(this.methodGraphs.get(definedMethod), definedMethod.getName());
