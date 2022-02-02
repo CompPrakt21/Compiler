@@ -43,19 +43,36 @@ public class Optimization {
         }
     }
 
-    public static void optimizeFull(Graph g, Map<Call, MethodDefinition> methodReferences) {
+    private static void dumpIfFlag(boolean dumpGraphs, Graph g, String name) {
+        if (dumpGraphs) {
+            Dump.dumpGraph(g, name);
+        }
+    }
+
+    public static void optimizeFull(Graph g, Map<Call, MethodDefinition> methodReferences, boolean dumpGraphs) {
         Optimization o = new Optimization(g, methodReferences);
         o.constantFolding();
+        dumpIfFlag(dumpGraphs,g, "after-const");
         o.eliminateRedundantSideEffects();
+        dumpIfFlag(dumpGraphs,g, "after-redundant-sideeffect");
         o.simplifyArithmeticExpressions();
+        dumpIfFlag(dumpGraphs,g, "after-arithmetic");
         o.loopInvariantCodeMotion();
+        dumpIfFlag(dumpGraphs,g, "after-loop-invariance");
         o.commonSubexpressionElimination();
+        dumpIfFlag(dumpGraphs,g, "after-cse");
         o.eliminateRedundantPhis();
+        dumpIfFlag(dumpGraphs,g, "after-redundant-phis");
         o.eliminateSingletonBlocks();
+        dumpIfFlag(dumpGraphs,g, "after-singleton");
         o.eliminateTrivialConds();
+        dumpIfFlag(dumpGraphs,g, "after-trivial-conds");
         o.inlineTrivialBlocks();
+        dumpIfFlag(dumpGraphs,g, "after-inline-trivial-blocks");
         o.eliminateRedundantPhis();
+        dumpIfFlag(dumpGraphs,g, "after-redundant-phis");
         o.eliminateUnusedAllocs();
+        dumpIfFlag(dumpGraphs,g, "after-unused-allocs");
     }
 
     public void constantFolding() {
