@@ -1,16 +1,14 @@
 package compiler;
 
-import compiler.ast.Parameter;
+import compiler.semantic.resolution.MethodDefinition;
+import compiler.types.Ty;
 import compiler.utils.FirmUtils;
 import firm.*;
 import firm.bindings.binding_irgmod;
 import firm.bindings.binding_irgraph;
 import firm.nodes.*;
 
-import java.nio.file.attribute.PosixFileAttributes;
 import java.util.*;
-import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 
 public class InliningOptimization {
 
@@ -22,7 +20,8 @@ public class InliningOptimization {
     private final int MAX_COPY_SIZE = 250;
     private Stack<Graph> optimizedGraphs;
     private Node originalBlock = null;
-
+    Map<Call, MethodDefinition> methodReferences;
+    Map<Node, Ty> nodeAstTypes;
 
     private int size = Integer.MAX_VALUE;
 
@@ -31,7 +30,9 @@ public class InliningOptimization {
     private ArrayList<Proj> projNodes = new ArrayList<>();
 
 
-    public InliningOptimization(Graph g, Stack<Graph> optimizedGraphs, boolean recursive) {
+    public InliningOptimization(Graph g, Stack<Graph> optimizedGraphs, boolean recursive, Map<Call, MethodDefinition> methodReferences, Map<Node, Ty> nodeAstTypes) {
+        this.methodReferences = methodReferences;
+        this.nodeAstTypes = nodeAstTypes;
         graph = g;
         this.optimizedGraphs = optimizedGraphs;
         this.optimizedGraphs.add(graph);
@@ -131,6 +132,28 @@ public class InliningOptimization {
                 j++;
             }
         }
+        Map<Call, MethodDefinition> tempMethodReferences = new HashMap<>(this.methodReferences);
+        Set<Call> calls = tempMethodReferences.keySet();
+        for (Call call : calls) {
+            int exists = originalNode.indexOf(call);
+            if (exists >= 0) {
+                MethodDefinition temp = tempMethodReferences.get(call);
+                this.methodReferences.put((Call) copiedNode.get(exists), temp);
+            }
+        }
+
+        Map<Node, Ty> tempNodeAstTypes = new HashMap<>(nodeAstTypes);
+        Set<Node> nodes = tempNodeAstTypes.keySet();
+        for (Node node : nodes) {
+            int exists = originalNode.indexOf(node);
+            if (exists >= 0) {
+                Ty temp = tempNodeAstTypes.get(node);
+                this.nodeAstTypes.put(copiedNode.get(exists), temp);
+            }
+        }
+
+
+
         ArrayList<Node> jmpBlocks = new ArrayList<>();
         if (!copiedBlock.isEmpty())
             originalBlock.get(0).getGraph().getEndBlock().getPreds().forEach(node -> jmpBlocks.add(node.getBlock()));
@@ -341,7 +364,7 @@ public class InliningOptimization {
             }
             if (!curTargetGraph.equals(graph)) {
                 boolean optimized = optimizedGraphs.contains(curTargetGraph);
-                InliningOptimization optimization = new InliningOptimization(curTargetGraph, optimizedGraphs, true);
+                InliningOptimization optimization = new InliningOptimization(curTargetGraph, optimizedGraphs, true, methodReferences, nodeAstTypes);
                 curTargetGraphSize = optimization.getSize();
                 if (!optimized)
                     optimization.collectNodes();
