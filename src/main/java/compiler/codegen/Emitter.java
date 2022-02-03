@@ -173,7 +173,7 @@ public class Emitter {
                 asm = String.format("\tshr %s, %s", shr.getRhs().formatATTSyntax(), shr.getLhs().formatATTSyntax());
             }
             case ArithmeticShiftRightInstruction sal -> {
-                asm = String.format("\tsal %s, %s", sal.getRhs().formatATTSyntax(), sal.getLhs().formatATTSyntax());
+                asm = String.format("\tsar %s, %s", sal.getRhs().formatATTSyntax(), sal.getLhs().formatATTSyntax());
             }
             default -> throw new IllegalArgumentException("Instruction not emitable: " + instruction);
         }
