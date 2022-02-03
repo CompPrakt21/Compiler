@@ -908,6 +908,14 @@ public class Translation {
                     Dump.dumpGraph(graph, "after-opt");
                 }
             }
+        } else {
+            for (var graph : translation.methodGraphs().values()) {
+                Optimization.optimizeMinimal(graph, translation.nodeAstTypes(), translation.methodReferences(), dumpGraphs);
+
+                if (dumpGraphs) {
+                    Dump.dumpGraph(graph, "after-opt");
+                }
+            }
         }
 
         if (dumpGraphs) {
