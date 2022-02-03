@@ -53,6 +53,12 @@ public class Optimization {
         }
     }
 
+    public static void optimizeMinimal(Graph g, Map<Node, Ty> nodeAstTypes, Map<Call, MethodDefinition> methodReferences, boolean dumpGraphs) {
+        Optimization o = new Optimization(g, nodeAstTypes, methodReferences);
+        o.constantFolding();
+        dumpIfFlag(dumpGraphs,g, "after-const");
+    }
+
     public static void optimizeFull(Graph g, Map<Node, Ty> nodeAstTypes, Map<Call, MethodDefinition> methodReferences, boolean dumpGraphs) {
         Optimization o = new Optimization(g, nodeAstTypes, methodReferences);
         o.constantFolding();
