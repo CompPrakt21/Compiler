@@ -242,6 +242,12 @@ public class DataFlow {
         }
 
         @Override
+        public void visit(And and) {
+            // And nodes are created by arithmetic optimizations and shouldn't exist during this phase.
+            block(and);
+        }
+
+        @Override
         public void visit(Phi phi) {
             ConstantValue result = Unknown.value;
             var block = (Block) phi.getBlock();

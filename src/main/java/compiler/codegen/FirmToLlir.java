@@ -632,8 +632,21 @@ public class FirmToLlir implements NodeVisitor {
         var lhs = (RegisterNode)getPredLlirNode(xor, xor.getLeft());
         var rhs = (RegisterNode)getPredLlirNode(xor, xor.getRight());
 
-        var llirAdd = bb.newXor(lhs, rhs);
-        this.registerLlirNode(xor, llirAdd);
+        var llirXor = bb.newXor(lhs, rhs);
+        this.registerLlirNode(xor, llirXor);
+    }
+
+    public void visit(And and) {
+        this.visitNode(and.getLeft());
+        this.visitNode(and.getRight());
+
+        var bb = getBasicBlock(and);
+
+        var lhs = (RegisterNode)getPredLlirNode(and, and.getLeft());
+        var rhs = (RegisterNode)getPredLlirNode(and, and.getRight());
+
+        var llirAnd = bb.newAnd(lhs, rhs);
+        this.registerLlirNode(and, llirAnd);
     }
 
     public void visit(Mul mul) {
@@ -960,7 +973,6 @@ public class FirmToLlir implements NodeVisitor {
     public void visit(Align node) { throwUnsupportedNode(node); }
     public void visit(Alloc node) { throwUnsupportedNode(node); }
     public void visit(Anchor node) { throwUnsupportedNode(node); }
-    public void visit(And node) { throwUnsupportedNode(node); }
     public void visit(Bad node) { throwUnsupportedNode(node); }
     public void visit(Bitcast node) { throwUnsupportedNode(node); }
     public void visit(Block node) { throwUnsupportedNode(node); }

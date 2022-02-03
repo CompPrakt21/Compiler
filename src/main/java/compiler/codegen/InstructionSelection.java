@@ -238,6 +238,7 @@ public class InstructionSelection extends FirmToLlir {
             case Add ignored -> bb.newAdd(lhs, rhs);
             case Mul ignored -> bb.newMul(lhs, rhs);
             case Eor ignored -> bb.newXor(lhs, rhs);
+            case And ignored -> bb.newAnd(lhs, rhs);
             default -> throw new AssertionError("invalid node type");
         };
     }
@@ -268,6 +269,7 @@ public class InstructionSelection extends FirmToLlir {
                 case Add ignored -> bb.newAddFromMem(lhs, loc, llirMem);
                 case Mul ignored -> bb.newMulFromMem(lhs, loc, llirMem);
                 case Eor ignored -> bb.newXorFromMem(lhs, loc, llirMem);
+                case And ignored -> bb.newAndFromMem(lhs, loc, llirMem);
                 default -> throw new AssertionError("invalid node type");
             };
 
@@ -405,6 +407,11 @@ public class InstructionSelection extends FirmToLlir {
     @Override
     public void visit(Eor xor) {
         this.visitBinOp(xor);
+    }
+
+    @Override
+    public void visit(And and) {
+        this.visitBinOp(and);
     }
 
     @Override

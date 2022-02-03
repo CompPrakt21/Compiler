@@ -6,7 +6,7 @@ import compiler.codegen.Register;
 import java.util.List;
 import java.util.stream.Stream;
 
-public abstract sealed class BinaryInstruction extends RegisterInstruction permits AddInstruction, SubInstruction, MulInstruction, XorInstruction {
+public abstract sealed class BinaryInstruction extends RegisterInstruction permits AddInstruction, SubInstruction, MulInstruction, XorInstruction, AndInstruction {
     protected Register lhs;
     protected Operand rhs;
 

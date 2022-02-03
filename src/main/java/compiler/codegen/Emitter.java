@@ -153,6 +153,11 @@ public class Emitter {
                         insn.getLhs().formatATTSyntax());
 
             }
+            case AndInstruction insn -> {
+                asm = String.format("\tand %s, %s",
+                        insn.getRhs().formatATTSyntax(),
+                        insn.getLhs().formatATTSyntax());
+            }
             case ConvertDoubleToQuadInstruction insn -> {
                 assert insn.getTarget().equals(HardwareRegister.EDX);
                 assert insn.getDoubleWord().equals(HardwareRegister.EAX);

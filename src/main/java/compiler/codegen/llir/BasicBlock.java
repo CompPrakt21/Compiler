@@ -162,8 +162,16 @@ public class BasicBlock {
         return new XorInstruction(this, lhs, rhs);
     }
 
+    public AndInstruction newAnd(RegisterNode lhs, SimpleOperand rhs) {
+        return new AndInstruction(this, lhs, rhs);
+    }
+
     public XorFromMemInstruction newXorFromMem(RegisterNode lhs, MemoryLocation rhs, SideEffect sideEffect) {
         return new XorFromMemInstruction(this, lhs, rhs, sideEffect);
+    }
+
+    public AndFromMemInstruction newAndFromMem(RegisterNode lhs, MemoryLocation rhs, SideEffect sideEffect) {
+        return new AndFromMemInstruction(this, lhs, rhs, sideEffect);
     }
 
     public DivInstruction newDiv(RegisterNode dividend, RegisterNode divisor, SideEffect sideEffect) {

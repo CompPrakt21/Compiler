@@ -4,7 +4,7 @@ import compiler.codegen.llir.BasicBlock;
 
 import java.util.stream.Stream;
 
-public abstract sealed class BinaryInstruction extends RegisterNode permits AddInstruction, MulInstruction, SubInstruction, XorInstruction {
+public abstract sealed class BinaryInstruction extends RegisterNode permits AddInstruction, MulInstruction, SubInstruction, XorInstruction, AndInstruction {
 
     protected RegisterNode lhs;
     protected SimpleOperand rhs;

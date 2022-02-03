@@ -4,7 +4,7 @@ import compiler.codegen.llir.BasicBlock;
 
 import java.util.stream.Stream;
 
-public abstract sealed class BinaryFromMemInstruction extends RegisterNode implements SideEffect permits AddFromMemInstruction, MulFromMemInstruction, SubFromMemInstruction, XorFromMemInstruction {
+public abstract sealed class BinaryFromMemInstruction extends RegisterNode implements SideEffect permits AddFromMemInstruction, MulFromMemInstruction, SubFromMemInstruction, XorFromMemInstruction, AndFromMemInstruction {
     private RegisterNode lhs;
     private MemoryLocation rhs;
 

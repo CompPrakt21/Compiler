@@ -17,6 +17,11 @@ public record NodeCollector(ArrayDeque<Node> worklist) implements MiniJavaNodeVi
     }
 
     @Override
+    public void visit(And and) {
+        worklist.addLast(and);
+    }
+
+    @Override
     public void visit(Block block) {
         worklist.addLast(block);
     }

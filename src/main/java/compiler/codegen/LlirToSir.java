@@ -100,9 +100,11 @@ public class LlirToSir {
             case compiler.codegen.llir.nodes.SubInstruction sub -> new SubInstruction(sub.getTargetRegister(), sub.getLhs().getTargetRegister(), toSirOperand(sub.getRhs()));
             case compiler.codegen.llir.nodes.MulInstruction mul -> new MulInstruction(mul.getTargetRegister(), mul.getLhs().getTargetRegister(), toSirOperand(mul.getRhs()));
             case compiler.codegen.llir.nodes.XorInstruction xor -> new XorInstruction(xor.getTargetRegister(), xor.getLhs().getTargetRegister(), toSirOperand(xor.getRhs()));
+            case compiler.codegen.llir.nodes.AndInstruction and -> new AndInstruction(and.getTargetRegister(), and.getLhs().getTargetRegister(), toSirOperand(and.getRhs()));
             case compiler.codegen.llir.nodes.AddFromMemInstruction add -> new AddInstruction(add.getTargetRegister(), add.getLhs().getTargetRegister(), toSirOperand(add.getRhs()));
             case compiler.codegen.llir.nodes.MulFromMemInstruction mul -> new MulInstruction(mul.getTargetRegister(), mul.getLhs().getTargetRegister(), toSirOperand(mul.getRhs()));
             case compiler.codegen.llir.nodes.XorFromMemInstruction xor -> new XorInstruction(xor.getTargetRegister(), xor.getLhs().getTargetRegister(), toSirOperand(xor.getRhs()));
+            case compiler.codegen.llir.nodes.AndFromMemInstruction and -> new AndInstruction(and.getTargetRegister(), and.getLhs().getTargetRegister(), toSirOperand(and.getRhs()));
             case compiler.codegen.llir.nodes.SubFromMemInstruction sub -> new SubInstruction(sub.getTargetRegister(), sub.getLhs().getTargetRegister(), toSirOperand(sub.getRhs()));
             case compiler.codegen.llir.nodes.LoadEffectiveAddressInstruction lea -> new LoadEffectiveAddressInstruction(lea.getTargetRegister(), (MemoryLocation) toSirOperand(lea.getLoc()));
         };

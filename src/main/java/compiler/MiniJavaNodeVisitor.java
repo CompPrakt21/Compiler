@@ -17,9 +17,6 @@ public interface MiniJavaNodeVisitor extends NodeVisitor {
     default void visit(Anchor anchor) { err(anchor); }
 
     @Override
-    default void visit(And and) { err(and); }
-
-    @Override
     default void visit(Bad bad) { err(bad); }
 
     @Override
