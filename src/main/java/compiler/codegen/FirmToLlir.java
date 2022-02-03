@@ -694,6 +694,48 @@ public class FirmToLlir implements NodeVisitor {
         this.registerLlirNode(mod, llirMod);
     }
 
+    public void visit(Shl shl) {
+        this.visitNode(shl.getLeft());
+        this.visitNode(shl.getRight());
+
+        var bb = getBasicBlock(shl);
+
+        var lhs = (RegisterNode) getPredLlirNode(shl, shl.getLeft());
+        var rhs = (RegisterNode) getPredLlirNode(shl, shl.getRight());
+
+        var llirShl = bb.newShiftLeft(lhs, rhs);
+
+        this.registerLlirNode(shl, llirShl);
+    }
+
+    public void visit(Shr shr) {
+        this.visitNode(shr.getLeft());
+        this.visitNode(shr.getRight());
+
+        var bb = getBasicBlock(shr);
+
+        var lhs = (RegisterNode) getPredLlirNode(shr, shr.getLeft());
+        var rhs = (RegisterNode) getPredLlirNode(shr, shr.getRight());
+
+        var llirShr = bb.newShiftRight(lhs, rhs);
+
+        this.registerLlirNode(shr, llirShr);
+    }
+
+    public void visit(Shrs shrs) {
+        this.visitNode(shrs.getLeft());
+        this.visitNode(shrs.getRight());
+
+        var bb = getBasicBlock(shrs);
+
+        var lhs = (RegisterNode) getPredLlirNode(shrs, shrs.getLeft());
+        var rhs = (RegisterNode) getPredLlirNode(shrs, shrs.getRight());
+
+        var llirShrs = bb.newArithmeticShiftRight(lhs, rhs);
+
+        this.registerLlirNode(shrs, llirShrs);
+    }
+
     public void visit(Jmp jump) {
         var bb = getBasicBlock(jump);
 
@@ -966,9 +1008,6 @@ public class FirmToLlir implements NodeVisitor {
     // firm graph during lowering to the backend.
     public void visit(Raise node) { throwUnsupportedNode(node); }
     public void visit(Sel node) { throwUnsupportedNode(node); }
-    public void visit(Shl node) { throwUnsupportedNode(node); }
-    public void visit(Shr node) { throwUnsupportedNode(node); }
-    public void visit(Shrs node) { throwUnsupportedNode(node); }
     public void visit(Size node) { throwUnsupportedNode(node); }
     public void visit(Align node) { throwUnsupportedNode(node); }
     public void visit(Alloc node) { throwUnsupportedNode(node); }

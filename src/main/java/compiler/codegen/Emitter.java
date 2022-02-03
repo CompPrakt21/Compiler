@@ -166,6 +166,15 @@ public class Emitter {
             case LoadEffectiveAddressInstruction lea -> {
                 asm = String.format("\tlea %s, %s", lea.getLoc().formatATTSyntax(), lea.getTarget().formatATTSyntax());
             }
+            case ShiftLeftInstruction shl -> {
+                asm = String.format("\tshl %s, %s", shl.getRhs().formatATTSyntax(), shl.getLhs().formatATTSyntax());
+            }
+            case ShiftRightInstruction shr -> {
+                asm = String.format("\tshr %s, %s", shr.getRhs().formatATTSyntax(), shr.getLhs().formatATTSyntax());
+            }
+            case ArithmeticShiftRightInstruction sal -> {
+                asm = String.format("\tsal %s, %s", sal.getRhs().formatATTSyntax(), sal.getLhs().formatATTSyntax());
+            }
             default -> throw new IllegalArgumentException("Instruction not emitable: " + instruction);
         }
 

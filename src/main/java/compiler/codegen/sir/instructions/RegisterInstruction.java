@@ -4,7 +4,7 @@ import compiler.codegen.Register;
 
 import java.util.Optional;
 
-public abstract sealed class RegisterInstruction extends Instruction permits BinaryInstruction, CallInstruction, ConvertDoubleToQuadInstruction, DivInstruction, LoadEffectiveAddressInstruction, MovSignExtendInstruction {
+public abstract sealed class RegisterInstruction extends Instruction permits BinaryInstruction, CallInstruction, ConvertDoubleToQuadInstruction, DivInstruction, LoadEffectiveAddressInstruction, MovSignExtendInstruction, ShiftInstruction {
     protected Register target;
 
     public RegisterInstruction(Register target) {

@@ -5,7 +5,7 @@ import compiler.codegen.Register;
 
 import java.util.List;
 
-public sealed abstract class RegisterNode extends LlirNode implements SimpleOperand permits BinaryFromMemInstruction, BinaryInstruction, CallInstruction, DivInstruction, InputNode, LoadEffectiveAddressInstruction, MovImmediateInstruction, MovLoadInstruction, MovRegisterInstruction, MovSignExtendInstruction {
+public sealed abstract class RegisterNode extends LlirNode implements SimpleOperand permits BinaryFromMemInstruction, BinaryInstruction, CallInstruction, DivInstruction, InputNode, LoadEffectiveAddressInstruction, MovImmediateInstruction, MovLoadInstruction, MovRegisterInstruction, MovSignExtendInstruction, ShiftInstruction {
     protected Register targetRegister;
 
     public RegisterNode(BasicBlock bb) {

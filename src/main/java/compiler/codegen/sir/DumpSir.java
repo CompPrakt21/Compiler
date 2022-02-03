@@ -35,6 +35,7 @@ public class DumpSir {
         return switch (instr) {
             case DivInstruction div -> String.format("%s <- %s %s %s", div.getTarget(), div.getMnemonic(), div.getDividend(), div.getDivisor());
             case BinaryInstruction binary -> String.format("%s <- %s %s %s", binary.getTarget(), binary.getMnemonic(), binary.getLhs(), binary.getRhs().formatIntelSyntax());
+            case ShiftInstruction shift -> String.format("%s <- %s %s %s", shift.getTarget(), shift.getMnemonic(), shift.getLhs(), shift.getRhs().formatIntelSyntax());
             case AllocCallInstruction alloc -> String.format("%s <- %s (%s %s)", alloc.getTarget(), alloc.getMnemonic(), alloc.getNumElements(), alloc.getObjectSize());
             case BranchInstruction branch -> String.format("%s", branch.getMnemonic());
             case CmpInstruction cmp -> String.format("%s %s %s", cmp.getMnemonic(), cmp.getLhs(), cmp.getRhs().formatIntelSyntax());

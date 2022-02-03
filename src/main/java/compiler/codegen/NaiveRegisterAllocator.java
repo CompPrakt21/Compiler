@@ -168,6 +168,31 @@ public class NaiveRegisterAllocator {
 
                 allocatedRegisters.forEach(this.freeRegisters::freeMapping);
             }
+            case ShiftInstruction shift -> {
+                Set<VirtualRegister> allocatedRegisters = new HashSet<>();
+
+                var targetReg = (VirtualRegister) shift.getTarget();
+                var lhsVirtReg = (VirtualRegister) shift.getLhs();
+
+                if (shift.getRhs() instanceof Register reg) {
+                    var rhsVirtReg = (VirtualRegister) reg;
+                    var rhsReg = this.concretizeRegisterInto(HardwareRegister.ECX, rhsVirtReg, newList);
+                    shift.setRhs(HardwareRegister.CL);
+                    allocatedRegisters.add(rhsVirtReg);
+                }
+
+                var lhsReg = this.concretizeRegister(lhsVirtReg, newList);
+                allocatedRegisters.add(lhsVirtReg);
+
+                shift.setTarget(lhsReg);
+                shift.setLhs(lhsReg);
+
+                newList.add(shift);
+
+                this.saveVirtualRegister(targetReg, lhsReg, newList);
+
+                allocatedRegisters.forEach(this.freeRegisters::freeMapping);
+            }
             case ReturnInstruction ret -> {
                 // Load return value into RAX/EAX
                 if (ret.getReturnValue().isPresent()) {

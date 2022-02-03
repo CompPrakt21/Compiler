@@ -24,6 +24,7 @@ public class DumpScheduledLlir {
         return switch (node) {
             case BinaryInstruction binary -> String.format("%s <- %s %s %s", binary.getTargetRegister(), binary.getMnemonic(), binary.getLhs().getTargetRegister(), binary.getRhs().formatIntelSyntax());
             case BinaryFromMemInstruction binary -> String.format("%s <- %s %s %s", binary.getTargetRegister(), binary.getMnemonic(), binary.getLhs().getTargetRegister(), binary.getRhs().formatIntelSyntax());
+            case ShiftInstruction shift -> String.format("%s <- %s %s %s", shift.getTargetRegister(), shift.getMnemonic(), shift.getLhs().getTargetRegister(), shift.getRhs().formatIntelSyntax());
             case AllocCallInstruction alloc -> String.format("%s <- %s <alloc> (%s %s)", alloc.getTargetRegister(), alloc.getMnemonic(), alloc.getNumElements().getTargetRegister(), alloc.getElemSize().getTargetRegister());
             case BranchInstruction branch -> String.format("%s", branch.getMnemonic());
             case CmpInstruction cmp -> String.format("%s %s %s", cmp.getMnemonic(), cmp.getLhs().getTargetRegister(), cmp.getRhs().formatIntelSyntax());

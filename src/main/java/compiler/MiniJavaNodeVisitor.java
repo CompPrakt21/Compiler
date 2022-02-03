@@ -71,15 +71,6 @@ public interface MiniJavaNodeVisitor extends NodeVisitor {
     default void visit(Sel sel) { err(sel); }
 
     @Override
-    default void visit(Shl shl) { err(shl); }
-
-    @Override
-    default void visit(Shr shr) { err(shr); }
-
-    @Override
-    default void visit(Shrs shrs) { err(shrs); }
-
-    @Override
     default void visit(Sub sub) { err(sub); }
 
     @Override

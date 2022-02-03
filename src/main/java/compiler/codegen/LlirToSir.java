@@ -7,7 +7,6 @@ import compiler.codegen.llir.nodes.RegisterNode;
 import compiler.codegen.sir.SirGraph;
 import compiler.codegen.sir.instructions.*;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -107,6 +106,9 @@ public class LlirToSir {
             case compiler.codegen.llir.nodes.AndFromMemInstruction and -> new AndInstruction(and.getTargetRegister(), and.getLhs().getTargetRegister(), toSirOperand(and.getRhs()));
             case compiler.codegen.llir.nodes.SubFromMemInstruction sub -> new SubInstruction(sub.getTargetRegister(), sub.getLhs().getTargetRegister(), toSirOperand(sub.getRhs()));
             case compiler.codegen.llir.nodes.LoadEffectiveAddressInstruction lea -> new LoadEffectiveAddressInstruction(lea.getTargetRegister(), (MemoryLocation) toSirOperand(lea.getLoc()));
+            case compiler.codegen.llir.nodes.ShiftLeftInstruction shl -> new ShiftLeftInstruction(shl.getTargetRegister(), shl.getLhs().getTargetRegister(), toSirOperand(shl.getRhs()));
+            case compiler.codegen.llir.nodes.ShiftRightInstruction shr -> new ShiftRightInstruction(shr.getTargetRegister(), shr.getLhs().getTargetRegister(), toSirOperand(shr.getRhs()));
+            case compiler.codegen.llir.nodes.ArithmeticShiftRightInstruction sal -> new ArithmeticShiftRightInstruction(sal.getTargetRegister(), sal.getLhs().getTargetRegister(), toSirOperand(sal.getRhs()));
         };
     }
 

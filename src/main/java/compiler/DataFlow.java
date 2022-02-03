@@ -241,11 +241,20 @@ public class DataFlow {
             unaryEval(TargetValue::not, not, not.getOp());
         }
 
+        // The following nodes and, shl, shr and sal nodes are created by arithmetic optimizations and shouldn't exist during this phase.
         @Override
         public void visit(And and) {
-            // And nodes are created by arithmetic optimizations and shouldn't exist during this phase.
             block(and);
         }
+
+        @Override
+        public void visit(Shl shl) { block(shl); }
+
+        @Override
+        public void visit(Shr shr) { block(shr); }
+
+        @Override
+        public void visit(Shrs shrs) { block(shrs); }
 
         @Override
         public void visit(Phi phi) {

@@ -225,4 +225,16 @@ public class BasicBlock {
     public MethodCallInstruction newMethodCall(MethodDefinition calledMethod, SideEffect sideEffect, List<RegisterNode> arguments) {
         return new MethodCallInstruction(this, calledMethod, sideEffect, arguments);
     }
+
+    public ShiftLeftInstruction newShiftLeft(RegisterNode lhs, SimpleOperand rhs) {
+        return new ShiftLeftInstruction(this, lhs, rhs);
+    }
+
+    public ShiftRightInstruction newShiftRight(RegisterNode lhs, SimpleOperand rhs) {
+        return new ShiftRightInstruction(this, lhs, rhs);
+    }
+
+    public ArithmeticShiftRightInstruction newArithmeticShiftRight(RegisterNode lhs, SimpleOperand rhs) {
+        return new ArithmeticShiftRightInstruction(this, lhs, rhs);
+    }
 }

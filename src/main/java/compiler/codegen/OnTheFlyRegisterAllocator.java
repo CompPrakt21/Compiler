@@ -583,6 +583,42 @@ public class OnTheFlyRegisterAllocator {
 
                 newList.add(binary);
             }
+            case ShiftInstruction shift -> {
+                var usedRegisters = new HashSet<HardwareRegister>();
+
+                List<HardwareRegister> mustStayLive = List.of();
+                if (shift.getRhs() instanceof VirtualRegister rhs) {
+                    var rhsHardwareReg = this.concretizeRegisterInto(HardwareRegister.ECX, rhs, newList);
+                    mustStayLive = List.of(rhsHardwareReg);
+                    usedRegisters.add(rhsHardwareReg);
+                    shift.setRhs(HardwareRegister.CL);
+                }
+
+                var targetReg = (VirtualRegister) shift.getTarget();
+                var lhsVirtReg = (VirtualRegister) shift.getLhs();
+
+                var lhsReg= this.concretizeRegister(lhsVirtReg, newList, usedRegisters);
+                usedRegisters.add(lhsReg);
+
+                // If there is a rhs register different from the lhs register, it is important that the target hardware register
+                // doesn't allocate the same register because it would get overwritten by the mov inserted before the binary instruction.
+                // However, if they are the same virtual register this is ok.
+                if (!mustStayLive.isEmpty()) {
+                    mustStayLive = mustStayLive.stream().filter(r -> !r.equals(lhsReg)).toList();
+                }
+
+                this.freeDeadVirtualRegisters(liveRegs);
+
+                var targetHardwareReg = this.initialiseVirtualRegister(targetReg, newList, usedRegisters, mustStayLive, Set.of(lhsReg));
+                if (targetHardwareReg != lhsReg) {
+                    newList.add(new MovInstruction(targetHardwareReg.getWidth(), targetHardwareReg, lhsReg));
+                }
+
+                shift.setTarget(targetHardwareReg);
+                shift.setLhs(targetHardwareReg);
+
+                newList.add(shift);
+            }
             case ReturnInstruction ret -> {
                 // Load return value into RAX/EAX
                 if (ret.getReturnValue().isPresent()) {
