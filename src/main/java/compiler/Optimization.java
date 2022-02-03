@@ -10,6 +10,7 @@ import firm.bindings.binding_irgraph;
 import firm.bindings.binding_irnode;
 import firm.nodes.*;
 
+import java.math.BigInteger;
 import java.util.*;
 import java.util.function.*;
 import java.util.stream.Collectors;
@@ -446,6 +447,39 @@ public class Optimization {
                         });
                         nn = r1.get().or(r2).orElse(null);
                     }
+                    case Div d -> {
+                        Node left = d.getLeft();
+                        Node right = d.getRight();
+
+                        if (right instanceof Const) {
+                            var tv = ((Const) right).getTarval();
+
+                            // Power of two
+                            if (tv.highest_bit() == tv.lowest_bit()) {
+                                Node kMinusOne = g.newConst(tv.highest_bit() - 1, Mode.getIu());
+                                Node firstShift = g.newShrs(b, left, kMinusOne);
+                                // TODO Check these are safe
+                                Node thirtyTwoMinusK = g.newConst(32 - tv.highest_bit(), Mode.getIu());
+                                Node secondShift = g.newShr(b, firstShift, thirtyTwoMinusK);
+                                Node add = g.newAdd(b, n, secondShift);
+                                Node maskConst = g.newConst(tv.neg()); // -2**k
+                                Node and = g.newAnd(b, add, maskConst);
+                                nn = g.newSub(b, left, and);
+                            } else {
+                                var magic = Magic.computeDivMagic(Integer.MAX_VALUE, tv.asInt());
+                                if (magic.isPresent()) {
+                                    int magicVal = magic.get().m;
+                                    int shiftVal = magic.get().p;
+
+                                    Node magicConst = g.newConst(magicVal, Mode.getIu());
+                                    Node shiftConst = g.newConst(shiftVal, Mode.getIu());
+                                    // TODO: Which mul, which shift, HD ist inconclusive
+                                    Node mul = g.newMul(b, left, magicConst);
+                                    nn = g.newShrs(b, mul, shiftConst);
+                                }
+                            }
+                        }
+                    }
                     default -> {}
                 }
                 // ALl the warnings related to nn and nChanged are wrong
@@ -464,6 +498,31 @@ public class Optimization {
         BackEdges.disable(g);
     }
 
+    private record Magic(int m, int p) {
+        private static Optional<Magic> computeDivMagic(int nmax, int d) {
+            var nc = (nmax / d) * d - 1;
+            var nbits = 32 - Integer.numberOfLeadingZeros(nmax);
+            for (int p = 0; p <= 2 * nbits; p++) {
+                // 1 << p
+                var lhs = BigInteger.ZERO.setBit(p);
+                var rhs2 = lhs.subtract(BigInteger.ONE).mod(BigInteger.valueOf(d));
+                rhs2 = BigInteger.valueOf(d).subtract(BigInteger.ONE).subtract(rhs2);
+                var rhs = rhs2.multiply(BigInteger.valueOf(nc));
+                //if ((1 << p) > nc * (d - 1 - ((1<< p) - 1) % d)) {
+                if (lhs.compareTo(rhs) > 0) {
+                    //var m = ((1 << p) + d - 1 - ((1 << p) - 1) % d) / d;
+                    var m = lhs.add(rhs2).divide(BigInteger.valueOf(d));
+                    try {
+                        var mInt = m.intValueExact();
+                        return Optional.of(new Magic(mInt, p));
+                    } catch (ArithmeticException e) {
+                        return Optional.empty();
+                    }
+                }
+            }
+            return Optional.empty();
+        }
+    }
 
     public record ExpressionNode(Node n) {
         private static HashMap<Node, Integer> hashCache = new HashMap<>();
