@@ -4,10 +4,7 @@ import compiler.semantic.resolution.MethodDefinition;
 import compiler.types.Ty;
 import compiler.utils.FirmUtils;
 import firm.*;
-import firm.bindings.binding_irdom;
-import firm.bindings.binding_irgmod;
-import firm.bindings.binding_irgraph;
-import firm.bindings.binding_irnode;
+import firm.bindings.*;
 import firm.nodes.*;
 
 import java.math.BigInteger;
@@ -816,7 +813,15 @@ public class Optimization {
         BackEdges.disable(g);
     }
 
-    private void loopInvariantCodeMotionWalker(Node node, Set<Node> visited, Set<Block> loopBlocks, Block loopHead, Map<Node, Integer> movableNodes) {
+    private void loopInvariantCodeMotionWalker(
+            Node node,
+            Set<Node> visited,
+            Function<Load, Boolean> isUnaliased,
+            Set<Block> loopBlocks,
+            Block loopHead,
+            Map<Node, Integer> movableNodes,
+            Set<Load> movableLoads
+    ) {
         // already visited node or the node is outside the loop.
         if (visited.contains(node) || !loopBlocks.contains((Block) node.getBlock())) {
             return;
@@ -825,7 +830,7 @@ public class Optimization {
 
         // Try moving predecessors first
         for (var pred : node.getPreds()) {
-            loopInvariantCodeMotionWalker(pred, visited, loopBlocks, loopHead, movableNodes);
+            loopInvariantCodeMotionWalker(pred, visited, isUnaliased, loopBlocks, loopHead, movableNodes, movableLoads);
         }
 
         // These nodes better not be moved.
@@ -840,10 +845,17 @@ public class Optimization {
 
         // The node can be moved before the loop if all predecessor are in a block which strictly dominates the loop head or
         // the predecessor can be moved outside the loop.
-        var canBeMoved = StreamSupport.stream(node.getPreds().spliterator(), false).allMatch(
+        Function<Node, Boolean> nodeMovable = n -> StreamSupport.stream(n.getPreds().spliterator(), false).allMatch(
                 pred -> binding_irdom.block_dominates(pred.getBlock().ptr, loopHead.ptr) != 0 && !loopHead.equals(pred.getBlock())
-                    || movableNodes.containsKey(pred)
+                        || movableNodes.containsKey(pred)
         );
+
+        boolean canBeMoved;
+        if (node instanceof Load load) {
+            canBeMoved = nodeMovable.apply(load.getPtr()) && isUnaliased.apply(load);
+        } else {
+            canBeMoved = nodeMovable.apply(node);
+        }
 
         if (canBeMoved) {
             // We assign each movable node a weight to determine whether it should actually be moved before the loop.
@@ -862,12 +874,30 @@ public class Optimization {
                 case Minus ignored -> 0; // almost always folded into a sub instruction
                 case Conv ignored -> 0;
                 case Cmp ignored -> 0;   // It doesn't matter if cmp nodes are moved, when generating the branch
-                                         // which is still inside the loop, it will get pulled down again.
+                // which is still inside the loop, it will get pulled down again.
+                case Load ignored -> 100;
                 default -> 1;
             };
 
-            movableNodes.put(node, weight);
+            if (node instanceof Load load) {
+                movableLoads.add(load);
+            } else {
+                movableNodes.put(node, weight);
+            }
         }
+    }
+
+    private void moveLoadOutsideLoop(Load load, Phi memPhiLoop, int memPhiIdx, Block target, Map<Node, Integer> movable) {
+        if (movable.containsKey(load.getPtr())) {
+            movable.remove(load.getPtr());
+            this.moveNodeOutsideLoop(load.getPtr(), target, movable);
+        }
+
+        // Insert before phi loop in target. There is no need to remove the load.
+        // The subsequent load-load optimization will remove the loads within the loop.
+        var newLoad = g.newLoad(target, memPhiLoop.getPred(memPhiIdx), load.getPtr(), load.getLoadMode(), load.getType(), binding_ircons.ir_cons_flags.cons_none);
+        var newProj = g.newProj(newLoad, Mode.getM(), 0);
+        memPhiLoop.setPred(memPhiIdx, newProj);
     }
 
     private void moveNodeOutsideLoop(Node n, Block target, Map<Node, Integer> movable) {
@@ -910,13 +940,20 @@ public class Optimization {
             });
             var loopBlocks = new HashSet<>(blocksInLoop);
 
+            var storesInLoop = loopBlocks.stream()
+                    .flatMap(block -> FirmUtils.blockContent(block).stream().filter(node -> node instanceof Store))
+                    .collect(Collectors.toSet());
+            var aliasInfo = new AliasAnalysis(nodeAstTypes);
+            Function<Load, Boolean> isUnaliased = load -> storesInLoop.stream().allMatch(store -> aliasInfo.guaranteedNotAliased(load, store));
+
             // Visit every node in the loop and check if it can be moved.
             // We do a DFS in the walker to guarantee that predecessors of a node are moved beforehand.
             var movableNodes = new HashMap<Node, Integer>();
+            var movableLoads = new HashSet<Load>();
             var visited = new HashSet<Node>();
             for (var block : blocksInLoop) {
                 for (var node : BackEdges.getOuts(block)) {
-                    loopInvariantCodeMotionWalker(node.node, visited, loopBlocks, loop.head, movableNodes);
+                    loopInvariantCodeMotionWalker(node.node, visited, isUnaliased, loopBlocks, loop.head, movableNodes, movableLoads);
                 }
             }
 
@@ -960,8 +997,19 @@ public class Optimization {
                         break;
                     }
 
-                    movableNodes.remove(pair.get().getKey());
-                    this.moveNodeOutsideLoop(pair.get().getKey(), targetBlock, movableNodes);
+                    var nodeToBeMoved = pair.get().getKey();
+                    movableNodes.remove(nodeToBeMoved);
+
+                    this.moveNodeOutsideLoop(nodeToBeMoved, targetBlock, movableNodes);
+                }
+
+
+                var memPhiLoops = FirmUtils.blockContent(loop.head).stream().filter(node -> node instanceof Phi phi && phi.getMode().equals(Mode.getM())).toList();
+                assert memPhiLoops.size() <= 1;
+                var memPhiLoop = (Phi) memPhiLoops.get(0);
+                var memPhiPredIdx = headPredsIndices.get(0);
+                for (var load : movableLoads) {
+                    this.moveLoadOutsideLoop(load, memPhiLoop, memPhiPredIdx, targetBlock, movableNodes);
                 }
             }
         }
