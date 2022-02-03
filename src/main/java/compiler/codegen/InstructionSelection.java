@@ -473,6 +473,7 @@ public class InstructionSelection extends FirmToLlir {
         registerLlirNode(load, llirLoad);
     }
 
+    @Override
     public void visit(Store store) {
         var memLoc = this.matchMemoryLocationArgument(store, store.getPtr());
         this.visitNode(store.getValue());
@@ -486,6 +487,45 @@ public class InstructionSelection extends FirmToLlir {
         var llirStore = bb.newMovStore(memLoc, valueNode, memNode, modeToRegisterWidth(store.getValue().getMode()));
         registerLlirNode(store, llirStore);
     }
+
+    public void matchShift(Binop shift) {
+        this.visitNode(shift.getLeft());
+
+        var lhs = (RegisterNode) getPredLlirNode(shift, shift.getLeft());
+        SimpleOperand rhs;
+
+        if (shift.getRight() instanceof Const c) {
+            assert c.getTarval().asInt() < 32;
+            rhs = new Constant(c.getTarval().asInt());
+        } else {
+            this.visitNode(shift.getRight());
+            rhs = (RegisterNode) getPredLlirNode(shift, shift.getRight());
+        }
+
+        var bb = getBasicBlock(shift);
+
+        RegisterNode llirShift = switch (shift) {
+            case Shl ignored -> bb.newShiftLeft(lhs, rhs);
+            case Shr ignored -> bb.newShiftRight(lhs, rhs);
+            case Shrs ignored -> bb.newArithmeticShiftRight(lhs, rhs);
+            default -> throw new IllegalArgumentException("Not a shift node");
+        };
+
+        this.registerLlirNode(shift, llirShift);
+    }
+
+    public void visit(Shr shr) {
+        this.matchShift(shr);
+    }
+
+    public void visit(Shl shl) {
+        this.matchShift(shl);
+    }
+
+    public void visit(Shrs shrs) {
+        this.matchShift(shrs);
+    }
+
 
     @Override
     protected void lower() {
