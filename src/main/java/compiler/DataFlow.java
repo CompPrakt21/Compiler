@@ -447,11 +447,11 @@ public class DataFlow {
         availableLoads.put(g.getStart(), new HashSet<>());
         BiConsumer<Node, Node> forward = (from, to) ->
                 availableLoads.put(to, availableLoads.get(from).stream().collect(Collectors.toUnmodifiableSet()));
-        ArrayDeque<Node> worklist = new ArrayDeque<>();
         BackEdges.enable(g);
-        worklist.addAll(FirmUtils.backEdgeTargets(g.getStart()).stream()
+        ArrayDeque<Node> worklist = FirmUtils.backEdgeTargets(g.getStart()).stream()
                 .filter(availableLoads::containsKey)
-                .collect(Collectors.toList()));
+                .collect(Collectors.toCollection(ArrayDeque::new));
+
         HashSet<Node> visited = new HashSet<>();
         while (!worklist.isEmpty()) {
             Node n = worklist.removeFirst();
@@ -477,7 +477,6 @@ public class DataFlow {
                     availableLoads.put(s, availableLoadsAfterStore);
                 }
                 case Load l -> {
-                    Node lPtr = l.getPtr();
                     Set<Load> previous = new HashSet<>(availableLoads.get(l.getMem()));
                     // A previous available load that wasn't killed yet is better than l if they have the same pointer.
                     previous.add(l);
@@ -540,11 +539,10 @@ public class DataFlow {
         availableStores.put(g.getStart(), new HashSet<>());
         BiConsumer<Node, Node> forward = (from, to) ->
                 availableStores.put(to, new HashSet<>(availableStores.get(from)));
-        ArrayDeque<Node> worklist = new ArrayDeque<>();
         BackEdges.enable(g);
-        worklist.addAll(FirmUtils.backEdgeTargets(g.getStart()).stream()
+        ArrayDeque<Node> worklist = FirmUtils.backEdgeTargets(g.getStart()).stream()
                 .filter(availableStores::containsKey)
-                .collect(Collectors.toList()));
+                .collect(Collectors.toCollection(ArrayDeque::new));
         HashSet<Node> visited = new HashSet<>();
         while (!worklist.isEmpty()) {
             Node n = worklist.removeFirst();
