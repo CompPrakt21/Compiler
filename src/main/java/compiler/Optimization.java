@@ -676,8 +676,6 @@ public class Optimization {
                         e2.node.setPred(e2.pos, maybeProj.get());
                     }
                 }
-                BackEdges.disable(g);
-                BackEdges.enable(g);
             }
         }
         BackEdges.disable(g);
@@ -712,8 +710,6 @@ public class Optimization {
                     }
                 }
             }
-            BackEdges.disable(g);
-            BackEdges.enable(g);
         }
         BackEdges.disable(g);
     }
