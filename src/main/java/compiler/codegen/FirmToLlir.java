@@ -937,6 +937,11 @@ public class FirmToLlir implements NodeVisitor {
         }
     }
 
+    public void visit(Unknown node) {
+        var bb = getBasicBlock(node);
+        this.registerLlirNode(node, bb.newMovImmediate(0, modeToRegisterWidth(node.getMode())));
+    }
+
     // These nodes are explicitely ignored
     public void visit(Start node) {}
     public void visit(Const node) {}
@@ -967,7 +972,6 @@ public class FirmToLlir implements NodeVisitor {
     public void visit(Deleted node) { throwUnsupportedNode(node); }
     public void visit(Dummy node) { throwUnsupportedNode(node); }
     public void visit(Tuple node) { throwUnsupportedNode(node); }
-    public void visit(Unknown node) { throwUnsupportedNode(node); }
     public void visitUnknown(Node node) { throwUnsupportedNode(node); }
     public void visit(Free node) { throwUnsupportedNode(node); }
     public void visit(IJmp node) { throwUnsupportedNode(node); }
