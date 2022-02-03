@@ -643,7 +643,6 @@ public class Optimization {
 
     public void loadLoad() {
         List<DataFlow.LoadLoad> r = DataFlow.analyzeLoadLoad(g, nodeAstTypes, methodReferences);
-        System.out.println(r.size());
         BackEdges.enable(g);
         for (DataFlow.LoadLoad ll : r) {
             Load dominator = ll.firstLoad();
