@@ -2,25 +2,20 @@ package compiler;
 
 import compiler.ast.*;
 import compiler.semantic.AstData;
-import compiler.semantic.ConstantFolding;
 import compiler.semantic.SparseAstData;
-import compiler.semantic.WellFormed;
 import compiler.semantic.resolution.DefinedMethod;
 import compiler.semantic.resolution.IntrinsicMethod;
 import compiler.semantic.resolution.MethodDefinition;
-import compiler.semantic.resolution.NameResolution;
 import compiler.types.*;
 import firm.Type;
 import firm.*;
 import firm.bindings.binding_ircons;
 import firm.nodes.Block;
 import firm.nodes.Call;
-import firm.nodes.Const;
 import firm.nodes.Node;
 
 import java.io.IOException;
 import java.util.*;
-import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 @SuppressWarnings("DuplicateBranchesInSwitch")

@@ -1,5 +1,6 @@
 package compiler;
 
+import compiler.semantic.resolution.DefinedMethod;
 import compiler.semantic.resolution.MethodDefinition;
 import compiler.types.Ty;
 import compiler.utils.FirmUtils;
@@ -7,7 +8,6 @@ import firm.*;
 import firm.bindings.*;
 import firm.nodes.*;
 
-import java.math.BigInteger;
 import java.util.*;
 import java.util.function.*;
 import java.util.stream.Collectors;
@@ -945,11 +945,12 @@ public class Optimization {
             });
             var loopBlocks = new HashSet<>(blocksInLoop);
 
-            var storesInLoop = loopBlocks.stream()
-                    .flatMap(block -> FirmUtils.blockContent(block).stream().filter(node -> node instanceof Store))
+            var storesAndCallsInLoop = loopBlocks.stream()
+                    .flatMap(block -> FirmUtils.blockContent(block).stream().filter(node -> node instanceof Store
+                            || (node instanceof Call call && this.methodReferences.get(call) instanceof DefinedMethod)))
                     .collect(Collectors.toSet());
             var aliasInfo = new AliasAnalysis(nodeAstTypes);
-            Function<Load, Boolean> isUnaliased = load -> storesInLoop.stream().allMatch(store -> aliasInfo.guaranteedNotAliased(load, store));
+            Function<Load, Boolean> isUnaliased = load -> storesAndCallsInLoop.stream().allMatch(store -> aliasInfo.guaranteedNotAliased(load, store));
 
             // Visit every node in the loop and check if it can be moved.
             // We do a DFS in the walker to guarantee that predecessors of a node are moved beforehand.
