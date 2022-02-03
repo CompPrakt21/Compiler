@@ -612,7 +612,7 @@ public class Optimization {
         List<Node> loadStoreNodes = NodeCollector.run(g).stream()
                 .filter(n -> n instanceof Load || n instanceof Store)
                 .collect(Collectors.toList());
-        AliasAnalysis aa = new AliasAnalysis(g, nodeAstTypes);
+        AliasAnalysis aa = new AliasAnalysis(nodeAstTypes);
         for (Node a : loadStoreNodes) {
             Node aPtr = a instanceof Load l ? l.getPtr() : ((Store) a).getPtr();
             for (Node b : loadStoreNodes) {
@@ -664,7 +664,7 @@ public class Optimization {
                             .filter(n -> n instanceof Proj p && !p.getMode().isValuesInMode(Mode.getM()))
                             .map(n -> (Proj) n)
                             .findFirst();
-                    if (!maybeProj.isPresent()) {
+                    if (maybeProj.isEmpty()) {
                         // This shouldn't happen, but let's be careful.
                         continue;
                     }
@@ -687,7 +687,6 @@ public class Optimization {
         for (DataFlow.StoreLoad sl : r) {
             Store dominator = sl.store();
             Load dominated = sl.load();
-            List<BackEdges.Edge> edges = FirmUtils.backEdges(dominated);
             for (Node n : FirmUtils.backEdgeTargets(dominated)) {
                 if (n.getMode().isValuesInMode(Mode.getM())) {
                     // The dominated Load and its associated Proj get removed on the memory path

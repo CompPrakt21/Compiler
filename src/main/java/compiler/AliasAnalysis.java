@@ -2,7 +2,6 @@ package compiler;
 
 import compiler.types.Ty;
 import firm.Entity;
-import firm.Graph;
 import firm.Mode;
 import firm.Relation;
 import firm.nodes.*;
@@ -15,12 +14,10 @@ public class AliasAnalysis {
 
     private record AliasPair(Node a, Node b) {}
 
-    private Map<AliasPair, Boolean> aliased = new HashMap<>();
-    private Graph g;
-    private Map<Node, Ty> nodeAstTypes;
+    private final Map<AliasPair, Boolean> aliased = new HashMap<>();
+    private final Map<Node, Ty> nodeAstTypes;
 
-    public AliasAnalysis(Graph g, Map<Node, Ty> nodeAstTypes) {
-        this.g = g;
+    public AliasAnalysis(Map<Node, Ty> nodeAstTypes) {
         this.nodeAstTypes = nodeAstTypes;
     }
 
@@ -30,35 +27,17 @@ public class AliasAnalysis {
     }
 
     private static boolean isArgsProj(Proj p) {
-        if (!(p.getPred() instanceof Proj pArgs)) {
-            return false;
-        }
-        if (!(pArgs.getMode().isValuesInMode(Mode.getT()))) {
-            return false;
-        }
-        if (!(pArgs.getPred() instanceof Start)) {
-            return false;
-        }
-        return true;
+        return p.getPred() instanceof Proj pArgs &&
+                pArgs.getMode().isValuesInMode(Mode.getT()) &&
+                pArgs.getPred() instanceof Start;
     }
 
     private static boolean isAllocProj(Proj p) {
-        if (!(p.getPred() instanceof Proj pResult)) {
-            return false;
-        }
-        if (!(pResult.getMode().isValuesInMode(Mode.getT()))) {
-            return false;
-        }
-        if (!(pResult.getPred() instanceof Call c)) {
-            return false;
-        }
-        if (!(c.getPtr() instanceof Address a)) {
-            return false;
-        }
-        if (!a.getEntity().getName().contains("__builtin_alloc_function__")) {
-            return false;
-        }
-        return true;
+        return p.getPred() instanceof Proj pResult &&
+                pResult.getMode().isValuesInMode(Mode.getT()) &&
+                pResult.getPred() instanceof Call c &&
+                c.getPtr() instanceof Address a &&
+                a.getEntity().getName().contains("__builtin_alloc_function__");
     }
 
     private boolean aliased(Node a, Node b) {

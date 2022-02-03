@@ -4,7 +4,6 @@ import compiler.semantic.resolution.DefinedMethod;
 import compiler.semantic.resolution.MethodDefinition;
 import compiler.types.Ty;
 import compiler.utils.FirmUtils;
-import compiler.utils.GenericNodeWalker;
 import firm.*;
 import firm.nodes.*;
 
@@ -419,13 +418,8 @@ public class DataFlow {
     public record LoadLoad(Load firstLoad, Load secondLoad) {}
     public record StoreLoad(Store store, Load load) {}
 
-    @FunctionalInterface
-    private interface WorklistUpdater {
-        void run(Node... children);
-    }
-
     public static List<LoadLoad> analyzeLoadLoad(Graph g, Map<Node, Ty> nodeAstTypes, Map<Call, MethodDefinition> methodReferences) {
-        AliasAnalysis aa = new AliasAnalysis(g, nodeAstTypes);
+        AliasAnalysis aa = new AliasAnalysis(nodeAstTypes);
         ArrayDeque<Node> worklist = new ArrayDeque<>();
         NodeCollector.run(g).stream().filter(DataFlow::isMemNode).forEach(worklist::add);
         Set<Load> allLoads = worklist.stream()
@@ -435,23 +429,19 @@ public class DataFlow {
         Map<Node, Set<Load>> availableLoads = worklist.stream()
                 .collect(Collectors.toMap(n -> n, n -> new HashSet<>(allLoads)));
         availableLoads.put(g.getStart(), new HashSet<>());
-        BiConsumer<Node, Node> forward = (from, to) -> {
-            availableLoads.put(to, new HashSet<>(availableLoads.get(from)));
-        };
+        BiConsumer<Node, Node> forward = (from, to) ->
+                availableLoads.put(to, new HashSet<>(availableLoads.get(from)));
         BackEdges.enable(g);
         while (!worklist.isEmpty()) {
             Node n = worklist.removeFirst();
             Set<Load> previousAvailableLoads = availableLoads.get(n);
             switch (n) {
-                case Proj p -> {
-                    forward.accept(p.getPred(), p);
-                }
-                case Div d -> {
-                    forward.accept(d.getMem(), d);
-                }
-                case Mod m -> {
-                    forward.accept(m.getMem(), m);
-                }
+                case Proj p ->
+                        forward.accept(p.getPred(), p);
+                case Div d ->
+                        forward.accept(d.getMem(), d);
+                case Mod m ->
+                        forward.accept(m.getMem(), m);
                 case Phi phi -> {
                     Set<Load> availableLoadsAfterPhi = intersect(FirmUtils.preds(phi).stream()
                             .map(availableLoads::get)
@@ -467,7 +457,7 @@ public class DataFlow {
                 case Load l -> {
                     Set<Load> previous = new HashSet<>(availableLoads.get(l.getMem()));
                     // A previous available load that wasn't killed yet is better than l if they have the same pointer.
-                    if (!previous.stream().anyMatch(prevLoad -> prevLoad.getPtr().equals(l.getPtr()))) {
+                    if (previous.stream().noneMatch(prevLoad -> prevLoad.getPtr().equals(l.getPtr()))) {
                         previous.add(l);
                     }
                     availableLoads.put(l, previous);
@@ -509,7 +499,7 @@ public class DataFlow {
     }
 
     public static List<StoreLoad> analyzeStoreLoad(Graph g, Map<Node, Ty> nodeAstTypes, Map<Call, MethodDefinition> methodReferences) {
-        AliasAnalysis aa = new AliasAnalysis(g, nodeAstTypes);
+        AliasAnalysis aa = new AliasAnalysis(nodeAstTypes);
         ArrayDeque<Node> worklist = new ArrayDeque<>();
         NodeCollector.run(g).stream().filter(DataFlow::isMemNode).forEach(worklist::add);
         Set<Store> allStores = worklist.stream()
@@ -519,23 +509,20 @@ public class DataFlow {
         Map<Node, Set<Store>> availableStores = worklist.stream()
                 .collect(Collectors.toMap(n -> n, n -> new HashSet<>(allStores)));
         availableStores.put(g.getStart(), new HashSet<>());
-        BiConsumer<Node, Node> forward = (from, to) -> {
-            availableStores.put(to, new HashSet<>(availableStores.get(from)));
-        };
+        BiConsumer<Node, Node> forward = (from, to) ->
+                availableStores.put(to, new HashSet<>(availableStores.get(from)));
+
         BackEdges.enable(g);
         while (!worklist.isEmpty()) {
             Node n = worklist.removeFirst();
             Set<Store> previousAvailableStores = availableStores.get(n);
             switch (n) {
-                case Proj p -> {
-                    forward.accept(p.getPred(), p);
-                }
-                case Div d -> {
-                    forward.accept(d.getMem(), d);
-                }
-                case Mod m -> {
-                    forward.accept(m.getMem(), m);
-                }
+                case Proj p ->
+                        forward.accept(p.getPred(), p);
+                case Div d ->
+                        forward.accept(d.getMem(), d);
+                case Mod m ->
+                        forward.accept(m.getMem(), m);
                 case Phi phi -> {
                     Set<Store> availableStoresAfterPhi = intersect(FirmUtils.preds(phi).stream()
                             .map(availableStores::get)
@@ -549,9 +536,8 @@ public class DataFlow {
                     availableStoresAfterStore.add(s);
                     availableStores.put(s, availableStoresAfterStore);
                 }
-                case Load l -> {
-                    forward.accept(l.getMem(), l);
-                }
+                case Load l ->
+                        forward.accept(l.getMem(), l);
                 case Call c -> {
                     if (methodReferences.get(c) instanceof DefinedMethod) {
                         // We don't know anything about our stores after a method call.
