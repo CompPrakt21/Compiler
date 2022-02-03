@@ -771,8 +771,7 @@ public class Optimization {
                             .map(n -> (Proj) n)
                             .findFirst();
                     if (maybeProj.isEmpty()) {
-                        // This shouldn't happen, but let's be careful.
-                        continue;
+                        maybeProj = Optional.of((Proj) g.newProj(dominator, dominator.getLoadMode(), 1));
                     }
                     if (!(e.node instanceof Proj p)) {
                         // This shouldn't happen, but let's be careful.
