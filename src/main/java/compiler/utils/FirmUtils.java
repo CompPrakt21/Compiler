@@ -5,6 +5,7 @@ import firm.Mode;
 import firm.bindings.binding_irnode;
 import firm.nodes.*;
 
+import java.nio.Buffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;

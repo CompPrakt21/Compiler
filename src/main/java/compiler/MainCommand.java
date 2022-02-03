@@ -9,6 +9,7 @@ import compiler.codegen.sir.SirGraph;
 import compiler.diagnostics.CompilerMessageReporter;
 import compiler.semantic.ConstantFolding;
 import compiler.semantic.WellFormed;
+import compiler.semantic.resolution.DefinedMethod;
 import compiler.semantic.resolution.NameResolution;
 import compiler.syntax.Lexer;
 import compiler.syntax.Parser;
@@ -234,6 +235,7 @@ public class MainCommand implements Callable<Integer> {
             var optimize = optimizationLevel > 0;
 
             var translationResult = new Translation(frontend).translate(dumpGraphs, optimize);
+
             var graphs = FirmToLlir.lowerFirm(translationResult, dumpGraphs, optimize);
             var schedules = new HashMap<LlirGraph, SirGraph>();
 

@@ -800,10 +800,9 @@ public class Translation {
 
         construction = new Construction(graph);
 
-        Node startNode = construction.getGraph().getStart();
-        Node memProj = construction.newProj(startNode, Mode.getM(), 0);
+        Node memProj = construction.getGraph().getInitialMem();
         construction.setCurrentMem(memProj);
-        Node argsProj = construction.newProj(startNode, Mode.getT(), 2);
+        Node argsProj = construction.getGraph().getArgs();
 
         if (!isMainMethod) {
             Node thisArg = construction.newProj(argsProj, Mode.getP(), 0);
@@ -885,20 +884,28 @@ public class Translation {
 
                     Graph graph = genGraphForMethod(definedMethod);
 
-                    if (dumpGraphs) {
-                        Dump.dumpGraph(graph, "before-opt");
-                    }
-
-                    if (optimize) {
-                        Optimization.optimizeFull(graph, nodeAstTypes, methodReferences, dumpGraphs);
-                    } else {
-                        Optimization.optimizeMinimal(graph, nodeAstTypes, methodReferences, dumpGraphs);
-                    }
-
                     this.methodGraphs.put(definedMethod, graph);
                     if (dumpGraphs) {
-                        Dump.dumpGraph(graph, methodDef.getName());
+                        Dump.dumpGraph(graph, "from-ast");
                     }
+                }
+            }
+        }
+
+        var translation = new TranslationResult(this.methodReferences, this.methodGraphs, this.nodeAstTypes);
+
+        if (optimize) {
+            new Inlining(frontend, translation, dumpGraphs).inline();
+
+            for (var graph : translation.methodGraphs().values()) {
+                if (dumpGraphs) {
+                    Dump.dumpGraph(graph, "after-inline");
+                }
+
+                Optimization.optimizeFull(graph, translation.nodeAstTypes(), translation.methodReferences(), dumpGraphs);
+
+                if (dumpGraphs) {
+                    Dump.dumpGraph(graph, "after-opt");
                 }
             }
         }
@@ -918,6 +925,6 @@ public class Translation {
             }
         }
 
-        return new TranslationResult(this.methodReferences, this.methodGraphs, this.nodeAstTypes);
+        return translation;
     }
 }

@@ -51,4 +51,9 @@ public final class DefinedMethod extends MethodDefinition {
         var containingClassName = this.containingClass.getName();
         return String.format("_%s_%s", containingClassName, this.getName());
     }
+
+    @Override
+    public String toString() {
+        return this.getLinkerName();
+    }
 }

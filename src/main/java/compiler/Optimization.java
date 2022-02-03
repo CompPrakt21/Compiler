@@ -159,6 +159,8 @@ public class Optimization {
 
                     if (loopHeadTails.contains(proj.getBlock())) {
                         g.keepAlive(proj.getBlock());
+                        var phiLoop = blockPhis.get((Block) proj.getBlock()).stream().filter(phi -> phi.getMode().equals(Mode.getM())).findFirst();
+                        phiLoop.ifPresent(g::keepAlive);
                     }
                 }
             }
