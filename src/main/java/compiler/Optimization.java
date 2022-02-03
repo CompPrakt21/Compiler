@@ -64,6 +64,8 @@ public class Optimization {
         dumpIfFlag(dumpGraphs,g, "after-redundant-sideeffect");
         o.simplifyArithmeticExpressions();
         dumpIfFlag(dumpGraphs,g, "after-arithmetic");
+        o.simplifyDiv();
+        dumpIfFlag(dumpGraphs,g, "after-divopt");
         o.loopInvariantCodeMotion();
         dumpIfFlag(dumpGraphs,g, "after-loop-invariance");
         o.commonSubexpressionElimination();
@@ -447,39 +449,6 @@ public class Optimization {
                         });
                         nn = r1.get().or(r2).orElse(null);
                     }
-                    case Div d -> {
-                        Node left = d.getLeft();
-                        Node right = d.getRight();
-
-                        if (right instanceof Const) {
-                            var tv = ((Const) right).getTarval();
-
-                            // Power of two
-                            if (tv.highest_bit() == tv.lowest_bit()) {
-                                Node kMinusOne = g.newConst(tv.highest_bit() - 1, Mode.getIu());
-                                Node firstShift = g.newShrs(b, left, kMinusOne);
-                                // TODO Check these are safe
-                                Node thirtyTwoMinusK = g.newConst(32 - tv.highest_bit(), Mode.getIu());
-                                Node secondShift = g.newShr(b, firstShift, thirtyTwoMinusK);
-                                Node add = g.newAdd(b, n, secondShift);
-                                Node maskConst = g.newConst(tv.neg()); // -2**k
-                                Node and = g.newAnd(b, add, maskConst);
-                                nn = g.newSub(b, left, and);
-                            } else {
-                                var magic = Magic.computeDivMagic(Integer.MAX_VALUE, tv.asInt());
-                                if (magic.isPresent()) {
-                                    int magicVal = magic.get().m;
-                                    int shiftVal = magic.get().p;
-
-                                    Node magicConst = g.newConst(magicVal, Mode.getIu());
-                                    Node shiftConst = g.newConst(shiftVal, Mode.getIu());
-                                    // TODO: Which mul, which shift, HD ist inconclusive
-                                    Node mul = g.newMul(b, left, magicConst);
-                                    nn = g.newShrs(b, mul, shiftConst);
-                                }
-                            }
-                        }
-                    }
                     default -> {}
                 }
                 // ALl the warnings related to nn and nChanged are wrong
@@ -494,6 +463,91 @@ public class Optimization {
                     worklist.addLast(e.node);
                 }
             }
+        }
+        BackEdges.disable(g);
+    }
+
+    public void simplifyDiv() {
+        ArrayDeque<Node> worklist = NodeCollector.run(g);
+        BackEdges.enable(g);
+        while (!worklist.isEmpty()) {
+            Node origNode = worklist.removeFirst();
+            Node block = origNode.getBlock();
+            List<BackEdges.Edge> parents = FirmUtils.backEdges(origNode);
+
+            if (origNode instanceof Div div) {
+                Node left = div.getLeft();
+                Node right = div.getRight();
+
+                if (right instanceof Const) {
+                    var tv = ((Const) right).getTarval();
+                    var hbit = tv.highest_bit();
+                    Node newNode;
+
+                    // Power of two
+                    if (hbit == tv.lowest_bit() && hbit != 0 && hbit != 31) {
+                        Node kMinusOne = g.newConst(tv.highest_bit() - 1, Mode.getBu());
+                        Node firstShift = g.newShrs(block, left, kMinusOne);
+                        // TODO Check these are safe
+                        Node thirtyTwoMinusK = g.newConst(32 - tv.highest_bit(), Mode.getBu());
+                        Node secondShift = g.newShr(block, firstShift, thirtyTwoMinusK);
+                        Node k = g.newConst(tv.highest_bit(), Mode.getBu());
+                        Node add = g.newAdd(block, left, secondShift);
+                        newNode = g.newShrs(block, add, k);
+/*
+                        Node kMinusOne = g.newConst(tv.highest_bit() - 1, Mode.getIu());
+                        Node firstShift = g.newShrs(block, left, kMinusOne);
+                        // TODO Check these are safe
+                        Node thirtyTwoMinusK = g.newConst(32 - tv.highest_bit(), Mode.getIu());
+                        Node secondShift = g.newShr(block, firstShift, thirtyTwoMinusK);
+                        Node add = g.newAdd(block, left, secondShift);
+                        Node maskConst = g.newConst(tv.neg()); // -2**k
+                        Node and = g.newAnd(block, add, maskConst);
+                        Node minus = g.newMinus(block, and);
+                        newNode = g.newAdd(block, left, minus);
+*/
+
+                    } else {
+                        /*var magic = Magic.computeDivMagic(Integer.MAX_VALUE, tv.asInt());
+                        if (magic.isPresent()) {
+                            int magicVal = magic.get().m;
+                            int shiftVal = magic.get().p;
+
+                            Node magicConst = g.newConst(magicVal, Mode.getIu());
+                            Node shiftConst = g.newConst(shiftVal, Mode.getIu());
+                            // TODO: Which mul, which shift, HD ist inconclusive
+                            Node mul = g.newMul(block, left, magicConst);
+                            newNode = g.newShrs(block, mul, shiftConst);
+                            continue;
+                        } else {
+                            // Something isn't right,
+                            continue;
+                        }*/ continue;
+                    }
+
+                    for (BackEdges.Edge directEdge : parents) {
+                        // Div nodes are always accesed through projs
+                        assert directEdge.node instanceof Proj;
+                        Proj projNode = (Proj) directEdge.node;
+
+                        if (projNode.getMode().equals(Mode.getM())) {
+                            // Memory edge, this has to be redirected AROUND
+                            // the replaced div
+                            for (BackEdges.Edge memDep : FirmUtils.backEdges(projNode)) {
+                                memDep.node.setPred(memDep.pos, div.getMem());
+                            }
+                        } else {
+                            // Value edge, this should point to the new node
+                            for (BackEdges.Edge valDep : FirmUtils.backEdges(projNode)) {
+                                valDep.node.setPred(valDep.pos, newNode);
+                            }
+                        }
+                    }
+                }
+            }
+
+
+
         }
         BackEdges.disable(g);
     }
