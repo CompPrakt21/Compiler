@@ -75,11 +75,13 @@ public class Optimization {
         dumpIfFlag(dumpGraphs,g, "after-trivial-conds");
         o.inlineTrivialBlocks();
         dumpIfFlag(dumpGraphs,g, "after-inline-trivial-blocks");
-        o.eliminateRedundantPhis();
         //o.testAliasingAnalysis();
         //o.testLoadStore();
         o.loadLoad();
+        dumpIfFlag(dumpGraphs, g, "after-load-load");
         o.storeLoad();
+        dumpIfFlag(dumpGraphs, g, "after-store-load");
+        o.eliminateRedundantPhis();
         dumpIfFlag(dumpGraphs,g, "after-redundant-phis");
         o.eliminateUnusedAllocs();
         dumpIfFlag(dumpGraphs,g, "after-unused-allocs");
