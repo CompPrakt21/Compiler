@@ -466,6 +466,12 @@ public class Optimization {
 
 
     public record ExpressionNode(Node n) {
+        private static HashMap<Node, Integer> hashCache = new HashMap<>();
+
+        private static void cache(Node n, int hash) {
+            hashCache.put(n, hash);
+        }
+
         private static boolean equalAsNodes(Node a, Node b) {
             return a.getMode().equals(b.getMode());
         }
@@ -531,7 +537,10 @@ public class Optimization {
 
         @Override
         public int hashCode() {
-            return switch (n) {
+            if (hashCache.containsKey(n)) {
+                return hashCache.get(n);
+            }
+            int hash = switch (n) {
                 case Add a    -> hash(a.getLeft(), a.getRight());
                 case Cmp c    -> Objects.hash(c.getRelation(), hash(c.getLeft(), c.getRight()));
                 case Const c  -> Objects.hash(c.getTarval().asInt(), hash());
@@ -545,6 +554,8 @@ public class Optimization {
                 case Size s   -> Objects.hash(s.getType(), hash());
                 default       -> n.hashCode();
             };
+            cache(n, hash);
+            return hash;
         }
     }
 
