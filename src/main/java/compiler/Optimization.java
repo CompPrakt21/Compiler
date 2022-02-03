@@ -747,6 +747,7 @@ public class Optimization {
 
     public void loadLoad() {
         List<DataFlow.LoadLoad> r = DataFlow.analyzeLoadLoad(g, nodeAstTypes, methodReferences);
+        System.out.println("LoadLoad: " + r.size());
         BackEdges.enable(g);
         for (DataFlow.LoadLoad ll : r) {
             Load dominator = ll.firstLoad();
@@ -786,6 +787,7 @@ public class Optimization {
 
     public void storeLoad() {
         List<DataFlow.StoreLoad> r = DataFlow.analyzeStoreLoad(g, nodeAstTypes, methodReferences);
+        System.out.println("StoreLoad: " + r.size());
         BackEdges.enable(g);
         for (DataFlow.StoreLoad sl : r) {
             Store dominator = sl.store();
