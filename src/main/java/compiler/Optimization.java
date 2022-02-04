@@ -297,6 +297,7 @@ public class Optimization {
                 }
                 FirmUtils.setPreds(p, phiPreds);
             }
+            binding_irnode.remove_End_keepalive(g.getEnd().ptr, block.ptr);
         });
         BackEdges.disable(g);
         // We changed the control structure, so better be careful ...
@@ -365,6 +366,7 @@ public class Optimization {
                 n.setBlock(inlineTargetBlock);
             }
             FirmUtils.setPreds(block, new ArrayList<>());
+            binding_irnode.remove_End_keepalive(g.getEnd().ptr, block.ptr);
         });
         BackEdges.disable(g);
         // We changed the control structure, so better be careful ...
