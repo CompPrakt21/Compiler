@@ -21,6 +21,10 @@ dependencies {
     testImplementation("org.mockito:mockito-core:4.2.0")
 }
 
+dependencyLocking {
+    lockAllConfigurations()
+}
+
 application {
     mainClass.set("compiler.MainCommand")
     applicationDefaultJvmArgs = listOf("--enable-preview", "-Xss35m", "-ea")
