@@ -753,6 +753,7 @@ public class Optimization {
     }
 
     public void loadLoad() {
+        binding_irdom.compute_doms(g.ptr);
         List<DataFlow.LoadLoad> r = DataFlow.analyzeLoadLoad(g, nodeAstTypes, methodReferences);
         BackEdges.enable(g);
         for (DataFlow.LoadLoad ll : r) {

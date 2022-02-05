@@ -434,6 +434,47 @@ public class DataFlow {
     public record LoadLoad(Load firstLoad, Load secondLoad) {}
     public record StoreLoad(Store store, Load load) {}
 
+    private static Load selectBestLoad(List<Load> candidates) {
+        Map<Block, List<Load>> loadsByBlock = candidates.stream().collect(Collectors.groupingBy(c -> (Block) c.getBlock()));
+        Block bestBlock = null;
+        List<Load> loadsOfBestBlock = null;
+        for (var e : loadsByBlock.entrySet()) {
+            Block block = e.getKey();
+            List<Load> loads = e.getValue();
+            if (bestBlock == null) {
+                bestBlock = block;
+                loadsOfBestBlock = loads;
+                continue;
+            }
+            if (binding_irdom.block_dominates(block.ptr, bestBlock.ptr) != 0) {
+                bestBlock = block;
+                loadsOfBestBlock = loads;
+            }
+        }
+        assert loadsOfBestBlock != null;
+        assert loadsOfBestBlock.size() > 0;
+        Load bestLoad = loadsOfBestBlock.remove(loadsOfBestBlock.size() - 1);
+        Set<Load> loads = new HashSet<>(loadsOfBestBlock);
+        Node currentMemNode = bestLoad;
+        while (currentMemNode.getBlock().equals(bestBlock)
+                && !(currentMemNode instanceof Phi)
+                && !(currentMemNode instanceof Start)) {
+            if (currentMemNode instanceof Load l && loads.contains(l)) {
+                bestLoad = l;
+            }
+            currentMemNode = switch (currentMemNode) {
+                case Proj p -> p.getPred();
+                case Store s -> s.getMem();
+                case Load l -> l.getMem();
+                case Call c -> c.getMem();
+                case Div d -> d.getMem();
+                case Mod m -> m.getMem();
+                default -> throw new AssertionError("got unexpected mem node");
+            };
+        }
+        return bestLoad;
+    }
+
     public static List<LoadLoad> analyzeLoadLoad(Graph g, Map<Node, Ty> nodeAstTypes, Map<Call, MethodDefinition> methodReferences) {
         AliasAnalysis aa = new AliasAnalysis(nodeAstTypes);
         ArrayDeque<Node> memNodes = new ArrayDeque<>();
@@ -442,6 +483,7 @@ public class DataFlow {
                 .filter(n -> n instanceof Load)
                 .map(n -> (Load) n)
                 .collect(Collectors.toSet());
+        Map<Load, Node> ptrCache = allLoads.stream().collect(Collectors.toMap(l -> l, Load::getPtr));
         Map<Node, Set<Load>> availableLoads = memNodes.stream()
                 .collect(Collectors.toMap(n -> n, n -> new HashSet<>(allLoads)));
         availableLoads.put(g.getStart(), new HashSet<>());
@@ -451,7 +493,6 @@ public class DataFlow {
         ArrayDeque<Node> worklist = FirmUtils.backEdgeTargets(g.getStart()).stream()
                 .filter(availableLoads::containsKey)
                 .collect(Collectors.toCollection(ArrayDeque::new));
-
         HashSet<Node> visited = new HashSet<>();
         while (!worklist.isEmpty()) {
             Node n = worklist.removeFirst();
@@ -472,7 +513,7 @@ public class DataFlow {
                 case Store s -> {
                     Node sPtr = s.getPtr();
                     Set<Load> availableLoadsAfterStore = availableLoads.get(s.getMem()).stream()
-                            .filter(load -> aa.guaranteedNotAliased(load.getPtr(), sPtr))
+                            .filter(load -> aa.guaranteedNotAliased(ptrCache.get(load), sPtr))
                             .collect(Collectors.toSet());
                     availableLoads.put(s, availableLoadsAfterStore);
                 }
@@ -502,25 +543,27 @@ public class DataFlow {
             }
         }
         List<LoadLoad> loadLoadPairs = new ArrayList<>();
-        for (var n : availableLoads.keySet()) {
-            Set<Load> loads = availableLoads.get(n);
-            if (!(n instanceof Load l)) {
+        Map<Load, Load> bestLoadCache = new HashMap<>();
+        for (var l : allLoads) {
+            if (bestLoadCache.containsKey(l)) {
+                Load bestLoad = bestLoadCache.get(l);
+                if (!bestLoad.equals(l)) {
+                    loadLoadPairs.add(new LoadLoad(bestLoad, l));
+                }
                 continue;
             }
+            Set<Load> loads = availableLoads.get(l);
             List<Load> loadLoadCandidates = loads.stream()
-                    .filter(aLoad -> !l.equals(aLoad) && l.getPtr().equals(aLoad.getPtr()))
+                    .filter(aLoad -> !l.equals(aLoad) && ptrCache.get(l).equals(ptrCache.get(aLoad)))
                     .collect(Collectors.toList());
             if (loadLoadCandidates.size() == 0) {
                 continue;
             }
-            Set<Load> intersection = intersect(loadLoadCandidates.stream()
-                    .map(c -> availableLoads.get(c)
-                            .stream()
-                            .filter(al -> al.getPtr().equals(l.getPtr()))
-                            .collect(Collectors.toSet()))
-                    .collect(Collectors.toList()));
-            assert intersection.size() == 1;
-            loadLoadPairs.add(new LoadLoad(intersection.stream().findFirst().get(), l));
+            Load bestLoad = selectBestLoad(loadLoadCandidates);
+            for (Load c : loadLoadCandidates) {
+                bestLoadCache.put(c, bestLoad);
+            }
+            loadLoadPairs.add(new LoadLoad(bestLoad, l));
         }
         BackEdges.disable(g);
         return loadLoadPairs;
@@ -534,6 +577,7 @@ public class DataFlow {
                 .filter(n -> n instanceof Store)
                 .map(n -> (Store) n)
                 .collect(Collectors.toSet());
+        Map<Store, Node> ptrCache = allStores.stream().collect(Collectors.toMap(s -> s, Store::getPtr));
         Map<Node, Set<Store>> availableStores = memNodes.stream()
                 .collect(Collectors.toMap(n -> n, n -> new HashSet<>(allStores)));
         availableStores.put(g.getStart(), new HashSet<>());
@@ -561,9 +605,9 @@ public class DataFlow {
                     availableStores.put(phi, availableStoresAfterPhi);
                 }
                 case Store s -> {
-                    Node sPtr = s.getPtr();
+                    Node sPtr = ptrCache.get(s);
                     Set<Store> availableStoresAfterStore = availableStores.get(s.getMem()).stream()
-                            .filter(store -> aa.guaranteedNotAliased(store.getPtr(), sPtr))
+                            .filter(store -> aa.guaranteedNotAliased(ptrCache.get(store), sPtr))
                             .collect(Collectors.toSet());
                     availableStoresAfterStore.add(s);
                     availableStores.put(s, availableStoresAfterStore);
@@ -595,8 +639,9 @@ public class DataFlow {
             if (!(n instanceof Load l)) {
                 continue;
             }
+            Node lPtr = l.getPtr();
             Optional<Store> maybeStoreLoad = stores.stream()
-                    .filter(aStore -> l.getPtr().equals(aStore.getPtr()))
+                    .filter(aStore -> lPtr.equals(ptrCache.get(aStore)))
                     .findFirst();
             if (maybeStoreLoad.isPresent()) {
                 storeLoadPairs.add(new StoreLoad(maybeStoreLoad.get(), l));
