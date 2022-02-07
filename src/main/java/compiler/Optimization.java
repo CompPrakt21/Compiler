@@ -59,6 +59,38 @@ public class Optimization {
         dumpIfFlag(dumpGraphs,g, "after-const");
     }
 
+    public static void optimizeAlmostFull(Graph g, Map<Node, Ty> nodeAstTypes, Map<Call, MethodDefinition> methodReferences, boolean dumpGraphs) {
+        Optimization o = new Optimization(g, nodeAstTypes, methodReferences);
+        o.constantFolding();
+        dumpIfFlag(dumpGraphs,g, "after-const");
+        o.eliminateRedundantSideEffects();
+        dumpIfFlag(dumpGraphs,g, "after-redundant-sideeffect");
+        o.simplifyArithmeticExpressions();
+        dumpIfFlag(dumpGraphs,g, "after-arithmetic");
+        o.loopInvariantCodeMotion();
+        dumpIfFlag(dumpGraphs,g, "after-loop-invariance");
+        o.commonSubexpressionElimination();
+        dumpIfFlag(dumpGraphs,g, "after-cse");
+        o.eliminateRedundantPhis();
+        dumpIfFlag(dumpGraphs,g, "after-redundant-phis");
+        o.eliminateSingletonBlocks();
+        dumpIfFlag(dumpGraphs,g, "after-singleton");
+        o.eliminateTrivialConds();
+        dumpIfFlag(dumpGraphs,g, "after-trivial-conds");
+        o.inlineTrivialBlocks();
+        dumpIfFlag(dumpGraphs,g, "after-inline-trivial-blocks");
+        //o.testAliasingAnalysis();
+        //o.testLoadStore();
+        o.loadLoad();
+        dumpIfFlag(dumpGraphs, g, "after-load-load");
+        o.storeLoad();
+        dumpIfFlag(dumpGraphs, g, "after-store-load");
+        o.eliminateRedundantPhis();
+        dumpIfFlag(dumpGraphs,g, "after-redundant-phis");
+        o.eliminateUnusedAllocs();
+        dumpIfFlag(dumpGraphs,g, "after-unused-allocs");
+    }
+
     public static void optimizeFull(Graph g, Map<Node, Ty> nodeAstTypes, Map<Call, MethodDefinition> methodReferences, boolean dumpGraphs) {
         Optimization o = new Optimization(g, nodeAstTypes, methodReferences);
         o.constantFolding();
@@ -660,6 +692,7 @@ public class Optimization {
     }
 
     public void commonSubexpressionElimination() {
+        ExpressionNode.hashCache.clear();
         binding_irdom.compute_doms(g.ptr);
         BackEdges.enable(g);
         ArrayDeque<Node> nodes = NodeCollector.run(g);

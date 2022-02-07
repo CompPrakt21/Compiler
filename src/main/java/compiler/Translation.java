@@ -902,6 +902,8 @@ public class Translation {
                     Dump.dumpGraph(graph, "after-inline");
                 }
 
+                Optimization.optimizeAlmostFull(graph, translation.nodeAstTypes(), translation.methodReferences(), dumpGraphs);
+                Optimization.optimizeAlmostFull(graph, translation.nodeAstTypes(), translation.methodReferences(), dumpGraphs);
                 Optimization.optimizeFull(graph, translation.nodeAstTypes(), translation.methodReferences(), dumpGraphs);
 
                 if (dumpGraphs) {
